@@ -1,0 +1,119 @@
+package exprbuilder
+
+import (
+	"context"
+	"fmt"
+	"time"
+
+	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/expression"
+	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
+	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
+	configprovider "github.com/pipewave-dev/go-pkg/provider/config-provider"
+	"github.com/pipewave-dev/go-pkg/shared/aerror"
+	"github.com/samber/lo"
+)
+
+type ActiveConnectionQuerier struct {
+	ConfigStore configprovider.ConfigStore
+}
+
+/*
+CountActiveParams will count connections of UserID that have a LastHeartbeat within the recent CutOffTime. For example:
+- If CutOffTime = 10 minutes, it will count connections with a LastHeartbeat within the last 10 minutes, and ignore connections that are no longer active with a LastHeartbeat > 10 minutes.
+*/
+type CountActiveParams struct {
+	UserID         string
+	CutOffDuration time.Duration
+}
+
+func (querier *ActiveConnectionQuerier) CountActive(ctx context.Context, ddbClient *dynamodb.Client, params CountActiveParams) (count int, aErr aerror.AError) {
+	// Build query expression - query by partition key only
+	keyEx := expression.Key(FieldUserID).Equal(expression.Value(params.UserID))
+
+	cutoffTime := time.Now().Add(-params.CutOffDuration)
+
+	filterEx := expression.Name(FieldLastHeartbeat).GreaterThan(expression.Value(cutoffTime))
+
+	builder := expression.NewBuilder().
+		WithKeyCondition(keyEx).
+		WithFilter(filterEx)
+
+	expr, errB := builder.Build()
+	if errB != nil {
+		msg := fmt.Sprintf("ActiveConnectionQuerier.CountActive failed: %v", errB)
+		panic(msg)
+	}
+
+	// Execute query
+	//nolint:exhaustruct
+	queryParams := &dynamodb.QueryInput{
+		TableName:                 lo.ToPtr(querier.ConfigStore.Env().DynamoDB.Tables.ActiveConnection),
+		KeyConditionExpression:    expr.KeyCondition(),
+		ExpressionAttributeNames:  expr.Names(),
+		ExpressionAttributeValues: expr.Values(),
+		FilterExpression:          expr.Filter(),
+		// ExclusiveStartKey:         nil,
+	}
+
+	paginator := dynamodb.NewQueryPaginator(ddbClient, queryParams)
+
+	count = 0
+	for paginator.HasMorePages() {
+		output, err1 := paginator.NextPage(ctx)
+		if err1 != nil {
+			aErr = aerror.New(ctx, aerror.ErrUnexpectedDynamoDB, err1)
+			return 0, aErr
+		}
+
+		count += len(output.Items)
+	}
+
+	return count, nil
+}
+
+//
+
+/*
+CountTotalActiveParams will count connections that have a LastHeartbeat within the recent CutOffTime. For example:
+- If CutOffTime = 10 minutes, it will count connections with a LastHeartbeat within the last 10 minutes, and ignore connections that are no longer active with a LastHeartbeat > 10 minutes.
+*/
+type CountTotalActiveParams struct {
+	CutOffDuration time.Duration
+}
+
+func (querier *ActiveConnectionQuerier) CountTotalActive(ctx context.Context, ddbClient *dynamodb.Client, params CountTotalActiveParams) (total int64, aErr aerror.AError) {
+	tablename := querier.ConfigStore.Env().DynamoDB.Tables.ActiveConnection
+	cutoffTime := time.Now().Add(-params.CutOffDuration)
+
+	filterEx := expression.Name(FieldLastHeartbeat).GreaterThan(expression.Value(cutoffTime))
+
+	expr, errB := expression.NewBuilder().WithFilter(filterEx).Build()
+	if errB != nil {
+		msg := fmt.Sprintf("ActiveConnectionQuerier.CountTotalActive failed: %v", errB)
+		panic(msg)
+	}
+
+	//nolint:exhaustruct
+	scanParams := &dynamodb.ScanInput{
+		TableName:                 lo.ToPtr(tablename),
+		FilterExpression:          expr.Filter(),
+		ExpressionAttributeNames:  expr.Names(),
+		ExpressionAttributeValues: expr.Values(),
+		Select:                    types.SelectCount,
+	}
+
+	paginator := dynamodb.NewScanPaginator(ddbClient, scanParams)
+
+	total = int64(0)
+	for paginator.HasMorePages() {
+		output, err1 := paginator.NextPage(ctx)
+		if err1 != nil {
+			aErr = aerror.New(ctx, aerror.ErrUnexpectedDynamoDB, err1)
+			return 0, aErr
+		}
+
+		total += int64(output.Count)
+	}
+
+	return total, nil
+}

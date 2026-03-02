@@ -1,0 +1,13 @@
+{
+  "recommendations": [
+    "golang.go",
+    "eamodio.gitlens",
+    "usernamehw.errorlens",
+    "mhutchie.git-graph",
+    "ms-vscode-remote.remote-ssh",
+    "ms-vscode-remote.remote-containers",
+    "ms-vscode-remote.vscode-remote-extensionpack",
+    "gruntfuggly.todo-tree",
+    "editorconfig.editorconfig"
+  ]
+}
