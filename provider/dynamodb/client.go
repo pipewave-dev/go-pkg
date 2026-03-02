@@ -1,0 +1,218 @@
+package dynamodb
+
+import (
+	"context"
+	"fmt"
+
+	ddb "github.com/aws/aws-sdk-go-v2/service/dynamodb"
+	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
+	"github.com/pipewave-dev/go-pkg/pkg/dynamodb"
+	configprovider "github.com/pipewave-dev/go-pkg/provider/config-provider"
+)
+
+func New(cfg configprovider.ConfigStore) dynamodb.DynamodbProvider {
+	dynamodbPrv := dynamodb.NewDynamoDBProvider(dynamoDBConfig(cfg))
+	if cfg.Env().DynamoDB.CreateTables {
+		createOrVerifyTables(dynamodbPrv, cfg)
+	} else {
+		verifyTables(dynamodbPrv, cfg)
+	}
+	return dynamodbPrv
+}
+
+func GetClient(dnm dynamodb.DynamodbProvider) *ddb.Client {
+	return dnm.Client()
+}
+
+func dynamoDBConfig(cfg configprovider.ConfigStore) *dynamodb.DynamodbConfig {
+	ddbCfg := cfg.Env().DynamoDB
+	ddbCfn := dynamodb.DynamodbConfig{
+		Region:          ddbCfg.Region,
+		Endpoint:        ddbCfg.Endpoint,
+		Role:            ddbCfg.Role,
+		StaticAccessKey: ddbCfg.StaticAccessKey,
+		StaticSecretKey: ddbCfg.StaticSecretKey,
+	}
+	return &ddbCfn
+}
+
+func createOrVerifyTables(dnm dynamodb.DynamodbProvider, cfg configprovider.ConfigStore) {
+	ctx := context.Background()
+	for _, table := range tablesSchema(cfg) {
+		err := dnm.CreateOrVerifyTable(ctx, table)
+		if err != nil {
+			msg := fmt.Sprintf("DynamoDB create or verify tables failed: %s", err.Error())
+			panic(msg)
+		}
+	}
+}
+
+func verifyTables(dnm dynamodb.DynamodbProvider, cfg configprovider.ConfigStore) {
+	ctx := context.Background()
+	for _, table := range tablesSchema(cfg) {
+		err := dnm.VerifyTable(ctx, table)
+		if err != nil {
+			msg := fmt.Sprintf("DynamoDB create or verify tables failed: %s", err.Error())
+			panic(msg)
+		}
+	}
+}
+
+func tablesSchema(cfg configprovider.ConfigStore) []dynamodb.CreateTableParams {
+	tables := cfg.Env().DynamoDB.Tables
+	return []dynamodb.CreateTableParams{
+		// active_connection
+		// PK: UserID (S), SK: SessionID (S)
+		// Queries: CountActive by UserID + filter on LastHeartbeat (no GSI needed)
+		{
+			TableName: tables.ActiveConnection,
+			PartitionKey: dynamodb.KeySchema{
+				AttributeName: "UserID",
+				AttributeType: types.ScalarAttributeTypeS,
+			},
+			SortKey: &dynamodb.KeySchema{
+				AttributeName: "SessionID",
+				AttributeType: types.ScalarAttributeTypeS,
+			},
+		},
+		// fcm_device
+		// PK: UserID (S), SK: SessionID (S)
+		// Queries:
+		//   - ByUser: query main table by UserID (PK)
+		//   - ByToken: query GSI FcmDeviceTokenIndex by FcmDeviceToken
+		//   - ByUserSession: query main table by UserID + SessionID (PK+SK)
+		{
+			TableName: tables.FcmDevice,
+			PartitionKey: dynamodb.KeySchema{
+				AttributeName: "UserID",
+				AttributeType: types.ScalarAttributeTypeS,
+			},
+			SortKey: &dynamodb.KeySchema{
+				AttributeName: "SessionID",
+				AttributeType: types.ScalarAttributeTypeS,
+			},
+			GSIs: []dynamodb.IndexSchema{
+				{
+					// GSI-1: query FcmDevice by FcmDeviceToken (unique per device)
+					IndexName: "FcmDeviceTokenIndex",
+					PartitionKey: dynamodb.KeySchema{
+						AttributeName: "FcmDeviceToken",
+						AttributeType: types.ScalarAttributeTypeS,
+					},
+				},
+			},
+		},
+		// group
+		// PK: ID (S), no SK
+		// Queries: ByID (GetItem / Query by PK)
+		{
+			TableName: tables.Group,
+			PartitionKey: dynamodb.KeySchema{
+				AttributeName: "ID",
+				AttributeType: types.ScalarAttributeTypeS,
+			},
+		},
+		// user
+		// PK: ID (S), no SK
+		// Queries: ByID (Query by PK)
+		{
+			TableName: tables.User,
+			PartitionKey: dynamodb.KeySchema{
+				AttributeName: "ID",
+				AttributeType: types.ScalarAttributeTypeS,
+			},
+		},
+		// user_group
+		// PK: GroupID (S), SK: UserID (S)
+		// Queries:
+		//   - ByPrimaryKey: query main table by GroupID + UserID
+		//   - ListUsersByGroup: query main table by GroupID (PK)
+		//   - ListGroupsByUser: query GSI UserIDGroupIDIndex by UserID
+		{
+			TableName: tables.UserGroup,
+			PartitionKey: dynamodb.KeySchema{
+				AttributeName: "GroupID",
+				AttributeType: types.ScalarAttributeTypeS,
+			},
+			SortKey: &dynamodb.KeySchema{
+				AttributeName: "UserID",
+				AttributeType: types.ScalarAttributeTypeS,
+			},
+			GSIs: []dynamodb.IndexSchema{
+				{
+					// GSI-1: query UserGroup by UserID to list all groups a user belongs to
+					IndexName: "UserIDGroupIDIndex",
+					PartitionKey: dynamodb.KeySchema{
+						AttributeName: "UserID",
+						AttributeType: types.ScalarAttributeTypeS,
+					},
+					SortKey: &dynamodb.KeySchema{
+						AttributeName: "GroupID",
+						AttributeType: types.ScalarAttributeTypeS,
+					},
+				},
+			},
+		},
+		// noti_content
+		// PK: ID (S), no SK
+		// Queries: ByID (Query by PK), ByIDs (BatchGetItem by IDs)
+		{
+			TableName: tables.NotiContent,
+			PartitionKey: dynamodb.KeySchema{
+				AttributeName: "ID",
+				AttributeType: types.ScalarAttributeTypeS,
+			},
+		},
+		// noti_time_bucket
+		// PK: ReceiverID (S), SK: ReceiverType (N)
+		// ReceiverType: 1=Group, 2=User
+		// Queries: GetByGroupID / GetByUserID (GetItem by ReceiverID + ReceiverType)
+		{
+			TableName: tables.NotiTimeBucket,
+			PartitionKey: dynamodb.KeySchema{
+				AttributeName: "ReceiverID",
+				AttributeType: types.ScalarAttributeTypeS,
+			},
+			SortKey: &dynamodb.KeySchema{
+				AttributeName: "ReceiverType",
+				AttributeType: types.ScalarAttributeTypeN,
+			},
+		},
+		// g_noti (Group Notification)
+		// PK: PartitionKey (S) — composite: "{ReceiverId}#{TimeBucket}#{TimeBucketRule}"
+		// SK: SortKey (S)      — composite: "{ReceiveAt_base36}#{MessageId}"
+		// Queries:
+		//   - ByKey: GetItem by full PK+SK
+		//   - ListAfter: Query PK + SK > lowerBound (forward scan across TimeBuckets)
+		//   - ListBefore: Query PK + SK < upperBound (backward scan across TimeBuckets)
+		{
+			TableName: tables.GNoti,
+			PartitionKey: dynamodb.KeySchema{
+				AttributeName: "PartitionKey",
+				AttributeType: types.ScalarAttributeTypeS,
+			},
+			SortKey: &dynamodb.KeySchema{
+				AttributeName: "SortKey",
+				AttributeType: types.ScalarAttributeTypeS,
+			},
+		},
+		// u_noti (User Notification)
+		// PK: PartitionKey (S) — composite: "{UserID}#{TimeBucket}#{TimeBucketRule}"
+		// SK: SortKey (S)      — composite: "{ReceiveAt_base36}#{MessageId}"
+		// Queries:
+		//   - ByKey: GetItem by full PK+SK
+		//   - ListAfter: Query PK + SK > lowerBound (forward scan across TimeBuckets)
+		//   - ListBefore: Query PK + SK < upperBound (backward scan across TimeBuckets)
+		{
+			TableName: tables.UNoti,
+			PartitionKey: dynamodb.KeySchema{
+				AttributeName: "PartitionKey",
+				AttributeType: types.ScalarAttributeTypeS,
+			},
+			SortKey: &dynamodb.KeySchema{
+				AttributeName: "SortKey",
+				AttributeType: types.ScalarAttributeTypeS,
+			},
+		},
+	}
+}
