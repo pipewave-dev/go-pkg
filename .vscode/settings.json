@@ -1,0 +1,72 @@
+{
+  "editor.formatOnSave": true,
+  "editor.codeActionsOnSave": {
+    "source.addMissingImports": "explicit",
+    "source.fixAll.eslint": "explicit"
+  },
+  "go.testFlags": ["-v"],
+  "go.testTimeout": "10m",
+  "search.exclude": {
+    "**/.git": true,
+    "**/node_modules": true,
+    "**/ent/[!schema]/*.go": true,
+    "**/ent/*.go": true
+  },
+  "go.inlayHints.assignVariableTypes": false,
+  "editor.fontFamily": "mono, monospace, Menlo, 'Inconsolata', 'Courier New'",
+  "files.autoSave": "afterDelay",
+  "files.autoSaveDelay": 10000,
+  "go.inlayHints.compositeLiteralFields": false,
+  "go.inlayHints.compositeLiteralTypes": false,
+  "go.inlayHints.constantValues": false,
+  "go.inlayHints.functionTypeParameters": false,
+  "go.inlayHints.parameterNames": true,
+  "editor.inlayHints.fontFamily": "Monaco",
+  "go.lintTool": "golangci-lint",
+  "emeraldwalk.runonsave": {
+    "commands": [
+      {
+        "match": "\\.go$",
+        "cmd": "go run github.com/segmentio/golines ${file} -w"
+      }
+    ]
+  },
+  // https://marketplace.visualstudio.com/items?itemName=humao.rest-client
+  "rest-client.environmentVariables": {
+    "$shared": {
+      "version": "v1"
+    },
+    "local": {
+      "basePath": "/",
+      "host-supertoken-be": "localhost:8100"
+    }
+  },
+  "[json][jsonc][yaml][typescriptreact][typescript][postcss]": {
+    "editor.formatOnSave": true,
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+  "[jsonc]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+  "go.inlayHints.rangeVariableTypes": true,
+  "workbench.colorCustomizations": {
+    "activityBar.activeBackground": "#f90f0f",
+    "activityBar.background": "#f90f0f",
+    "activityBar.foreground": "#e7e7e7",
+    "activityBar.inactiveForeground": "#e7e7e799",
+    "activityBarBadge.background": "#05da05",
+    "activityBarBadge.foreground": "#15202b",
+    "commandCenter.border": "#e7e7e799",
+    "sash.hoverBorder": "#f90f0f",
+    "statusBar.background": "#d00505",
+    "statusBar.foreground": "#e7e7e7",
+    "statusBarItem.hoverBackground": "#f90f0f",
+    "statusBarItem.remoteBackground": "#d00505",
+    "statusBarItem.remoteForeground": "#e7e7e7",
+    "titleBar.activeBackground": "#d00505",
+    "titleBar.activeForeground": "#e7e7e7",
+    "titleBar.inactiveBackground": "#d0050599",
+    "titleBar.inactiveForeground": "#e7e7e799"
+},
+  "peacock.color": "#D00505"
+}
