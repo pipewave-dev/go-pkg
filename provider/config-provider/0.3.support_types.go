@@ -1,0 +1,174 @@
+package configprovider
+
+import (
+	"github.com/samber/lo"
+)
+
+type CorsConfig struct {
+	Enabled        bool     `koanf:"ENABLED"`
+	ExactlyOrigins []string `koanf:"EXACTLY_ORIGINS"`
+	RegexOrigins   []string `koanf:"REGEX_ORIGINS"`
+}
+
+type WorkerPoolT struct {
+	Buffer         int `koanf:"BUFFER"`
+	UpperThreshold int `koanf:"UPPER_THRESHOLD"`
+	LowerThreshold int `koanf:"LOWER_THRESHOLD"`
+}
+
+type RateLimiterT struct {
+	UserRate  int `koanf:"USER_RATE"`
+	UserBurst int `koanf:"USER_BURST"`
+
+	AnonymousRate  int `koanf:"ANONYMOUS_RATE"`
+	AnonymousBurst int `koanf:"ANONYMOUS_BURST"`
+}
+
+func (r RateLimiterT) Validate() {
+	if r.UserRate <= 0 {
+		panic("rate limiter user rate must be greater than 0")
+	}
+	if r.UserBurst <= 0 {
+		panic("rate limiter user burst must be greater than 0")
+	}
+	if r.AnonymousRate <= 0 {
+		panic("rate limiter anonymous rate must be greater than 0")
+	}
+	if r.AnonymousBurst <= 0 {
+		panic("rate limiter anonymous burst must be greater than 0")
+	}
+}
+
+type ValkeyT struct {
+	PrimaryAddress string `koanf:"PRIMARY_ADDRESS"`
+	ReplicaAddress string `koanf:"REPLICA_ADDRESS"`
+	Password       string `koanf:"PASSWORD"`
+	DatabaseIdx    int    `koanf:"DB_INDEX"`
+}
+
+type DynamoConfigT struct {
+	CreateTables    bool    `koanf:"CREATE_TABLES"`
+	Region          string  `koanf:"REGION"`
+	Endpoint        *string `koanf:"ENDPOINT"`
+	Role            *string `koanf:"ROLE"`
+	Profile         *string `koanf:"PROFILE"`
+	StaticAccessKey *string `koanf:"STATIC_ACCESS_KEY"`
+	StaticSecretKey *string `koanf:"STATIC_SECRET_KEY"`
+	Tables          DynamoTables
+}
+
+// PostgresT contains PostgreSQL connection configuration
+type PostgresT struct {
+	CreateTables bool   `koanf:"CREATE_TABLES"`
+	Host         string `koanf:"HOST"`
+	Port         int    `koanf:"PORT"`
+	DBName       string `koanf:"DB_NAME"`
+	User         string `koanf:"USER"`
+	Password     string `koanf:"PASSWORD"`
+	SSLMode      string `koanf:"SSL_MODE"` // allow value: disable, require
+	MaxConns     int32  `koanf:"MAX_CONNS"`
+	MinConns     int32  `koanf:"MIN_CONNS"`
+}
+
+// KeySetT contains versioned key set configuration
+type KeySetT struct {
+	CurrentVersion int8     `koanf:"CURRENT_VERSION"`
+	KeySetStr      []string `koanf:"KEY_SET"`
+}
+
+// GetKeySet returns the current version and key set as a map
+func (ki KeySetT) GetKeySet() (currentVersion int8, keySet map[int8][]byte) {
+	result := make(map[int8][]byte, len(ki.KeySetStr))
+	for ver, keyStr := range ki.KeySetStr {
+		if len(keyStr) < 32 {
+			panic("cipher key must be 32 characters")
+		}
+		var b [32]byte
+		copy(b[:], keyStr)
+		result[(int8(ver))] = b[:]
+	}
+	return ki.CurrentVersion, result
+}
+
+// OtelT contains OpenTelemetry configuration
+type OtelT struct {
+	Enabled             bool   `koanf:"ENABLED"`
+	AutoInstrumentation bool   `koanf:"AUTO_INSTRUMENTATION"`
+	ExporterType        string `koanf:"EXPORTER_TYPE"`
+	FilePath            string `koanf:"FILE_PATH"`
+	CollectorEndpoint   string `koanf:"COLLECTOR_ENDPOINT"`
+	CollectorInsecure   bool   `koanf:"COLLECTOR_INSECURE"`
+}
+
+// Validate checks if the OtelT configuration is valid
+func (o *OtelT) Validate() {
+	if o.Enabled {
+		allowExporterType := []string{"discard", "stdout", "file", "otlp-grpc", "otlp-http"}
+		if !lo.Contains(allowExporterType, o.ExporterType) {
+			panic("OTEL.EXPORTER_TYPE must be one of [discard, stdout, file, otlp-grpc, otlp-http]")
+		}
+		if o.ExporterType == "file" && o.FilePath == "" {
+			panic("OTEL.FILE_PATH is required when OTEL.EXPORTER_TYPE is file")
+		}
+		if o.ExporterType == "otlp-grpc" && o.CollectorEndpoint == "" {
+			panic("OTEL.COLLECTOR_ENDPOINT is required when OTEL.EXPORTER_TYPE is otlp-grpc")
+		}
+		if o.ExporterType == "otlp-http" && o.CollectorEndpoint == "" {
+			panic("OTEL.COLLECTOR_ENDPOINT is required when OTEL.EXPORTER_TYPE is otlp-http")
+		}
+	}
+}
+
+// ExternalT contains external service configurations
+type ExternalT struct {
+	Userbox struct {
+		BaseUrl   string `koanf:"BASE_URL"`
+		TimeoutMs int    `koanf:"TIMEOUT_MS"`
+		WrapLog   bool   `koanf:"WRAP_LOG"`
+		WrapOtel  bool   `koanf:"WRAP_OTEL"`
+
+		AuthorizationToken string `koanf:"AUTHORIZATION_TOKEN"`
+	} `koanf:"USERBOX"`
+
+	GoogleOAuth2 struct {
+		TimeoutSeconds int `koanf:"TIMEOUT_SECONDS"`
+	} `koanf:"GOOGLE_OAUTH2"`
+
+	GoogleRecaptcha struct {
+		SecretKeyV2    string `koanf:"SECRET_KEY_V2"`
+		SecretKeyV3    string `koanf:"SECRET_KEY_V3"`
+		VerifyURL      string `koanf:"VERIFY_URL"`
+		TimeoutSeconds int    `koanf:"TIMEOUT_SECONDS"`
+	} `koanf:"GOOGLE_RECAPTCHA"`
+
+	HCaptcha struct {
+		SecretKey      string `koanf:"SECRET_KEY"`
+		SiteKey        string `koanf:"SITE_KEY"`
+		VerifyURL      string `koanf:"VERIFY_URL"`
+		TimeoutSeconds int    `koanf:"TIMEOUT_SECONDS"`
+		RemapDisabled  bool   `koanf:"REMAP_DISABLED"`
+	} `koanf:"HCAPTCHA"`
+
+	Turnstile struct {
+		SecretKey      string `koanf:"SECRET_KEY"`
+		VerifyURL      string `koanf:"VERIFY_URL"`
+		TimeoutSeconds int    `koanf:"TIMEOUT_SECONDS"`
+		Mock           struct {
+			Enabled bool `koanf:"ENABLED"`
+			Result  int  `koanf:"RESULT"`
+		} `koanf:"MOCK"`
+	} `koanf:"TURNSTILE"`
+}
+
+// DynamoTables contains DynamoDB table name configurations
+type DynamoTables struct {
+	ActiveConnection string `koanf:"ACTIVE_CONNECTION"`
+	FcmDevice        string `koanf:"FCM_DEVICE"`
+	Group            string `koanf:"GROUP"`
+	User             string `koanf:"USER"`
+	UserGroup        string `koanf:"USER_GROUP"`
+	NotiContent      string `koanf:"NOTI_CONTENT"`
+	GNoti            string `koanf:"G_NOTI"`
+	UNoti            string `koanf:"U_NOTI"`
+	NotiTimeBucket   string `koanf:"NOTI_TIME_BUCKET"`
+}

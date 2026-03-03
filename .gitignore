@@ -1,0 +1,12 @@
+.DS_Store
+otel.txt
+.idea/
+
+
+*.old
+*.key
+*.crt
+persistence/sgcmdqueue.db
+
+tmp
+playground

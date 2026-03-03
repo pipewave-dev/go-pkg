@@ -1,0 +1,33 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__serena__find_symbol",
+      "mcp__serena__find_referencing_symbols",
+      "Bash(go build:*)",
+      "Bash(go vet:*)",
+      "Bash(echo:*)",
+      "Bash(gofmt:*)",
+      "Bash(go run:*)",
+      "Bash(wc:*)",
+      "WebSearch",
+      "WebFetch(domain:github.com)",
+      "Bash(go clean:*)",
+      "Bash(gopls check:*)",
+      "Bash(go test:*)",
+      "Bash(find:*)",
+      "Bash(grep:*)",
+      "Bash(ls:*)",
+      "Bash(head:*)",
+      "Bash(go doc:*)",
+      "Bash(nc:*)",
+      "Bash(curl:*)",
+      "Bash(go tool:*)"
+    ]
+  },
+  "enableAllProjectMcpServers": true,
+  "enabledMcpjsonServers": [
+    "serena",
+    "playwright",
+    "context7"
+  ]
+}
