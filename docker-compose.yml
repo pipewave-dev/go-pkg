@@ -1,0 +1,38 @@
+services:
+  valkey:
+    build:
+      context: ./.docker/valkey
+      dockerfile: Dockerfile
+    ports:
+      - 29100:6379
+    command: valkey-server /usr/local/etc/valkey/valkey.conf
+    networks:
+      - pipewave
+
+  # dynamodb-local:
+  #   command: "-jar DynamoDBLocal.jar -port 29101 -sharedDb -dbPath ./data"
+  #   image: "amazon/dynamodb-local:latest"
+  #   ports:
+  #     - "29101:29101"
+  #   volumes:
+  #     - ./tmp/dynamodb-data:/home/dynamodblocal/data
+  #   working_dir: /home/dynamodblocal
+  #   networks:
+  #     - pipewave
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=postgres
+    ports:
+      - "29102:5432"
+    volumes:
+      - ./tmp/postgres-data:/var/lib/postgresql/data
+    networks:
+      - pipewave
+
+networks:
+  pipewave:
+    driver: bridge
