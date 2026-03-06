@@ -9,6 +9,6 @@ func (m *moduleDelivery) Mux() *http.ServeMux {
 }
 
 func (m *moduleDelivery) registerHandlers() {
-	m.mux.Handle("/websocket/",
-		m.WsMiddlewares(http.StripPrefix("/websocket", m.wsDeli.Mux())))
+	m.mux.Handle("/",
+		m.WsMiddlewares(m.wsDeli.Mux()))
 }

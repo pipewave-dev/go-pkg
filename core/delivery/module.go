@@ -15,6 +15,7 @@ type ModuleDelivery interface {
 	Mux() *http.ServeMux
 	Services() ExportedServices
 	Monitoring() business.Monitoring
+	IsHealthy() bool
 	Shutdown()
 }
 
