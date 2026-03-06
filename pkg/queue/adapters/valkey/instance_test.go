@@ -369,6 +369,73 @@ func TestSetChannelTTL_RefreshExtendsTTL(t *testing.T) {
 	assert.True(t, ttl > 2, "TTL should have been refreshed to >2, got %d", ttl)
 }
 
+func TestBlockFetchOne_WithMessage(t *testing.T) {
+	adapter, cleanup := setupValkeyContainer(t)
+	defer cleanup()
+
+	ctx := context.Background()
+	channel := "block-fetch-channel"
+
+	// Publish a message first
+	err := adapter.Publish(ctx, channel, []byte("blocked-msg"))
+	require.NoError(t, err)
+
+	// BlockFetchOne should return immediately since a message exists
+	result, err := adapter.BlockFetchOne(ctx, channel, 5*time.Second)
+	require.NoError(t, err)
+	assert.Equal(t, []byte("blocked-msg"), result)
+}
+
+func TestBlockFetchOne_EmptyQueueTimeout(t *testing.T) {
+	adapter, cleanup := setupValkeyContainer(t)
+	defer cleanup()
+
+	ctx := context.Background()
+
+	start := time.Now()
+	result, err := adapter.BlockFetchOne(ctx, "empty-block-channel", 1*time.Second)
+	elapsed := time.Since(start)
+
+	assert.NoError(t, err)
+	assert.Nil(t, result, "BlockFetchOne should return nil on timeout")
+	assert.True(t, elapsed >= 1*time.Second, "should have waited at least 1 second, waited %v", elapsed)
+}
+
+func TestBlockFetchOne_ContextCancelled(t *testing.T) {
+	adapter, cleanup := setupValkeyContainer(t)
+	defer cleanup()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
+	defer cancel()
+
+	start := time.Now()
+	_, err := adapter.BlockFetchOne(ctx, "cancel-block-channel", 30*time.Second)
+	elapsed := time.Since(start)
+
+	// Should error due to context cancellation, not wait 30 seconds
+	assert.Error(t, err)
+	assert.True(t, elapsed < 5*time.Second, "should have returned quickly after context cancel, took %v", elapsed)
+}
+
+func TestBlockFetchOne_FIFO(t *testing.T) {
+	adapter, cleanup := setupValkeyContainer(t)
+	defer cleanup()
+
+	ctx := context.Background()
+	channel := "block-fifo"
+
+	for i := 0; i < 3; i++ {
+		err := adapter.Publish(ctx, channel, []byte(fmt.Sprintf("bf-%d", i)))
+		require.NoError(t, err)
+	}
+
+	for i := 0; i < 3; i++ {
+		result, err := adapter.BlockFetchOne(ctx, channel, 1*time.Second)
+		require.NoError(t, err)
+		assert.Equal(t, []byte(fmt.Sprintf("bf-%d", i)), result)
+	}
+}
+
 func TestLen(t *testing.T) {
 	adapter, cleanup := setupValkeyContainer(t)
 	defer cleanup()

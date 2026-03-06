@@ -54,7 +54,7 @@ func (d *serverDelivery) IssueTmpToken() http.HandlerFunc {
 		cookieSecure := protocolHeader == "https"
 
 		cookie := &http.Cookie{
-			Name:     "__pipewave_userid",
+			Name:     "__pw_uid",
 			Value:    wsAuth.UserID,
 			Path:     "/",
 			MaxAge:   300, // 5 minutes

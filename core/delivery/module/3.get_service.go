@@ -54,7 +54,3 @@ func (g *getServices) PingConnections() {
 func (g *getServices) SendToAnonymous(ctx context.Context, msgType string, payload []byte, isSendAll bool, instanceID []string) aerror.AError {
 	return g.wsService.SendToAnonymous(ctx, msgType, payload, isSendAll, instanceID)
 }
-
-func (g *getServices) Shutdown() {
-	g.wsService.Shutdown()
-}

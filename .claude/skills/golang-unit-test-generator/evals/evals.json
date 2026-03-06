@@ -1,0 +1,23 @@
+{
+  "skill_name": "golang-unit-test-generator",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "Generate unit tests for my Go package at ./internal/auth. It has a token.go with JWT validation functions and a middleware.go that checks HTTP request headers against a Redis-backed session store.",
+      "expected_output": "Should classify token.go functions as Category A (pure JWT parsing) and Category B/D (Redis-dependent session checks). Should produce table-driven tests for JWT functions, mock-based tests for the middleware, and testcontainer setup for Redis integration tests. Should generate TEST_SUMMARY.md and TEST_USECASES.md.",
+      "files": []
+    },
+    {
+      "id": 2,
+      "prompt": "Write tests for internal/billing/invoice.go - it calculates invoice totals from line items (pure math), applies discount rules based on customer tier (uses a DB lookup), and has a SendInvoice method that calls an external email API.",
+      "expected_output": "Should classify total calculation as Category A, discount rules as Category B (mock the DB), and SendInvoice as Category B (mock the email client interface). Should generate faker-based test data for line items and customers. Should produce comprehensive table-driven tests with edge cases like zero amounts, negative discounts, empty line items.",
+      "files": []
+    },
+    {
+      "id": 3,
+      "prompt": "Add tests to pkg/scheduler/cron.go - it has a NextRun function that calculates the next execution time based on a cron expression and time.Now(), and a RunDue function that checks if any scheduled jobs are past their due time and executes them via a job runner interface.",
+      "expected_output": "Should classify NextRun as Category C (time-dependent) and recommend clock injection. Should classify RunDue as Category B+C hybrid. Should emit warnings if clock injection isn't possible. Should test boundary conditions around midnight, DST transitions, and leap seconds.",
+      "files": []
+    }
+  ]
+}
