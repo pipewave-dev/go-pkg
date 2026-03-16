@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 
+	"github.com/pipewave-dev/go-pkg/core/domain/entities"
 	"github.com/pipewave-dev/go-pkg/shared/aerror"
 )
 
@@ -16,5 +17,9 @@ type ActiveConnStore interface {
 	RemoveConnection(ctx context.Context, userID string, instanceID string) aerror.AError
 	UpdateHeartBeat(ctx context.Context, userID string, instanceID string) aerror.AError
 
-	// TODO: should have a function to clean up expired connections (if heartbeat is not updated for a long time)
+	// CountActiveConnectionsBatch returns connection counts for multiple users at once.
+	CountActiveConnectionsBatch(ctx context.Context, userIDs []string) (map[string]int, aerror.AError)
+
+	// GetActiveConnections returns all active connections for a user.
+	GetActiveConnections(ctx context.Context, userID string) ([]entities.ActiveConnection, aerror.AError)
 }

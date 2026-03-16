@@ -7,6 +7,7 @@ import (
 	"github.com/pipewave-dev/go-pkg/core/delivery"
 	business "github.com/pipewave-dev/go-pkg/core/service/business"
 	wsSv "github.com/pipewave-dev/go-pkg/core/service/websocket"
+	"github.com/pipewave-dev/go-pkg/pkg/metrics"
 	mm "github.com/pipewave-dev/go-pkg/pkg/mux-middleware"
 	workerpool "github.com/pipewave-dev/go-pkg/pkg/worker-pool"
 	configprovider "github.com/pipewave-dev/go-pkg/provider/config-provider"
@@ -28,6 +29,7 @@ type moduleDelivery struct {
 
 	healthy       healthyprovider.Healthy
 	monitoringSvc business.Monitoring
+	metrics       *metrics.PipewaveMetrics
 
 	workerPool   *workerpool.WorkerPool
 	cleanupTask  fncollector.CleanupTask
@@ -57,6 +59,7 @@ func New(
 		wsOnCloseReg:  wsOnCloseReg,
 		healthy:       healthy,
 		monitoringSvc: monitoringSvc,
+		metrics:       metrics.New(),
 
 		workerPool:   workerPool,
 		cleanupTask:  cleanupTask,
@@ -104,4 +107,8 @@ func (m *moduleDelivery) Shutdown() {
 
 func (m *moduleDelivery) IsHealthy() bool {
 	return m.healthy.IsHealthy()
+}
+
+func (m *moduleDelivery) MetricsHandler() http.Handler {
+	return m.metrics.Handler()
 }

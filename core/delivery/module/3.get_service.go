@@ -2,6 +2,7 @@ package moduledelivery
 
 import (
 	"context"
+	"time"
 
 	"github.com/pipewave-dev/go-pkg/core/delivery"
 	business "github.com/pipewave-dev/go-pkg/core/service/business"
@@ -53,4 +54,36 @@ func (g *getServices) PingConnections() {
 
 func (g *getServices) SendToAnonymous(ctx context.Context, msgType string, payload []byte, isSendAll bool, instanceID []string) aerror.AError {
 	return g.wsService.SendToAnonymous(ctx, msgType, payload, isSendAll, instanceID)
+}
+
+func (g *getServices) DisconnectSession(ctx context.Context, userID string, instanceID string) aerror.AError {
+	return g.wsService.DisconnectSession(ctx, userID, instanceID)
+}
+
+func (g *getServices) DisconnectUser(ctx context.Context, userID string) aerror.AError {
+	return g.wsService.DisconnectUser(ctx, userID)
+}
+
+func (g *getServices) SendToUsers(ctx context.Context, userIDs []string, msgType string, payload []byte) aerror.AError {
+	return g.wsService.SendToUsers(ctx, userIDs, msgType, payload)
+}
+
+func (g *getServices) Broadcast(ctx context.Context, target delivery.BroadcastTarget, msgType string, payload []byte) aerror.AError {
+	return g.wsService.Broadcast(ctx, int(target), msgType, payload)
+}
+
+func (g *getServices) CheckOnlineMultiple(ctx context.Context, userIDs []string) (map[string]bool, aerror.AError) {
+	return g.wsService.CheckOnlineMultiple(ctx, userIDs)
+}
+
+func (g *getServices) GetUserSessions(ctx context.Context, userID string) ([]delivery.SessionInfo, aerror.AError) {
+	return g.wsService.GetUserSessions(ctx, userID)
+}
+
+func (g *getServices) SendToSessionWithAck(ctx context.Context, userID string, instanceID string, msgType string, payload []byte, timeout time.Duration) (acked bool, aErr aerror.AError) {
+	return g.wsService.SendToSessionWithAck(ctx, userID, instanceID, msgType, payload, timeout)
+}
+
+func (g *getServices) SendToUserWithAck(ctx context.Context, userID string, msgType string, payload []byte, timeout time.Duration) (acked bool, aErr aerror.AError) {
+	return g.wsService.SendToUserWithAck(ctx, userID, msgType, payload, timeout)
 }

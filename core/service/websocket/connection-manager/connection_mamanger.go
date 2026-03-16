@@ -106,6 +106,19 @@ func (m *connectionMap) GetAllAnonymousConn() []wsSv.WebsocketConn {
 	return connections
 }
 
+func (m *connectionMap) GetAllAuthenticatedConn() []wsSv.WebsocketConn {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	var connections []wsSv.WebsocketConn
+	for _, userClients := range m.userConn {
+		for _, conn := range userClients {
+			connections = append(connections, conn)
+		}
+	}
+	return connections
+}
+
 func (m *connectionMap) GetAllConnections() []wsSv.WebsocketConn {
 	m.mu.RLock()
 	defer m.mu.RUnlock()

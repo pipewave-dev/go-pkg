@@ -13,9 +13,11 @@ import (
 	"github.com/pipewave-dev/go-pkg/shared/actx"
 	"github.com/pipewave-dev/go-pkg/shared/aerror"
 	"github.com/pipewave-dev/go-pkg/shared/utils/fn"
+	"github.com/vmihailenco/msgpack/v5"
 
 	voAuth "github.com/pipewave-dev/go-pkg/core/domain/value-object/auth"
 	repo "github.com/pipewave-dev/go-pkg/core/repository"
+	ackmanager "github.com/pipewave-dev/go-pkg/core/service/websocket/ack-manager"
 	"github.com/pipewave-dev/go-pkg/core/service/websocket/broadcast"
 	otelP "github.com/pipewave-dev/go-pkg/pkg/otel"
 )
@@ -33,6 +35,7 @@ type clientMsgHandler struct {
 	user          repo.User
 	hbThrottle    *heartbeatThrottle
 	deduplicator  *msgDeduplicator
+	ackManager    *ackmanager.AckManager
 }
 
 func New(
@@ -44,6 +47,7 @@ func New(
 	otelProvider otelP.OtelProvider,
 	rateLimiter wsSv.RateLimiter,
 	repo repo.AllRepository,
+	ackMgr *ackmanager.AckManager,
 ) wsSv.ClientMsgHandler {
 	return &clientMsgHandler{
 		c:             c,
@@ -56,6 +60,7 @@ func New(
 		user:          repo.User(),
 		hbThrottle:    newHeartbeatThrottle(intervalTask),
 		deduplicator:  newMsgDeduplicator(intervalTask),
+		ackManager:    ackMgr,
 	}
 }
 
@@ -108,6 +113,16 @@ func (h *clientMsgHandler) handleMessage(clientMsg []byte, auth voAuth.Websocket
 	case wsSv.MessageTypeHeartbeat:
 		h.handleHeartbeat(aCtx, auth)
 		response = &hearbeatResMsg
+
+	case wsSv.MessageTypeAck:
+		// Handle ACK from client
+		var ackMsg struct {
+			AckId string `msgpack:"ackId"`
+		}
+		if err := msgpack.Unmarshal(msg.Binary, &ackMsg); err == nil && ackMsg.AckId != "" {
+			h.ackManager.ResolveAck(ackMsg.AckId)
+		}
+		return // No response needed
 
 	default:
 		resID := fn.NewUUID()

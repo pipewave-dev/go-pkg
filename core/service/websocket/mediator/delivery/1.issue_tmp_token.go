@@ -29,7 +29,7 @@ func (d *serverDelivery) IssueTmpToken() http.HandlerFunc {
 		if fns == nil || fns.InspectToken == nil {
 			panic("InspectToken function is not implemented")
 		}
-		username, isAnonymous, err := fns.InspectToken(r.Context(), authHeader)
+		username, isAnonymous, metadata, err := fns.InspectToken(r.Context(), authHeader)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusUnauthorized)
 			return
@@ -37,9 +37,9 @@ func (d *serverDelivery) IssueTmpToken() http.HandlerFunc {
 
 		var wsAuth voAuth.WebsocketAuth
 		if isAnonymous {
-			wsAuth = voAuth.AnonymousUserWebsocketAuth(instanceHeader)
+			wsAuth = voAuth.AnonymousUserWebsocketAuthWithMetadata(instanceHeader, metadata)
 		} else {
-			wsAuth = voAuth.UserWebsocketAuth(username, instanceHeader)
+			wsAuth = voAuth.UserWebsocketAuthWithMetadata(username, instanceHeader, metadata)
 		}
 
 		// 3. Exchange for temporary connection token (10s TTL)

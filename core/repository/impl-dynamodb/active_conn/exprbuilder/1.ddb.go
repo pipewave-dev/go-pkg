@@ -14,6 +14,7 @@ const (
 	FieldUserID        = "UserID"
 	FieldSessionID     = "SessionID"
 	FieldHolderID      = "HolderID"
+	FieldConnectedAt   = "ConnectedAt"
 	FieldLastHeartbeat = "LastHeartbeat"
 	FieldTTL           = "TTL"
 )
@@ -23,6 +24,7 @@ type ddbActiveConnection struct {
 	SessionID string // SortKey
 
 	HolderID      string // Pod name holding this connection (env.PodName)
+	ConnectedAt   voUnixTime.UnixMilliTime
 	LastHeartbeat voUnixTime.UnixMilliTime
 	TTL           voUnixTime.UnixMilliTime
 }
@@ -32,6 +34,7 @@ func toDynamoDBItem(e *entities.ActiveConnection) *ddbActiveConnection {
 		UserID:        e.UserID,
 		SessionID:     e.SessionID,
 		HolderID:      e.HolderID,
+		ConnectedAt:   voUnixTime.UnixMilliTime(e.ConnectedAt),
 		LastHeartbeat: voUnixTime.UnixMilliTime(e.LastHeartbeat),
 		TTL:           voUnixTime.UnixMilliTime(e.TTL),
 	}
@@ -42,6 +45,7 @@ func (e *ddbActiveConnection) toEntity() *entities.ActiveConnection {
 		UserID:        e.UserID,
 		SessionID:     e.SessionID,
 		HolderID:      e.HolderID,
+		ConnectedAt:   time.Time(e.ConnectedAt),
 		LastHeartbeat: time.Time(e.LastHeartbeat),
 		TTL:           time.Time(e.TTL),
 	}
