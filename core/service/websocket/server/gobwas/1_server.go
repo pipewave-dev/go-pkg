@@ -171,7 +171,7 @@ func (s *NetpollServer) send(client *Connection, payload []byte) {
 	// Use a binary frame because payload may be MessagePack/binary, not UTF-8.
 	frame := ws.NewBinaryFrame(payload)
 	if err := ws.WriteFrame(conn, frame); err != nil {
-		s.onReadError(client.auth, fmt.Errorf("failed to send message: %w", err))
+		s.onWriteError(client.auth, fmt.Errorf("failed to send message: %w", err))
 		s.removeClient(client)
 	}
 }
@@ -223,7 +223,7 @@ func (s *NetpollServer) processClientMessage(client *Connection) {
 
 	payload := make([]byte, header.Length)
 	if header.Length > 0 {
-		if _, err := io.ReadFull(conn, payload); err != nil {
+		if _, err = io.ReadFull(conn, payload); err != nil {
 			s.onReadError(client.auth, fmt.Errorf("failed to read frame payload: %w", err))
 			s.removeClient(client)
 			return
