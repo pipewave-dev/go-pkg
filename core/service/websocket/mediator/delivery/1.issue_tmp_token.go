@@ -29,7 +29,7 @@ func (d *serverDelivery) IssueTmpToken() http.HandlerFunc {
 		if fns == nil || fns.InspectToken == nil {
 			panic("InspectToken function is not implemented")
 		}
-		username, isAnonymous, metadata, err := fns.InspectToken(r.Context(), authHeader)
+		username, isAnonymous, metadata, err := fns.InspectToken(r.Context(), authHeader, r.Header)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusUnauthorized)
 			return

@@ -13,7 +13,6 @@ import (
 	"github.com/pipewave-dev/go-pkg/shared/actx"
 	"github.com/pipewave-dev/go-pkg/shared/aerror"
 	"github.com/pipewave-dev/go-pkg/shared/utils/fn"
-	"github.com/vmihailenco/msgpack/v5"
 
 	voAuth "github.com/pipewave-dev/go-pkg/core/domain/value-object/auth"
 	repo "github.com/pipewave-dev/go-pkg/core/repository"
@@ -116,12 +115,11 @@ func (h *clientMsgHandler) handleMessage(clientMsg []byte, auth voAuth.Websocket
 
 	case wsSv.MessageTypeAck:
 		// Handle ACK from client
-		var ackMsg struct {
-			AckId string `msgpack:"ackId"`
+		ackID := string(msg.Binary)
+		if ackID == "" {
+			return
 		}
-		if err := msgpack.Unmarshal(msg.Binary, &ackMsg); err == nil && ackMsg.AckId != "" {
-			h.ackManager.ResolveAck(ackMsg.AckId)
-		}
+		h.ackManager.ResolveAck(ackID)
 		return // No response needed
 
 	default:

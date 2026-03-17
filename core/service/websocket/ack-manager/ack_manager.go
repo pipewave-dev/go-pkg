@@ -64,3 +64,15 @@ func (a *AckManager) WaitForAck(ackID string, ch chan struct{}, timeout time.Dur
 		return false
 	}
 }
+
+// Shutdown cancels all pending ACKs, unblocking any goroutines waiting in WaitForAck.
+// Should be called during graceful shutdown before closing connections.
+func (a *AckManager) Shutdown() {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+
+	for ackID, ch := range a.pending {
+		close(ch)
+		delete(a.pending, ackID)
+	}
+}
