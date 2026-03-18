@@ -163,5 +163,5 @@ func (s *NetpollServer) handleProtocolError(client *Connection, err error) {
 	ws.WriteFrame(client.conn, closeFrame)
 
 	// Remove client
-	s.removeClient(client)
+	client.Close()
 }
