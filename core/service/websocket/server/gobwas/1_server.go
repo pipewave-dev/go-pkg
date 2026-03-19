@@ -138,7 +138,7 @@ func (s *NetpollServer) NewConnection(
 	err = s.poller.Start(desc, func(ev netpoll.Event) {
 		if ev&netpoll.EventReadHup != 0 {
 			// Connection closed
-			s.removeClient(client)
+			client.Close()
 			return
 		}
 
@@ -148,7 +148,7 @@ func (s *NetpollServer) NewConnection(
 	if err != nil {
 		slog.Error("Failed to start netpoll monitoring", slog.Any("error", err))
 
-		s.removeClient(client)
+		client.Close()
 		return nil, aerror.New(context.Background(), aerror.ErrUnexpectedSyscall, err)
 	}
 
@@ -171,8 +171,8 @@ func (s *NetpollServer) send(client *Connection, payload []byte) {
 	// Use a binary frame because payload may be MessagePack/binary, not UTF-8.
 	frame := ws.NewBinaryFrame(payload)
 	if err := ws.WriteFrame(conn, frame); err != nil {
-		s.onReadError(client.auth, fmt.Errorf("failed to send message: %w", err))
-		s.removeClient(client)
+		s.onWriteError(client.auth, fmt.Errorf("failed to send message: %w", err))
+		client.Close()
 	}
 }
 
@@ -185,7 +185,7 @@ func (s *NetpollServer) ping(client *Connection) {
 		err := wsutil.WriteServerMessage(conn, ws.OpPing, nil)
 		if err != nil {
 			s.onWriteError(client.auth, err)
-			s.removeClient(client)
+			client.Close()
 			return
 		}
 	})
@@ -200,12 +200,12 @@ func (s *NetpollServer) processClientMessage(client *Connection) {
 	if err != nil {
 		if errors.Is(err, io.EOF) {
 			// Connection closed normally
-			s.removeClient(client)
+			client.Close()
 			return
 		}
 		if errors.Is(err, net.ErrClosed) {
 			// Connection closed unexpectedly
-			s.removeClient(client)
+			client.Close()
 			return
 		}
 		// Read error
@@ -223,9 +223,9 @@ func (s *NetpollServer) processClientMessage(client *Connection) {
 
 	payload := make([]byte, header.Length)
 	if header.Length > 0 {
-		if _, err := io.ReadFull(conn, payload); err != nil {
+		if _, err = io.ReadFull(conn, payload); err != nil {
 			s.onReadError(client.auth, fmt.Errorf("failed to read frame payload: %w", err))
-			s.removeClient(client)
+			client.Close()
 			return
 		}
 	}
@@ -245,7 +245,7 @@ func (s *NetpollServer) processClientMessage(client *Connection) {
 	err = s.handleFrame(client, frame)
 	if err != nil {
 		s.onReadError(client.auth, err)
-		s.removeClient(client)
+		client.Close()
 		return
 	}
 }

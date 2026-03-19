@@ -9,6 +9,7 @@ type ActiveConnection struct {
 	SessionID string // SortKey
 
 	HolderID      string // Pod name holding this connection (env.PodName)
+	ConnectedAt   time.Time
 	LastHeartbeat time.Time
 	TTL           time.Time
 }

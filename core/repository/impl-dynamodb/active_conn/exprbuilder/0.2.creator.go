@@ -31,6 +31,7 @@ func (creator *ActiveConnectionCreator) Create(ctx context.Context, ddbClient *d
 		SessionID: params.SessionID,
 		HolderID:  params.HolderID,
 
+		ConnectedAt:   now,
 		LastHeartbeat: now,
 		TTL:           now.Add(2*constants.GlobalHeartbeatRateDuration + time.Second),
 	}

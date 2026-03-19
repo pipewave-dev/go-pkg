@@ -4,6 +4,7 @@ import (
 	"github.com/pipewave-dev/go-pkg/core/repository"
 	repo "github.com/pipewave-dev/go-pkg/core/repository"
 	wsSv "github.com/pipewave-dev/go-pkg/core/service/websocket"
+	ackmanager "github.com/pipewave-dev/go-pkg/core/service/websocket/ack-manager"
 	br "github.com/pipewave-dev/go-pkg/core/service/websocket/broadcast"
 	otelP "github.com/pipewave-dev/go-pkg/pkg/otel"
 	"github.com/pipewave-dev/go-pkg/pkg/pubsub"
@@ -18,6 +19,7 @@ type mediatorSvc struct {
 	connections      wsSv.ConnectionManager
 	broadcastHandler br.PubsubHandler
 	broadcast        br.MsgCreator
+	ackManager       *ackmanager.AckManager
 }
 
 func New(
@@ -28,6 +30,7 @@ func New(
 	broadcastHandler br.PubsubHandler,
 	pubsubAdapter pubsub.Adapter,
 	otelProvider otelP.OtelProvider,
+	ackMgr *ackmanager.AckManager,
 ) wsSv.WsService {
 	ins := &mediatorSvc{
 		activeConnRepo:   repo.ActiveConnStore(),
@@ -36,7 +39,8 @@ func New(
 		connections:      connections,
 		broadcastHandler: broadcastHandler,
 
-		broadcast: br.NewMsgCreator(pubsubAdapter, otelProvider, cleanupTask),
+		broadcast:  br.NewMsgCreator(pubsubAdapter, otelProvider, cleanupTask),
+		ackManager: ackMgr,
 	}
 
 	br.StartSubscribers(ins.broadcastHandler, pubsubAdapter, otelProvider, cleanupTask)

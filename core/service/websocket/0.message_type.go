@@ -7,6 +7,7 @@ import (
 type MessageType string
 
 var MessageTypeHeartbeat = MessageType([]byte{202}) // heartbeat
+var MessageTypeAck = MessageType("__ack__")
 
 type WebsocketResponse struct {
 	Id           string      `msgpack:"i,omitempty"`
@@ -14,6 +15,7 @@ type WebsocketResponse struct {
 	MsgType      MessageType `msgpack:"t"`
 	Error        string      `msgpack:"e,omitempty"`
 	Binary       []byte      `msgpack:"b,omitempty"`
+	AckId        string      `msgpack:"a,omitempty"`
 }
 
 func (wsRes *WebsocketResponse) Marshall() []byte {

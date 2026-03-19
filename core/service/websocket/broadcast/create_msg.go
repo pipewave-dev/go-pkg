@@ -37,6 +37,14 @@ type PubsubHandler interface {
 	SendToSession(ctx context.Context, payload SendToSessionParams)
 
 	SendToAnonymous(ctx context.Context, payload SendToAnonymousParams)
+
+	DisconnectSession(ctx context.Context, payload DisconnectSessionParams)
+
+	DisconnectUser(ctx context.Context, payload DisconnectUserParams)
+
+	SendToUsers(ctx context.Context, payload SendToUsersParams)
+
+	Broadcast(ctx context.Context, payload BroadcastParams)
 }
 
 type _f struct {
@@ -59,6 +67,14 @@ type MsgCreator interface {
 	SendToSession(ctx context.Context, payload SendToSessionParams) *pubsubMessage
 
 	SendToAnonymous(ctx context.Context, payload SendToAnonymousParams) *pubsubMessage
+
+	DisconnectSession(ctx context.Context, payload DisconnectSessionParams) *pubsubMessage
+
+	DisconnectUser(ctx context.Context, payload DisconnectUserParams) *pubsubMessage
+
+	SendToUsers(ctx context.Context, payload SendToUsersParams) *pubsubMessage
+
+	Broadcast(ctx context.Context, payload BroadcastParams) *pubsubMessage
 }
 
 func (f *_f) SendToUser(ctx context.Context, payload SendToUserParams) *pubsubMessage {
@@ -83,6 +99,42 @@ func (f *_f) SendToAnonymous(ctx context.Context, payload SendToAnonymousParams)
 	return &pubsubMessage{
 		context: ctx,
 		channel: channelSendToAnonymous,
+		payload: lo.Must(payload.Marshal()),
+		di:      f.di,
+	}
+}
+
+func (f *_f) DisconnectSession(ctx context.Context, payload DisconnectSessionParams) *pubsubMessage {
+	return &pubsubMessage{
+		context: ctx,
+		channel: channelDisconnectSession,
+		payload: lo.Must(payload.Marshal()),
+		di:      f.di,
+	}
+}
+
+func (f *_f) DisconnectUser(ctx context.Context, payload DisconnectUserParams) *pubsubMessage {
+	return &pubsubMessage{
+		context: ctx,
+		channel: channelDisconnectUser,
+		payload: lo.Must(payload.Marshal()),
+		di:      f.di,
+	}
+}
+
+func (f *_f) SendToUsers(ctx context.Context, payload SendToUsersParams) *pubsubMessage {
+	return &pubsubMessage{
+		context: ctx,
+		channel: channelSendToUsers,
+		payload: lo.Must(payload.Marshal()),
+		di:      f.di,
+	}
+}
+
+func (f *_f) Broadcast(ctx context.Context, payload BroadcastParams) *pubsubMessage {
+	return &pubsubMessage{
+		context: ctx,
+		channel: channelBroadcast,
 		payload: lo.Must(payload.Marshal()),
 		di:      f.di,
 	}
@@ -150,6 +202,86 @@ func startSubscriber(hdl PubsubHandler, di *broadcastDI) {
 				}
 				ctx, _ := di.otel.Extract(msg.GetContext(), msg.GetOtelCarrier())
 				hdl.SendToAnonymous(ctx, payload)
+			},
+		)
+		if err != nil {
+			panic(err)
+		}
+		unsubscribeAll = append(unsubscribeAll, unsubscribe)
+	}
+
+	{
+		unsubscribe, err := di.pubsub.Subscribe(
+			channelDisconnectSession,
+			func(msg *pubsubMessage) {
+				var payload DisconnectSessionParams
+				err := payload.Unmarshal(msg.GetPayload())
+				if err != nil {
+					slog.Error("subscriber wrong type DisconnectSessionParams", "error", err, "channel", msg.GetChannel())
+					return
+				}
+				ctx, _ := di.otel.Extract(msg.GetContext(), msg.GetOtelCarrier())
+				hdl.DisconnectSession(ctx, payload)
+			},
+		)
+		if err != nil {
+			panic(err)
+		}
+		unsubscribeAll = append(unsubscribeAll, unsubscribe)
+	}
+
+	{
+		unsubscribe, err := di.pubsub.Subscribe(
+			channelDisconnectUser,
+			func(msg *pubsubMessage) {
+				var payload DisconnectUserParams
+				err := payload.Unmarshal(msg.GetPayload())
+				if err != nil {
+					slog.Error("subscriber wrong type DisconnectUserParams", "error", err, "channel", msg.GetChannel())
+					return
+				}
+				ctx, _ := di.otel.Extract(msg.GetContext(), msg.GetOtelCarrier())
+				hdl.DisconnectUser(ctx, payload)
+			},
+		)
+		if err != nil {
+			panic(err)
+		}
+		unsubscribeAll = append(unsubscribeAll, unsubscribe)
+	}
+
+	{
+		unsubscribe, err := di.pubsub.Subscribe(
+			channelSendToUsers,
+			func(msg *pubsubMessage) {
+				var payload SendToUsersParams
+				err := payload.Unmarshal(msg.GetPayload())
+				if err != nil {
+					slog.Error("subscriber wrong type SendToUsersParams", "error", err, "channel", msg.GetChannel())
+					return
+				}
+				ctx, _ := di.otel.Extract(msg.GetContext(), msg.GetOtelCarrier())
+				hdl.SendToUsers(ctx, payload)
+			},
+		)
+		if err != nil {
+			panic(err)
+		}
+		unsubscribeAll = append(unsubscribeAll, unsubscribe)
+	}
+
+	{
+		unsubscribe, err := di.pubsub.Subscribe(
+			channelBroadcast,
+			func(msg *pubsubMessage) {
+				var payload BroadcastParams
+				err := payload.Unmarshal(msg.GetPayload())
+				if err != nil {
+					slog.Error("subscriber wrong type BroadcastParams", "error", err, "channel", msg.GetChannel())
+					return
+				}
+				ctx, _ := di.otel.Extract(msg.GetContext(), msg.GetOtelCarrier())
+				hdl.Broadcast(ctx, payload)
 			},
 		)
 		if err != nil {

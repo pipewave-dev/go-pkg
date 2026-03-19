@@ -159,7 +159,7 @@ func (d *serverDelivery) LongPollingEndpoint() http.HandlerFunc {
 		if fns == nil || fns.InspectToken == nil {
 			panic("InspectToken function is not implemented")
 		}
-		username, isAnonymous, err := fns.InspectToken(r.Context(), authHeader)
+		username, isAnonymous, metadata, err := fns.InspectToken(r.Context(), authHeader, r.Header)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusUnauthorized)
 			return
@@ -167,9 +167,9 @@ func (d *serverDelivery) LongPollingEndpoint() http.HandlerFunc {
 
 		var wsAuth voAuth.WebsocketAuth
 		if isAnonymous {
-			wsAuth = voAuth.AnonymousUserWebsocketAuth(instanceHeader)
+			wsAuth = voAuth.AnonymousUserWebsocketAuthWithMetadata(instanceHeader, metadata)
 		} else {
-			wsAuth = voAuth.UserWebsocketAuth(username, instanceHeader)
+			wsAuth = voAuth.UserWebsocketAuthWithMetadata(username, instanceHeader, metadata)
 		}
 
 		// 2. Detect first poll vs. reconnect using ConnectionManager.

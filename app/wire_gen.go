@@ -10,6 +10,7 @@ import (
 	"github.com/pipewave-dev/go-pkg/core/delivery/module"
 	"github.com/pipewave-dev/go-pkg/core/repository"
 	"github.com/pipewave-dev/go-pkg/core/service/business/monitoring"
+	"github.com/pipewave-dev/go-pkg/core/service/websocket/ack-manager"
 	"github.com/pipewave-dev/go-pkg/core/service/websocket/broadcast-msg-handler"
 	"github.com/pipewave-dev/go-pkg/core/service/websocket/client-msg-handler"
 	"github.com/pipewave-dev/go-pkg/core/service/websocket/connection-manager"
@@ -48,10 +49,11 @@ func NewPipewave(config configprovider.ConfigStore, s *slog.Logger, rf repositor
 	connectionManager := connectionmanager.Singleton()
 	pubsubHandler := broadcastmsghandler.New(allRepository, connectionManager)
 	adapter := pubsubprovider.New(config, cleanupTask)
-	wsService := mediatorsvc.New(allRepository, cleanupTask, workerPool, connectionManager, pubsubHandler, adapter, otelProvider)
+	ackMgr := ackmanager.New()
+	wsService := mediatorsvc.New(allRepository, cleanupTask, workerPool, connectionManager, pubsubHandler, adapter, otelProvider, ackMgr)
 	rateLimiter := ratelimiter.New(config)
 	intervalTask := fncollector.NewIntervalTask()
-	clientMsgHandler := clientmsghandler.New(config, cleanupTask, intervalTask, observability, adapter, otelProvider, rateLimiter, allRepository)
+	clientMsgHandler := clientmsghandler.New(config, cleanupTask, intervalTask, observability, adapter, otelProvider, rateLimiter, allRepository, ackMgr)
 	cacheProvider := cacheprovider.New(config, cleanupTask)
 	exchangeToken := exchangetoken.New(observability, cacheProvider)
 	queueAdapter := QueueProvider(qf, config, cleanupTask)

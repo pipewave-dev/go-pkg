@@ -8,6 +8,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/expression"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
+	"github.com/pipewave-dev/go-pkg/core/domain/entities"
 	configprovider "github.com/pipewave-dev/go-pkg/provider/config-provider"
 	"github.com/pipewave-dev/go-pkg/shared/aerror"
 	"github.com/samber/lo"
@@ -116,4 +117,51 @@ func (querier *ActiveConnectionQuerier) CountTotalActive(ctx context.Context, dd
 	}
 
 	return total, nil
+}
+
+// QueryByUserID returns all active connections for a user.
+func (querier *ActiveConnectionQuerier) QueryByUserID(ctx context.Context, ddbClient *dynamodb.Client, userID string) ([]entities.ActiveConnection, aerror.AError) {
+	keyEx := expression.Key(FieldUserID).Equal(expression.Value(userID))
+
+	cutoffTime := time.Now().Add(-2 * time.Minute)
+	filterEx := expression.Name(FieldLastHeartbeat).GreaterThan(expression.Value(cutoffTime))
+
+	builder := expression.NewBuilder().
+		WithKeyCondition(keyEx).
+		WithFilter(filterEx)
+
+	expr, errB := builder.Build()
+	if errB != nil {
+		msg := fmt.Sprintf("ActiveConnectionQuerier.QueryByUserID failed: %v", errB)
+		panic(msg)
+	}
+
+	//nolint:exhaustruct
+	queryParams := &dynamodb.QueryInput{
+		TableName:                 lo.ToPtr(querier.ConfigStore.Env().DynamoDB.Tables.ActiveConnection),
+		KeyConditionExpression:    expr.KeyCondition(),
+		ExpressionAttributeNames:  expr.Names(),
+		ExpressionAttributeValues: expr.Values(),
+		FilterExpression:          expr.Filter(),
+	}
+
+	paginator := dynamodb.NewQueryPaginator(ddbClient, queryParams)
+
+	var results []entities.ActiveConnection
+	for paginator.HasMorePages() {
+		output, err := paginator.NextPage(ctx)
+		if err != nil {
+			return nil, aerror.New(ctx, aerror.ErrUnexpectedDynamoDB, err)
+		}
+
+		for _, item := range output.Items {
+			entity, err := fromDynamoMap(item)
+			if err != nil {
+				return nil, aerror.New(ctx, aerror.ErrUnexpectedDynamoDB, err)
+			}
+			results = append(results, *entity)
+		}
+	}
+
+	return results, nil
 }

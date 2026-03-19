@@ -9,6 +9,7 @@ import (
 type WebsocketAuth struct {
 	UserID     string
 	InstanceID string
+	Metadata   map[string]string
 }
 
 func (ws *WebsocketAuth) IsAnonymous() bool {
@@ -55,5 +56,26 @@ func AnonymousUserWebsocketAuth(instanceID string) WebsocketAuth {
 	}
 	return WebsocketAuth{
 		InstanceID: instanceID,
+	}
+}
+
+func UserWebsocketAuthWithMetadata(userID string, instanceID string, metadata map[string]string) WebsocketAuth {
+	if userID == "" || instanceID == "" {
+		panic("voAuth: UserWebsocketAuthWithMetadata called with empty userID or instanceID")
+	}
+	return WebsocketAuth{
+		UserID:     userID,
+		InstanceID: instanceID,
+		Metadata:   metadata,
+	}
+}
+
+func AnonymousUserWebsocketAuthWithMetadata(instanceID string, metadata map[string]string) WebsocketAuth {
+	if instanceID == "" {
+		panic("voAuth: AnonymousUserWebsocketAuthWithMetadata called with empty instanceID")
+	}
+	return WebsocketAuth{
+		InstanceID: instanceID,
+		Metadata:   metadata,
 	}
 }

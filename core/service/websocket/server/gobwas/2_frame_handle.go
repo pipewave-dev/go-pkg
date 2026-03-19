@@ -110,17 +110,16 @@ func (s *NetpollServer) handleContinuationFrame(client *Connection, payload []by
 // handleCloseFrame processes a close frame.
 func (s *NetpollServer) handleCloseFrame(client *Connection, payload []byte) error {
 	// Parse close code and reason if present
-	var closeCode ws.StatusCode = ws.StatusNormalClosure
-	var reason string
+	// var closeCode ws.StatusCode = ws.StatusNormalClosure
+	// var reason string
+	// fmt.Printf("Received close frame: code=%d, reason=%s\n", closeCode, reason)
 
-	if len(payload) >= 2 {
-		closeCode = ws.StatusCode(uint16(payload[0])<<8 | uint16(payload[1]))
-		if len(payload) > 2 {
-			reason = string(payload[2:])
-		}
-	}
-
-	fmt.Printf("Received close frame: code=%d, reason=%s\n", closeCode, reason)
+	// if len(payload) >= 2 {
+	// 	closeCode = ws.StatusCode(uint16(payload[0])<<8 | uint16(payload[1]))
+	// 	if len(payload) > 2 {
+	// 		reason = string(payload[2:])
+	// 	}
+	// }
 
 	// Send close frame response
 	closeFrame := ws.NewCloseFrame(ws.NewCloseFrameBody(ws.StatusNormalClosure, ""))
@@ -164,5 +163,5 @@ func (s *NetpollServer) handleProtocolError(client *Connection, err error) {
 	ws.WriteFrame(client.conn, closeFrame)
 
 	// Remove client
-	s.removeClient(client)
+	client.Close()
 }
