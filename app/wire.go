@@ -10,6 +10,7 @@ import (
 	_ "github.com/pipewave-dev/go-pkg/shared/aerror"
 
 	configprovider "github.com/pipewave-dev/go-pkg/provider/config-provider"
+	pubsubfactory "github.com/pipewave-dev/go-pkg/provider/pubsub"
 	"github.com/pipewave-dev/go-pkg/provider/queue"
 	"github.com/google/wire"
 )
@@ -19,6 +20,7 @@ func NewPipewave(
 	s *slog.Logger,
 	rf repository.RepoFactory,
 	qf queue.QueueFactory,
+	pf pubsubfactory.PubsubFactory,
 ) *AppDI {
 	wire.Build(IteractorCollection)
 

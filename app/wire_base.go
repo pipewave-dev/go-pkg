@@ -5,9 +5,11 @@ import (
 	"github.com/pipewave-dev/go-pkg/core/repository"
 	wirecollection "github.com/pipewave-dev/go-pkg/gen/wire"
 	"github.com/pipewave-dev/go-pkg/pkg/observer"
+	pkgpubsub "github.com/pipewave-dev/go-pkg/pkg/pubsub"
 	pkgqueue "github.com/pipewave-dev/go-pkg/pkg/queue"
 	configprovider "github.com/pipewave-dev/go-pkg/provider/config-provider"
 	fncollector "github.com/pipewave-dev/go-pkg/provider/fn-collector"
+	pubsubfactory "github.com/pipewave-dev/go-pkg/provider/pubsub"
 	"github.com/pipewave-dev/go-pkg/provider/queue"
 	"github.com/google/wire"
 )
@@ -39,11 +41,20 @@ func QueueProvider(
 	return f(c, cleanupTask)
 }
 
+func PubsubProvider(
+	f pubsubfactory.PubsubFactory,
+	c configprovider.ConfigStore,
+	cleanupTask fncollector.CleanupTask,
+) pkgpubsub.Adapter {
+	return f(c, cleanupTask)
+}
+
 var IteractorCollection = wire.NewSet(
 	wirecollection.DefaultWireSet,
 	NewAppDI,
 	RepoProvider,
 	QueueProvider,
+	PubsubProvider,
 )
 
 // func InitializeEvent(phrase string) (Event, error) {

@@ -19,8 +19,7 @@ import (
 	mux_middleware "github.com/pipewave-dev/go-pkg/provider/mux-middleware"
 	observer_provider "github.com/pipewave-dev/go-pkg/provider/observer-provider"
 	otel_provider "github.com/pipewave-dev/go-pkg/provider/otel-provider"
-	pubsub_provider "github.com/pipewave-dev/go-pkg/provider/pubsub-provider"
-	validation_provider "github.com/pipewave-dev/go-pkg/provider/validation-provider"
+validation_provider "github.com/pipewave-dev/go-pkg/provider/validation-provider"
 	worker_pool_provider "github.com/pipewave-dev/go-pkg/provider/worker-pool-provider"
 )
 
@@ -43,7 +42,6 @@ var DefaultWireSet = wire.NewSet(
 	mux_middleware.WireSet,
 	observer_provider.WireSet,
 	otel_provider.WireSet,
-	pubsub_provider.WireSet,
-	validation_provider.WireSet,
+validation_provider.WireSet,
 	worker_pool_provider.WireSet,
 )

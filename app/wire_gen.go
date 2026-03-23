@@ -26,7 +26,7 @@ import (
 	"github.com/pipewave-dev/go-pkg/provider/mux-middleware"
 	"github.com/pipewave-dev/go-pkg/provider/observer-provider"
 	"github.com/pipewave-dev/go-pkg/provider/otel-provider"
-	"github.com/pipewave-dev/go-pkg/provider/pubsub-provider"
+	pubsubfactory "github.com/pipewave-dev/go-pkg/provider/pubsub"
 	"github.com/pipewave-dev/go-pkg/provider/queue"
 	"github.com/pipewave-dev/go-pkg/provider/worker-pool-provider"
 	"log/slog"
@@ -38,7 +38,7 @@ import (
 
 // Injectors from wire.go:
 
-func NewPipewave(config configprovider.ConfigStore, s *slog.Logger, rf repository.RepoFactory, qf queue.QueueFactory) *AppDI {
+func NewPipewave(config configprovider.ConfigStore, s *slog.Logger, rf repository.RepoFactory, qf queue.QueueFactory, pf pubsubfactory.PubsubFactory) *AppDI {
 	middlewareProvider := muxmiddleware.New(config)
 	v := healthyprovider.New(config)
 	cleanupTask := fncollector.NewCleanupTask()
@@ -48,7 +48,7 @@ func NewPipewave(config configprovider.ConfigStore, s *slog.Logger, rf repositor
 	allRepository := RepoProvider(rf, config, observability)
 	connectionManager := connectionmanager.Singleton()
 	pubsubHandler := broadcastmsghandler.New(allRepository, connectionManager)
-	adapter := pubsubprovider.New(config, cleanupTask)
+	adapter := PubsubProvider(pf, config, cleanupTask)
 	ackMgr := ackmanager.New()
 	wsService := mediatorsvc.New(allRepository, cleanupTask, workerPool, connectionManager, pubsubHandler, adapter, otelProvider, ackMgr)
 	rateLimiter := ratelimiter.New(config)

@@ -1,4 +1,4 @@
-package pubsubprovider
+package pubsub
 
 import (
 	"github.com/pipewave-dev/go-pkg/global/constants"
@@ -8,12 +8,11 @@ import (
 	fncollector "github.com/pipewave-dev/go-pkg/provider/fn-collector"
 )
 
-// New creates a new pubsub provider with injected config.
-// This replaces the singleton pattern in singleton/pubsub with dependency injection.
-func New(cfg configprovider.ConfigStore, cleanupTask fncollector.CleanupTask) pubsub.Adapter {
-	env := cfg.Env()
+type PubsubFactory = func(c configprovider.ConfigStore, cleanupTask fncollector.CleanupTask) pubsub.Adapter
 
-	pubsubIns := valkey.New(&valkey.Config{
+func PubsubValkey(c configprovider.ConfigStore, cleanupTask fncollector.CleanupTask) pubsub.Adapter {
+	env := c.Env()
+	ins := valkey.New(&valkey.Config{
 		ValkeyEndpoint: env.Valkey.PrimaryAddress,
 		Password:       env.Valkey.Password,
 		DB:             env.Valkey.DatabaseIdx,
@@ -22,8 +21,8 @@ func New(cfg configprovider.ConfigStore, cleanupTask fncollector.CleanupTask) pu
 
 	// Register cleanup task
 	cleanupTask.RegTask(func() {
-		pubsubIns.Flush()
+		ins.Flush()
 	}, fncollector.FnPriorityNormal)
 
-	return pubsubIns
+	return ins
 }
