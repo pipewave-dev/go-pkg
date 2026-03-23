@@ -1,13 +1,5 @@
 package configprovider
 
-import (
-	"log"
-	"os"
-	"time"
-
-	"github.com/samber/lo"
-)
-
 // configStore is the concrete implementation of ConfigStore interface
 type configStore struct {
 	env *globalEnvT
@@ -42,14 +34,6 @@ func (e *globalEnvT) validate() {
 func (e *globalEnvT) loadDefault() {
 	// Set default timezone
 	{
-		if e.TimezoneStr == nil {
-			e.TimezoneStr = lo.ToPtr(os.Getenv("TZ"))
-		}
-		loc, err := time.LoadLocation(*e.TimezoneStr)
-		if err != nil {
-			log.Panicf("Parsing failed for TimezoneStr with value [%s]", *e.TimezoneStr)
-		}
-		e.TimeLocation = loc
-		time.Local = loc // Set the global time.Local to the parsed location
+		e.Version = "v0.1.1"
 	}
 }

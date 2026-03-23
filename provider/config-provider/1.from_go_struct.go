@@ -1,13 +1,8 @@
 package configprovider
 
-import (
-	"time"
-)
-
 type EnvType struct {
 	Env     string
 	PodName string
-	Version string
 
 	Debug struct {
 		Enabled bool
@@ -16,8 +11,6 @@ type EnvType struct {
 	RateLimiter RateLimiterT
 
 	WorkerPool WorkerPoolT
-
-	TimeLocation *time.Location
 
 	TraceIDHeader string
 	IpHeader      string
@@ -34,9 +27,7 @@ func FromGoStruct(input EnvType) ConfigStore {
 	env := globalEnvT{
 		Env:           input.Env,
 		PodName:       input.PodName,
-		Version:       input.Version,
 		WorkerPool:    input.WorkerPool,
-		TimeLocation:  input.TimeLocation,
 		TraceIDHeader: input.TraceIDHeader,
 		IpHeader:      input.IpHeader,
 		Cors:          input.Cors,
@@ -45,11 +36,6 @@ func FromGoStruct(input EnvType) ConfigStore {
 		Valkey:        input.Valkey,
 		DynamoDB:      input.DynamoDB,
 		Postgres:      input.Postgres,
-	}
-
-	// Mirror what loadDefault() does for timezone
-	if input.TimeLocation != nil {
-		time.Local = input.TimeLocation
 	}
 
 	env.validate()

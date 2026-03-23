@@ -1,9 +1,5 @@
 package configprovider
 
-import (
-	"time"
-)
-
 // globalEnvT contains all application configuration loaded from YAML files and environment variables
 type globalEnvT struct {
 	Env     string `koanf:"ENV_NAME"`
@@ -11,13 +7,6 @@ type globalEnvT struct {
 	Version string `koanf:"VERSION"`
 
 	WorkerPool WorkerPoolT `koanf:"WORKER_POOL"`
-
-	/*
-		See
-		https://en.wikipedia.org/wiki/List_of_tz_database_time_zones
-	*/
-	TimezoneStr  *string `koanf:"TIME_ZONE"`
-	TimeLocation *time.Location
 
 	TraceIDHeader string     `koanf:"TRACE_ID_HEADER"`
 	IpHeader      string     `koanf:"IP_HEADER"`
