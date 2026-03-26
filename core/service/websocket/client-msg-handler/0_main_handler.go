@@ -119,7 +119,18 @@ func (h *clientMsgHandler) handleMessage(clientMsg []byte, auth voAuth.Websocket
 		if ackID == "" {
 			return
 		}
-		h.ackManager.ResolveAck(ackID)
+		if h.ackManager.ResolveAck(ackID) {
+			return
+		}
+		// Not a local ack — route back to the originating container
+		if sourceContainerID, ok := h.ackManager.ResolveRemoteAck(ackID); ok {
+			if err := h.broadcast.AckResolved(aCtx, []string{sourceContainerID}, broadcast.AckResolvedParams{AckID: ackID}).Publish(); err != nil {
+				slog.WarnContext(aCtx, "Failed to publish AckResolved",
+					slog.String("ackID", ackID),
+					slog.String("sourceContainerID", sourceContainerID),
+					slog.Any("error", err))
+			}
+		}
 		return // No response needed
 
 	default:

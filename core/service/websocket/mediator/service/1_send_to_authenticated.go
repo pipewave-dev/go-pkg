@@ -7,8 +7,8 @@ import (
 	"github.com/pipewave-dev/go-pkg/shared/aerror"
 )
 
-func (m *mediatorSvc) SendToAll(ctx context.Context, msgType string, payload []byte) aerror.AError {
-	return m.broadcast.SendToAll(ctx, br.SendToAllParams{
+func (m *mediatorSvc) SendToAuthenticated(ctx context.Context, msgType string, payload []byte) aerror.AError {
+	return m.broadcast.SendToAuthenticated(ctx, br.SendToAuthenticatedParams{
 		MsgType: msgType,
 		Payload: payload,
 	}).Publish()

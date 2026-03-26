@@ -9,14 +9,16 @@ import (
 
 // AckManager manages pending message acknowledgments.
 type AckManager struct {
-	mu      sync.RWMutex
-	pending map[string]chan struct{}
+	mu         sync.RWMutex
+	pending    map[string]chan struct{}
+	remoteAcks map[string]string // ackID → sourceContainerID
 }
 
 // New creates a new AckManager.
 func New() *AckManager {
 	return &AckManager{
-		pending: make(map[string]chan struct{}),
+		pending:    make(map[string]chan struct{}),
+		remoteAcks: make(map[string]string),
 	}
 }
 
@@ -65,6 +67,27 @@ func (a *AckManager) WaitForAck(ackID string, ch chan struct{}, timeout time.Dur
 	}
 }
 
+// RegisterRemoteAck registers an ack that originated on a remote container.
+// Called on ContainerB when it receives a SendWithAck pubsub message,
+// so that when the client ACKs, it can route the signal back to ContainerA.
+func (a *AckManager) RegisterRemoteAck(ackID, sourceContainerID string) {
+	a.mu.Lock()
+	a.remoteAcks[ackID] = sourceContainerID
+	a.mu.Unlock()
+}
+
+// ResolveRemoteAck looks up and removes a remote ack entry.
+// Returns the sourceContainerID and true if found.
+func (a *AckManager) ResolveRemoteAck(ackID string) (sourceContainerID string, ok bool) {
+	a.mu.Lock()
+	sourceContainerID, ok = a.remoteAcks[ackID]
+	if ok {
+		delete(a.remoteAcks, ackID)
+	}
+	a.mu.Unlock()
+	return
+}
+
 // Shutdown cancels all pending ACKs, unblocking any goroutines waiting in WaitForAck.
 // Should be called during graceful shutdown before closing connections.
 func (a *AckManager) Shutdown() {
@@ -74,5 +97,9 @@ func (a *AckManager) Shutdown() {
 	for ackID, ch := range a.pending {
 		close(ch)
 		delete(a.pending, ackID)
+	}
+
+	for ackID := range a.remoteAcks {
+		delete(a.remoteAcks, ackID)
 	}
 }

@@ -12,6 +12,12 @@ const (
 	msgTDisconnectUser msgType = "DisconnectUser"
 	// SendToUsersParams
 	msgTSendToUsers msgType = "SendToUsers"
+	// SendToSessionWithAckParams
+	msgTSendToSessionWithAck msgType = "SendToSessionWithAck"
+	// SendToUserWithAckParams
+	msgTSendToUserWithAck msgType = "SendToUserWithAck"
+	// AckResolvedParams
+	msgTAckResolved msgType = "AckResolved"
 )
 
 // All

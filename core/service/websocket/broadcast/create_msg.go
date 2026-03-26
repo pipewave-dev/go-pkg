@@ -42,6 +42,12 @@ type PubsubHandler interface {
 
 	SendToUsers(ctx context.Context, payload SendToUsersParams)
 
+	SendToSessionWithAck(ctx context.Context, payload SendToSessionWithAckParams)
+
+	SendToUserWithAck(ctx context.Context, payload SendToUserWithAckParams)
+
+	AckResolved(ctx context.Context, payload AckResolvedParams)
+
 	SendToAnonymous(ctx context.Context, payload SendToAnonymousParams)
 
 	SendToAuthenticated(ctx context.Context, payload SendToAuthenticatedParams)
@@ -74,6 +80,12 @@ type MsgCreator interface {
 	DisconnectUser(ctx context.Context, containerIDs []string, payload DisconnectUserParams) *pubsubMessage
 
 	SendToUsers(ctx context.Context, containerIDs []string, payload SendToUsersParams) *pubsubMessage
+
+	SendToSessionWithAck(ctx context.Context, containerIDs []string, payload SendToSessionWithAckParams) *pubsubMessage
+
+	SendToUserWithAck(ctx context.Context, containerIDs []string, payload SendToUserWithAckParams) *pubsubMessage
+
+	AckResolved(ctx context.Context, containerIDs []string, payload AckResolvedParams) *pubsubMessage
 
 	SendToAnonymous(ctx context.Context, payload SendToAnonymousParams) *pubsubMessage
 
@@ -127,6 +139,36 @@ func (f *_f) SendToUsers(ctx context.Context, containerIDs []string, payload Sen
 		targetContainers: containerIDs,
 		context:          ctx,
 		msgType:          msgTSendToUsers,
+		payload:          lo.Must(payload.Marshal()),
+		di:               f.di,
+	}
+}
+
+func (f *_f) SendToSessionWithAck(ctx context.Context, containerIDs []string, payload SendToSessionWithAckParams) *pubsubMessage {
+	return &pubsubMessage{
+		targetContainers: containerIDs,
+		context:          ctx,
+		msgType:          msgTSendToSessionWithAck,
+		payload:          lo.Must(payload.Marshal()),
+		di:               f.di,
+	}
+}
+
+func (f *_f) SendToUserWithAck(ctx context.Context, containerIDs []string, payload SendToUserWithAckParams) *pubsubMessage {
+	return &pubsubMessage{
+		targetContainers: containerIDs,
+		context:          ctx,
+		msgType:          msgTSendToUserWithAck,
+		payload:          lo.Must(payload.Marshal()),
+		di:               f.di,
+	}
+}
+
+func (f *_f) AckResolved(ctx context.Context, containerIDs []string, payload AckResolvedParams) *pubsubMessage {
+	return &pubsubMessage{
+		targetContainers: containerIDs,
+		context:          ctx,
+		msgType:          msgTAckResolved,
 		payload:          lo.Must(payload.Marshal()),
 		di:               f.di,
 	}
@@ -266,6 +308,39 @@ func (t *diTmp) handleMsg(msg *pubsubMessage) {
 				return
 			}
 			t.hdl.SendToUsers(ctx, payload)
+		}
+
+	case msgTSendToSessionWithAck:
+		{
+			var payload SendToSessionWithAckParams
+			err := payload.Unmarshal(msg.GetPayload())
+			if err != nil {
+				slog.Error("subscriber wrong type SendToSessionWithAckParams", "error", err, "msgType", msg.GetMsgType())
+				return
+			}
+			t.hdl.SendToSessionWithAck(ctx, payload)
+		}
+
+	case msgTSendToUserWithAck:
+		{
+			var payload SendToUserWithAckParams
+			err := payload.Unmarshal(msg.GetPayload())
+			if err != nil {
+				slog.Error("subscriber wrong type SendToUserWithAckParams", "error", err, "msgType", msg.GetMsgType())
+				return
+			}
+			t.hdl.SendToUserWithAck(ctx, payload)
+		}
+
+	case msgTAckResolved:
+		{
+			var payload AckResolvedParams
+			err := payload.Unmarshal(msg.GetPayload())
+			if err != nil {
+				slog.Error("subscriber wrong type AckResolvedParams", "error", err, "msgType", msg.GetMsgType())
+				return
+			}
+			t.hdl.AckResolved(ctx, payload)
 		}
 
 	}
