@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"time"
 
-	voAuth "github.com/pipewave-dev/go-pkg/core/domain/value-object/auth"
+	voWs "github.com/pipewave-dev/go-pkg/core/domain/value-object/ws"
 	"github.com/pipewave-dev/go-pkg/shared/aerror"
 )
 
@@ -31,7 +31,7 @@ type SessionInfo struct {
 	UserID         string
 	InstanceID     string
 	HolderID       string
-	ConnectionType voAuth.WsCoreType
+	ConnectionType voWs.WsCoreType
 	ConnectedAt    time.Time
 	IsAnonymous    bool
 }

@@ -1,6 +1,9 @@
 package websocket
 
-import voAuth "github.com/pipewave-dev/go-pkg/core/domain/value-object/auth"
+import (
+	voAuth "github.com/pipewave-dev/go-pkg/core/domain/value-object/auth"
+	voWs "github.com/pipewave-dev/go-pkg/core/domain/value-object/ws"
+)
 
 type WsConnCoreType int8
 
@@ -12,7 +15,7 @@ const (
 type WebsocketConn interface {
 	Auth() voAuth.WebsocketAuth
 	Send(payload []byte)
-	CoreType() voAuth.WsCoreType
+	CoreType() voWs.WsCoreType
 	Close()
 	Ping()
 }

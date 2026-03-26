@@ -3,7 +3,7 @@ package entities
 import (
 	"time"
 
-	voAuth "github.com/pipewave-dev/go-pkg/core/domain/value-object/auth"
+	voWs "github.com/pipewave-dev/go-pkg/core/domain/value-object/ws"
 )
 
 type ActiveConnection struct {
@@ -12,7 +12,8 @@ type ActiveConnection struct {
 
 	HolderID string // ContainerID that holds this connection, used for routing message via publish-subscribe system
 
-	ConnectionType voAuth.WsCoreType // ConnectionType enum, e.g. WebSocket, HTTP Long Polling, etc.
+	ConnectionType voWs.WsCoreType // ConnectionType enum, e.g. WebSocket, HTTP Long Polling, etc.
+	Status         voWs.WsStatus
 
 	ConnectedAt   time.Time
 	LastHeartbeat time.Time

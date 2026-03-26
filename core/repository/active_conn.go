@@ -4,7 +4,7 @@ import (
 	"context"
 
 	"github.com/pipewave-dev/go-pkg/core/domain/entities"
-	voAuth "github.com/pipewave-dev/go-pkg/core/domain/value-object/auth"
+	voWs "github.com/pipewave-dev/go-pkg/core/domain/value-object/ws"
 	"github.com/pipewave-dev/go-pkg/shared/aerror"
 )
 
@@ -14,7 +14,7 @@ type ActiveConnStore interface {
 	// Count total active connections across all containers (include other containers when using loadbalancer)
 	// Warn: this function will scan all items in the table, so it will be slow if the table is large (do not use it frequently)
 	CountTotalActiveConnections(ctx context.Context) (int64, aerror.AError)
-	AddConnection(ctx context.Context, userID string, instanceID string, connectionType voAuth.WsCoreType) aerror.AError
+	AddConnection(ctx context.Context, userID string, instanceID string, connectionType voWs.WsCoreType) aerror.AError
 	RemoveConnection(ctx context.Context, userID string, instanceID string) aerror.AError
 	UpdateHeartBeat(ctx context.Context, userID string, instanceID string) aerror.AError
 

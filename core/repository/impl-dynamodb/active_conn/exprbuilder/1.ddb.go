@@ -6,8 +6,8 @@ import (
 	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 	"github.com/pipewave-dev/go-pkg/core/domain/entities"
-	voAuth "github.com/pipewave-dev/go-pkg/core/domain/value-object/auth"
 	voUnixTime "github.com/pipewave-dev/go-pkg/core/domain/value-object/unixtime"
+	voWs "github.com/pipewave-dev/go-pkg/core/domain/value-object/ws"
 )
 
 // Field name
@@ -16,6 +16,7 @@ const (
 	FieldSessionID      = "SessionID"
 	FieldHolderID       = "HolderID"
 	FieldConnectionType = "ConnectionType"
+	FieldStatus         = "Status"
 	FieldConnectedAt    = "ConnectedAt"
 	FieldLastHeartbeat  = "LastHeartbeat"
 	FieldTTL            = "TTL"
@@ -26,7 +27,8 @@ type ddbActiveConnection struct {
 	SessionID string // SortKey
 
 	HolderID       string // Pod name holding this connection (env.PodName)
-	ConnectionType voAuth.WsCoreType
+	ConnectionType voWs.WsCoreType
+	Status         voWs.WsStatus
 	ConnectedAt    voUnixTime.UnixMilliTime
 	LastHeartbeat  voUnixTime.UnixMilliTime
 	TTL            voUnixTime.UnixMilliTime
@@ -38,6 +40,7 @@ func toDynamoDBItem(e *entities.ActiveConnection) *ddbActiveConnection {
 		SessionID:      e.SessionID,
 		HolderID:       e.HolderID,
 		ConnectionType: e.ConnectionType,
+		Status:         e.Status,
 		ConnectedAt:    voUnixTime.UnixMilliTime(e.ConnectedAt),
 		LastHeartbeat:  voUnixTime.UnixMilliTime(e.LastHeartbeat),
 		TTL:            voUnixTime.UnixMilliTime(e.TTL),
@@ -50,6 +53,7 @@ func (e *ddbActiveConnection) toEntity() *entities.ActiveConnection {
 		SessionID:      e.SessionID,
 		HolderID:       e.HolderID,
 		ConnectionType: e.ConnectionType,
+		Status:         e.Status,
 		ConnectedAt:    time.Time(e.ConnectedAt),
 		LastHeartbeat:  time.Time(e.LastHeartbeat),
 		TTL:            time.Time(e.TTL),

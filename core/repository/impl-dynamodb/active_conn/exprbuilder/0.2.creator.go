@@ -7,7 +7,7 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/pipewave-dev/go-pkg/core/domain/entities"
-	voAuth "github.com/pipewave-dev/go-pkg/core/domain/value-object/auth"
+	voWs "github.com/pipewave-dev/go-pkg/core/domain/value-object/ws"
 	"github.com/pipewave-dev/go-pkg/global/constants"
 	configprovider "github.com/pipewave-dev/go-pkg/provider/config-provider"
 	"github.com/pipewave-dev/go-pkg/shared/aerror"
@@ -23,7 +23,7 @@ type CreateParams struct {
 	SessionID string
 
 	HolderID       string
-	ConnectionType voAuth.WsCoreType
+	ConnectionType voWs.WsCoreType
 }
 
 func (creator *ActiveConnectionCreator) Create(ctx context.Context, ddbClient *dynamodb.Client, params CreateParams) (*entities.ActiveConnection, aerror.AError) {
@@ -34,6 +34,7 @@ func (creator *ActiveConnectionCreator) Create(ctx context.Context, ddbClient *d
 		HolderID:  params.HolderID,
 
 		ConnectionType: params.ConnectionType,
+		Status:         voWs.WsStatusConnected,
 		ConnectedAt:    now,
 		LastHeartbeat:  now,
 		TTL:            now.Add(2*constants.GlobalHeartbeatRateDuration + time.Second),

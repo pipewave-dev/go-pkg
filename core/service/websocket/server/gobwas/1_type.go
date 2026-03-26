@@ -6,6 +6,7 @@ import (
 	"time"
 
 	voAuth "github.com/pipewave-dev/go-pkg/core/domain/value-object/auth"
+	voWs "github.com/pipewave-dev/go-pkg/core/domain/value-object/ws"
 	wsSv "github.com/pipewave-dev/go-pkg/core/service/websocket"
 	workerpool "github.com/pipewave-dev/go-pkg/pkg/worker-pool"
 	configprovider "github.com/pipewave-dev/go-pkg/provider/config-provider"
@@ -40,8 +41,8 @@ type GobwasConnection struct {
 	closed int32
 }
 
-func (cl *GobwasConnection) CoreType() voAuth.WsCoreType {
-	return voAuth.WsCoreGobwas
+func (cl *GobwasConnection) CoreType() voWs.WsCoreType {
+	return voWs.WsCoreGobwas
 }
 
 func (cl *GobwasConnection) Ping() {

@@ -12,6 +12,7 @@ import (
 	msgpack "github.com/vmihailenco/msgpack/v5"
 
 	voAuth "github.com/pipewave-dev/go-pkg/core/domain/value-object/auth"
+	voWs "github.com/pipewave-dev/go-pkg/core/domain/value-object/ws"
 	wsSv "github.com/pipewave-dev/go-pkg/core/service/websocket"
 	"github.com/pipewave-dev/go-pkg/pkg/queue"
 )
@@ -63,8 +64,8 @@ func newLongPollingConn(auth voAuth.WebsocketAuth, qa queue.Adapter, onCloseFn w
 	}
 }
 
-func (c *LongPollingConn) CoreType() voAuth.WsCoreType {
-	return voAuth.WsCoreLongPolling
+func (c *LongPollingConn) CoreType() voWs.WsCoreType {
+	return voWs.WsCoreLongPolling
 }
 
 func (c *LongPollingConn) Auth() voAuth.WebsocketAuth { return c.auth }
