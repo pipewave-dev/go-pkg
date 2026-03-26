@@ -26,6 +26,7 @@ When a WebSocket session temporarily disconnects (e.g., 3s network blip), any me
 - Message deduplication on the client side
 - Ordered delivery guarantees beyond DynamoDB sort key ordering
 - Buffering for anonymous sessions
+- Message count or payload size caps per session buffer
 
 ---
 
@@ -67,9 +68,25 @@ When a WebSocket session temporarily disconnects (e.g., 3s network blip), any me
   msgHubSvc.Deregister(userID, instanceID)   ← cancels in-memory timer
 ```
 
+### Terminology
+
+`instanceID` throughout this spec is the same field as `SessionID` in the `ActiveConnection` DynamoDB entity. The codebase uses `InstanceID` in `voAuth.WebsocketAuth`; the DB entity uses `SessionID` as its sort key. They refer to the same value.
+
 ### Container crash resilience
 
-If the container holding the `ExpiredTimer` (P1) crashes, the timer is lost. The `ActiveConnection` record is cleaned up by DynamoDB TTL (set at the time of temp disconnect). Pending messages in `PendingMessage` table are cleaned up by their own DynamoDB TTL. This is an accepted known limitation.
+If the container holding the `ExpiredTimer` (P1) crashes, the timer is lost. The `ActiveConnection` record is cleaned up by DynamoDB TTL (set at the time of temp disconnect). Pending messages in the `PendingMessage` table are cleaned up by their own DynamoDB TTL (same duration as session TTL). This is an accepted known limitation.
+
+In the window between P1 crash-restart and DB TTL expiry, new messages routed to P1 will hit `IsRegistered = false` and be dropped with `slog.Warn`. This is acceptable — same behavior as current silent drop, but now visible in logs.
+
+### Handoff race window
+
+When a session reconnects (P2), there is a narrow async window during which P1 (old holder) may still buffer a message after P2's `Consume` has already run. This is an inherent property of async pubsub and results in at-most-once delivery during the handoff transition. Worst case: one in-flight message at the exact reconnect moment is lost. This is accepted.
+
+### Graceful shutdown
+
+`mediatorSvc.Shutdown()` calls `conn.Close()` on all connections, which triggers `onCloseStuff` → `onCloseRegister`. Without intervention, every session would enter the temp-disconnect path, causing a flood of DynamoDB writes.
+
+Fix: `serverDelivery` must expose a `MarkShuttingDown()` method (sets an `atomic.Bool`). `mediatorSvc.Shutdown()` calls this before closing connections. `onCloseRegister` checks this flag and uses the permanent-disconnect path (remove from DB immediately) when shutting down.
 
 ---
 
@@ -122,19 +139,21 @@ type PendingMessageRepo interface {
 
 DynamoDB table structure:
 - Hash key: `userID + ":" + instanceID`
-- Sort key: `sendAt` (time.Time as int64 Unix nano)
-- TTL attribute aligned with `MessageHubSvc.ttl` from config
+- Sort key: `sendAt` (server receive time as int64 Unix nano — used for ordering)
+- TTL attribute: same duration as the session TTL from config provider
+- `GetAll` returns messages ordered ascending by `sendAt`
 
 ### Updates to existing interfaces
 
 ```go
-// core/repository/active_conn.go
+// core/repository/active_conn.go — new method (additive, non-breaking)
 UpdateStatus(ctx context.Context, userID, instanceID string, status voWs.WsStatus) aerror.AError
 
-// core/repository/0.all_repo.go
+// core/repository/0.all_repo.go — new method (additive, non-breaking)
 PendingMessage() PendingMessageRepo
 
-// core/service/websocket/0.ws_service.go
+// core/service/websocket/0.ws_service.go — new method (additive; all existing WsService
+// implementations must add a stub or implement this method)
 ResumeSession(ctx context.Context, targetContainerID, userID, instanceID string) aerror.AError
 ```
 
@@ -179,10 +198,11 @@ msgTResumeSession msgType = "ResumeSession"
 | `core/service/websocket/broadcast-msg-handler/1_send_to_session.go` | Check registry; slog.Warn on drop |
 | `core/service/websocket/broadcast-msg-handler/1_send_to_user.go` | Buffer temp sessions; slog.Warn |
 | `core/service/websocket/broadcast-msg-handler/wire.go` | Inject `msgHubSvc` |
-| `core/service/websocket/mediator/service/0.new.go` | Inject `msgHubSvc` |
+| `core/service/websocket/mediator/service/0.new.go` | Inject `msgHubSvc`; add `MarkShuttingDown()` call in `Shutdown()` |
 | `core/service/websocket/mediator/service/wire.go` | Inject `msgHubSvc` |
-| `core/service/websocket/mediator/delivery/0.new.go` | Update `onCloseRegister` + `onNewRegister` |
-| `core/service/websocket/mediator/delivery/wire.go` | Inject `msgHubSvc` |
+| `core/service/websocket/mediator/service/3.shutdown.go` | Call `delivery.MarkShuttingDown()` before closing connections |
+| `core/service/websocket/mediator/delivery/0.new.go` | Add `shuttingDown atomic.Bool`; update `onCloseRegister` + `onNewRegister` |
+| `core/service/websocket/mediator/delivery/wire.go` | Inject `msgHubSvc`; expose `MarkShuttingDown()` |
 
 ---
 
@@ -191,15 +211,19 @@ msgTResumeSession msgType = "ResumeSession"
 ### `onCloseRegister` (delivery/0.new.go)
 
 ```
-anonymous session → remove from DB immediately (existing behavior)
-authenticated session:
+permanent path (anonymous session OR d.shuttingDown == true):
+  1. connectionMgr.RemoveConnection(auth)
+  2. rateLimiter.Remove(auth)
+  3. activeConnRepo.RemoveConnection(...)   ← existing behavior
+
+temp-disconnect path (authenticated session, not shutting down):
   1. connectionMgr.RemoveConnection(auth)
   2. rateLimiter.Remove(auth)
   3. activeConnRepo.UpdateStatus(ctx, userID, instanceID, WsStatusTempDisconnected)
   4. msgHubSvc.Register(userID, instanceID, func() {
          // onExpired: timer fired, session never reconnected
          activeConnRepo.RemoveConnection(ctx, userID, instanceID)
-         msgHubSvc.Consume(ctx, userID, instanceID)  // discard pending messages
+         // pending messages in DB cleaned up by their own TTL
      })
 ```
 
@@ -257,10 +281,18 @@ if len(conns) == 0 && len(tempSessions) == 0:
 
 ## Error Handling
 
-- `UpdateStatus` failure on close → log error, connection already removed from memory; DB TTL will eventually clean up
-- `msgHubSvc.Save` failure → log error, message is lost (acceptable: same as current drop behavior)
-- `msgHubSvc.Consume` failure on reconnect → log error, pending messages are not delivered; session continues normally
-- `ResumeSession` pubsub failure → log error; the old ExpiredTimer will fire eventually and clean up correctly (no correctness issue, only a delay)
+- `UpdateStatus` failure on close → log error; connection already removed from memory; DB TTL will eventually clean up the record
+- `msgHubSvc.Save` failure → log error; message is lost (same as current silent drop behavior)
+- `msgHubSvc.Consume` failure on reconnect → log error; session continues normally without buffered messages
+- `ResumeSession` pubsub failure → log error; ExpiredTimer on P1 fires eventually and cleans up correctly (no correctness issue, only a delay)
+
+### `Consume` contract
+
+`Consume` executes in order: `GetAll` → `DeleteAll` → return messages.
+
+- If crash after `GetAll` but before `DeleteAll`: next reconnect re-delivers the same messages (duplicate delivery — preferred over loss)
+- If crash after `DeleteAll` but before caller sends: messages are lost
+- `DeleteAll` failure → log error; messages remain in DB until TTL expiry; next reconnect may re-deliver (acceptable)
 
 ---
 
@@ -271,5 +303,7 @@ if len(conns) == 0 && len(tempSessions) == 0:
 | In-memory registry on holder container | Avoids DB query on every send hot path |
 | DB TTL for crash recovery | Simple, no background job needed |
 | Separate `PendingMessage` table | Avoids write contention on the `ActiveConnection` record |
-| `Consume` is not atomic (Get then Delete) | Acceptable; duplicate delivery on crash is better than message loss |
+| `Consume`: GetAll → DeleteAll → return | Prefer duplicate delivery over message loss on crash |
 | Anonymous sessions not buffered | Anonymous sessions have no stable identity to reconnect with |
+| `shuttingDown` flag in `serverDelivery` | Prevents temp-disconnect DB flood during graceful shutdown |
+| At-most-once delivery during handoff transition | Inherent to async pubsub; narrow window; accepted trade-off |
