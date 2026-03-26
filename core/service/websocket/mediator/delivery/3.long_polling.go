@@ -63,8 +63,8 @@ func newLongPollingConn(auth voAuth.WebsocketAuth, qa queue.Adapter, onCloseFn w
 	}
 }
 
-func (c *LongPollingConn) CoreType() wsSv.WsConnCoreType {
-	return wsSv.WsConnLongPolling
+func (c *LongPollingConn) CoreType() voAuth.WsCoreType {
+	return voAuth.WsCoreLongPolling
 }
 
 func (c *LongPollingConn) Auth() voAuth.WebsocketAuth { return c.auth }

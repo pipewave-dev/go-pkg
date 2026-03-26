@@ -99,5 +99,5 @@ func IsErrRecordNotFound(e AError) bool {
 	if e == nil {
 		return false
 	}
-	return e.ErrorCode() == ErrRecordNotFound
+	return e.ErrorCode() == RecordNotFound
 }

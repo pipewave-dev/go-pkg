@@ -2,6 +2,7 @@ package broadcast
 
 import (
 	"context"
+	"log/slog"
 
 	"github.com/pipewave-dev/go-pkg/shared/actx"
 	"github.com/pipewave-dev/go-pkg/shared/aerror"
@@ -29,8 +30,7 @@ func channelName(containerID string) channelType {
 func (p *pubsubMessage) Publish() aerror.AError {
 	for _, c := range p.targetContainers {
 		if c == p.di.c.Env().ContainerID {
-			// Skip publish to self container since we can directly call the handler without going through pubsub.
-			continue
+			slog.WarnContext(p.context, "Publishing to the same container, consider using local broadcast instead")
 		}
 		channel := channelName(c)
 		err := p.di.pubsub.Publish(p.context, channel, p)

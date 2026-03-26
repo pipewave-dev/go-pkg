@@ -40,8 +40,8 @@ type GobwasConnection struct {
 	closed int32
 }
 
-func (cl *GobwasConnection) CoreType() wsSv.WsConnCoreType {
-	return wsSv.WsConnGobwas
+func (cl *GobwasConnection) CoreType() voAuth.WsCoreType {
+	return voAuth.WsCoreGobwas
 }
 
 func (cl *GobwasConnection) Ping() {

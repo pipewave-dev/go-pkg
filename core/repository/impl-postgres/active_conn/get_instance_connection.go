@@ -20,14 +20,14 @@ func (r *activeConnRepo) GetInstanceConnection(ctx context.Context, userID strin
 
 	cutoff := time.Now().Add(-r.c.Env().HeartbeatCutoff)
 	query := `
-		SELECT user_id, session_id, holder_id, connected_at, last_heartbeat, ttl
+		SELECT user_id, session_id, holder_id, connection_type, connected_at, last_heartbeat, ttl
 		FROM active_connections
 		WHERE user_id = $1 AND session_id = $2 AND last_heartbeat > $3
 	`
 
 	var ac entities.ActiveConnection
 	err := r.pool.QueryRow(ctx, query, userID, instanceID, cutoff).Scan(
-		&ac.UserID, &ac.SessionID, &ac.HolderID, &ac.ConnectedAt, &ac.LastHeartbeat, &ac.TTL,
+		&ac.UserID, &ac.SessionID, &ac.HolderID, &ac.ConnectionType, &ac.ConnectedAt, &ac.LastHeartbeat, &ac.TTL,
 	)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {

@@ -9,11 +9,11 @@ import (
 	"github.com/pipewave-dev/go-pkg/shared/aerror"
 )
 
-const fnGetActiveConnections = "activeConnRepo.GetActiveConnections"
+const fnGetActiveConnectionsByUserIDs = "activeConnRepo.GetActiveConnectionsByUserIDs"
 
-func (r *activeConnRepo) GetActiveConnections(ctx context.Context, userID string) (result []entities.ActiveConnection, aErr aerror.AError) {
+func (r *activeConnRepo) GetActiveConnectionsByUserIDs(ctx context.Context, userIDs []string) (result []entities.ActiveConnection, aErr aerror.AError) {
 	var op observer.Operation
-	ctx, op = r.obs.StartOperation(ctx, fnGetActiveConnections)
+	ctx, op = r.obs.StartOperation(ctx, fnGetActiveConnectionsByUserIDs)
 	defer op.Finish(aErr)
 
 	cutoff := time.Now().Add(-r.c.Env().HeartbeatCutoff)
@@ -21,10 +21,10 @@ func (r *activeConnRepo) GetActiveConnections(ctx context.Context, userID string
 	query := `
 		SELECT user_id, session_id, holder_id, connection_type, connected_at, last_heartbeat, ttl
 		FROM active_connections
-		WHERE user_id = $1 AND last_heartbeat > $2
+		WHERE user_id = ANY($1) AND last_heartbeat > $2
 	`
 
-	rows, err := r.pool.Query(ctx, query, userID, cutoff)
+	rows, err := r.pool.Query(ctx, query, userIDs, cutoff)
 	if err != nil {
 		return nil, aerror.New(ctx, aerror.ErrUnexpectedDatabase, err)
 	}

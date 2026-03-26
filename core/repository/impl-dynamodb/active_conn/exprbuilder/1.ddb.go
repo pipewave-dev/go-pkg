@@ -3,51 +3,56 @@ package exprbuilder
 import (
 	"time"
 
-	"github.com/pipewave-dev/go-pkg/core/domain/entities"
-	voUnixTime "github.com/pipewave-dev/go-pkg/core/domain/value-object/unixtime"
 	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
+	"github.com/pipewave-dev/go-pkg/core/domain/entities"
+	voAuth "github.com/pipewave-dev/go-pkg/core/domain/value-object/auth"
+	voUnixTime "github.com/pipewave-dev/go-pkg/core/domain/value-object/unixtime"
 )
 
 // Field name
 const (
-	FieldUserID        = "UserID"
-	FieldSessionID     = "SessionID"
-	FieldHolderID      = "HolderID"
-	FieldConnectedAt   = "ConnectedAt"
-	FieldLastHeartbeat = "LastHeartbeat"
-	FieldTTL           = "TTL"
+	FieldUserID         = "UserID"
+	FieldSessionID      = "SessionID"
+	FieldHolderID       = "HolderID"
+	FieldConnectionType = "ConnectionType"
+	FieldConnectedAt    = "ConnectedAt"
+	FieldLastHeartbeat  = "LastHeartbeat"
+	FieldTTL            = "TTL"
 )
 
 type ddbActiveConnection struct {
 	UserID    string // PartitionKey ~ contraint User.ID
 	SessionID string // SortKey
 
-	HolderID      string // Pod name holding this connection (env.PodName)
-	ConnectedAt   voUnixTime.UnixMilliTime
-	LastHeartbeat voUnixTime.UnixMilliTime
-	TTL           voUnixTime.UnixMilliTime
+	HolderID       string // Pod name holding this connection (env.PodName)
+	ConnectionType voAuth.WsCoreType
+	ConnectedAt    voUnixTime.UnixMilliTime
+	LastHeartbeat  voUnixTime.UnixMilliTime
+	TTL            voUnixTime.UnixMilliTime
 }
 
 func toDynamoDBItem(e *entities.ActiveConnection) *ddbActiveConnection {
 	return &ddbActiveConnection{
-		UserID:        e.UserID,
-		SessionID:     e.SessionID,
-		HolderID:      e.HolderID,
-		ConnectedAt:   voUnixTime.UnixMilliTime(e.ConnectedAt),
-		LastHeartbeat: voUnixTime.UnixMilliTime(e.LastHeartbeat),
-		TTL:           voUnixTime.UnixMilliTime(e.TTL),
+		UserID:         e.UserID,
+		SessionID:      e.SessionID,
+		HolderID:       e.HolderID,
+		ConnectionType: e.ConnectionType,
+		ConnectedAt:    voUnixTime.UnixMilliTime(e.ConnectedAt),
+		LastHeartbeat:  voUnixTime.UnixMilliTime(e.LastHeartbeat),
+		TTL:            voUnixTime.UnixMilliTime(e.TTL),
 	}
 }
 
 func (e *ddbActiveConnection) toEntity() *entities.ActiveConnection {
 	return &entities.ActiveConnection{
-		UserID:        e.UserID,
-		SessionID:     e.SessionID,
-		HolderID:      e.HolderID,
-		ConnectedAt:   time.Time(e.ConnectedAt),
-		LastHeartbeat: time.Time(e.LastHeartbeat),
-		TTL:           time.Time(e.TTL),
+		UserID:         e.UserID,
+		SessionID:      e.SessionID,
+		HolderID:       e.HolderID,
+		ConnectionType: e.ConnectionType,
+		ConnectedAt:    time.Time(e.ConnectedAt),
+		LastHeartbeat:  time.Time(e.LastHeartbeat),
+		TTL:            time.Time(e.TTL),
 	}
 }
 

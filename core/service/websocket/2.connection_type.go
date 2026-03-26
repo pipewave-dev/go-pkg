@@ -12,7 +12,7 @@ const (
 type WebsocketConn interface {
 	Auth() voAuth.WebsocketAuth
 	Send(payload []byte)
-	CoreType() WsConnCoreType
+	CoreType() voAuth.WsCoreType
 	Close()
 	Ping()
 }

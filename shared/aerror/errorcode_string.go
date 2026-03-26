@@ -30,26 +30,7 @@ func _() {
 	_ = x[ErrValidateEmail-28]
 	_ = x[ErrValidatePhone-29]
 	_ = x[ErrValidateUUID-30]
-	_ = x[ErrInvalidVerifyCode-31]
-	_ = x[ErrProvideInvalidIdentityType-32]
-	_ = x[ErrProvideNotExistedIdentity-33]
-	_ = x[ErrProvideNotYetConfirmedIdentity-34]
-	_ = x[ErrProvideExistedEmail-35]
-	_ = x[ErrProvideConfirmedEmail-36]
-	_ = x[ErrProvideExpiredConfirmCode-37]
-	_ = x[LogicErrOauth2ClientIDNotMatch-38]
-	_ = x[LogicErrOauth2RedirectHostNotAllow-39]
-	_ = x[LogicErrOauth2AuthorizationCodeNotFound-40]
-	_ = x[LogicErrOauth2AuthorizationCodeExpired-41]
-	_ = x[LogicErrVerifyConfirmCodFail-42]
-	_ = x[NewPasswordSameWithOldPassword-43]
-	_ = x[ExceedUserInvitationLimit-44]
-	_ = x[SessionHasBeenRevokedBefore-45]
-	_ = x[ErrEmailAlreadyConfirmed-46]
-	_ = x[ErrPhoneAlreadyConfirmed-47]
-	_ = x[ErrEmailAlreadyExisted-48]
-	_ = x[ErrPhoneAlreadyExisted-49]
-	_ = x[end400-50]
+	_ = x[end400-31]
 	_ = x[start401-2000]
 	_ = x[SessionExceededMaxAge-2001]
 	_ = x[LogicErrSessionExpired-2002]
@@ -81,12 +62,9 @@ func _() {
 	_ = x[InvalidInputSchema-4008]
 	_ = x[end403-4009]
 	_ = x[start404-3000]
-	_ = x[UserNotFound-3001]
-	_ = x[YourAccountNotFound-3002]
-	_ = x[RecordNotFound-3003]
-	_ = x[ErrDdbDuplicatedItem-3004]
-	_ = x[ErrRecordNotFound-3005]
-	_ = x[end404-3006]
+	_ = x[RecordNotFound-3001]
+	_ = x[ErrDdbDuplicatedItem-3002]
+	_ = x[end404-3003]
 	_ = x[start500-6000]
 	_ = x[ErrUnmarshal-6001]
 	_ = x[ErrMarshal-6002]
@@ -107,9 +85,8 @@ func _() {
 	_ = x[LogicErrOauth2ClientSecretNotMatch-6017]
 	_ = x[LogicErrOauth2PkceCodeVerifierNotMatch-6018]
 	_ = x[ErrUnexpectedPubsub-6019]
-	_ = x[ErrHandlerNotFoundForCommandName-6020]
-	_ = x[ErrServerIsShuttingDown-6021]
-	_ = x[end500-6022]
+	_ = x[ErrServerIsShuttingDown-6020]
+	_ = x[end500-6021]
 	_ = x[start500NoTrace-8000]
 	_ = x[ErrPermissionDenied-8001]
 	_ = x[ActionNotAllowed-8002]
@@ -118,20 +95,20 @@ func _() {
 
 const (
 	_ErrorCode_name_0 = "ErrOrigin"
-	_ErrorCode_name_1 = "start400ErrInvalidInputErrManyValidationErrValidateRequiredErrValidateLenErrValidateMinErrValidateMaxErrValidateEqErrValidateNeErrValidateLtErrValidateLteErrValidateGtErrValidateGteErrValidateOneOfErrValidateIndividualNumberErrValidateImageBase64ErrValidatePasswordErrValidateUsernameErrValidateEmailErrValidatePhoneErrValidateUUIDErrInvalidVerifyCodeErrProvideInvalidIdentityTypeErrProvideNotExistedIdentityErrProvideNotYetConfirmedIdentityErrProvideExistedEmailErrProvideConfirmedEmailErrProvideExpiredConfirmCodeLogicErrOauth2ClientIDNotMatchLogicErrOauth2RedirectHostNotAllowLogicErrOauth2AuthorizationCodeNotFoundLogicErrOauth2AuthorizationCodeExpiredLogicErrVerifyConfirmCodFailNewPasswordSameWithOldPasswordExceedUserInvitationLimitSessionHasBeenRevokedBeforeErrEmailAlreadyConfirmedErrPhoneAlreadyConfirmedErrEmailAlreadyExistedErrPhoneAlreadyExistedend400"
+	_ErrorCode_name_1 = "start400ErrInvalidInputErrManyValidationErrValidateRequiredErrValidateLenErrValidateMinErrValidateMaxErrValidateEqErrValidateNeErrValidateLtErrValidateLteErrValidateGtErrValidateGteErrValidateOneOfErrValidateIndividualNumberErrValidateImageBase64ErrValidatePasswordErrValidateUsernameErrValidateEmailErrValidatePhoneErrValidateUUIDend400"
 	_ErrorCode_name_2 = "start401SessionExceededMaxAgeLogicErrSessionExpiredLogicErrUserNeedVerifiedInvitationTokenInvalidConfirmationTokenInvalidResetPasswordTokenInvalidRefreshTokenInvalidLogicErrMissingAuthHeaderLogicErrAccessTokenVerifyFailLogicErrSessionHasBeenRevokedLogicErrWrongPasswordLogicErrAlreadyExistedPasswordLogicErrEmailOrPasswordIncorrectErrAccessTokenFormatErrConfirmationTokenFormatErrInvitationTokenFormatErrSignupConfirmTokenInvalidErrEmailUserAlreadyExistsend401"
-	_ErrorCode_name_3 = "start404UserNotFoundYourAccountNotFoundRecordNotFoundErrDdbDuplicatedItemErrRecordNotFoundend404"
+	_ErrorCode_name_3 = "start404RecordNotFoundErrDdbDuplicatedItemend404"
 	_ErrorCode_name_4 = "start403LogicErrRefreshTokenIsExpiredLogicErrSessionHasBeenRevokedOrExpiredLogicErrSessionIsNotExistedLogicErrInvalidRefreshTokenLogicErrInvalidTokenLogicRefreshTokenMustUseOnlyOnceRateLimitExceededInvalidInputSchemaend403"
-	_ErrorCode_name_5 = "start500ErrUnmarshalErrMarshalErrUnexpectedInputErrUnexpectedConfigErrUnexpectedTemplateErrUnexpectedSESErrUnexpectedRedisErrUnexpectedDatabaseErrUnexpectedDynamoDBErrUnexpectedBussinessErrUnexpectedNetworkErrUnexpectedSyscallErrUnexpectedCodeLogicErrUnexpectedShouldUnreachableErrUnexpectedWithMsgLogicErrDuplicateRecordLogicErrOauth2ClientSecretNotMatchLogicErrOauth2PkceCodeVerifierNotMatchErrUnexpectedPubsubErrHandlerNotFoundForCommandNameErrServerIsShuttingDownend500"
+	_ErrorCode_name_5 = "start500ErrUnmarshalErrMarshalErrUnexpectedInputErrUnexpectedConfigErrUnexpectedTemplateErrUnexpectedSESErrUnexpectedRedisErrUnexpectedDatabaseErrUnexpectedDynamoDBErrUnexpectedBussinessErrUnexpectedNetworkErrUnexpectedSyscallErrUnexpectedCodeLogicErrUnexpectedShouldUnreachableErrUnexpectedWithMsgLogicErrDuplicateRecordLogicErrOauth2ClientSecretNotMatchLogicErrOauth2PkceCodeVerifierNotMatchErrUnexpectedPubsubErrServerIsShuttingDownend500"
 	_ErrorCode_name_6 = "start500NoTraceErrPermissionDeniedActionNotAllowedend500NoTrace"
 )
 
 var (
-	_ErrorCode_index_1 = [...]uint16{0, 8, 23, 40, 59, 73, 87, 101, 114, 127, 140, 154, 167, 181, 197, 224, 246, 265, 284, 300, 316, 331, 351, 380, 408, 441, 463, 487, 515, 545, 579, 618, 656, 684, 714, 739, 766, 790, 814, 836, 858, 864}
+	_ErrorCode_index_1 = [...]uint16{0, 8, 23, 40, 59, 73, 87, 101, 114, 127, 140, 154, 167, 181, 197, 224, 246, 265, 284, 300, 316, 331, 337}
 	_ErrorCode_index_2 = [...]uint16{0, 8, 29, 51, 75, 97, 121, 146, 165, 190, 219, 248, 269, 299, 331, 351, 377, 401, 429, 454, 460}
-	_ErrorCode_index_3 = [...]uint8{0, 8, 20, 39, 53, 73, 90, 96}
+	_ErrorCode_index_3 = [...]uint8{0, 8, 22, 42, 48}
 	_ErrorCode_index_4 = [...]uint8{0, 8, 37, 75, 102, 129, 149, 181, 198, 216, 222}
-	_ErrorCode_index_5 = [...]uint16{0, 8, 20, 30, 48, 67, 88, 104, 122, 143, 164, 186, 206, 226, 248, 278, 298, 321, 355, 393, 412, 444, 467, 473}
+	_ErrorCode_index_5 = [...]uint16{0, 8, 20, 30, 48, 67, 88, 104, 122, 143, 164, 186, 206, 226, 248, 278, 298, 321, 355, 393, 412, 435, 441}
 	_ErrorCode_index_6 = [...]uint8{0, 15, 34, 50, 63}
 )
 
@@ -139,19 +116,19 @@ func (i ErrorCode) String() string {
 	switch {
 	case i == 1:
 		return _ErrorCode_name_0
-	case 10 <= i && i <= 50:
+	case 10 <= i && i <= 31:
 		i -= 10
 		return _ErrorCode_name_1[_ErrorCode_index_1[i]:_ErrorCode_index_1[i+1]]
 	case 2000 <= i && i <= 2019:
 		i -= 2000
 		return _ErrorCode_name_2[_ErrorCode_index_2[i]:_ErrorCode_index_2[i+1]]
-	case 3000 <= i && i <= 3006:
+	case 3000 <= i && i <= 3003:
 		i -= 3000
 		return _ErrorCode_name_3[_ErrorCode_index_3[i]:_ErrorCode_index_3[i+1]]
 	case 4000 <= i && i <= 4009:
 		i -= 4000
 		return _ErrorCode_name_4[_ErrorCode_index_4[i]:_ErrorCode_index_4[i+1]]
-	case 6000 <= i && i <= 6022:
+	case 6000 <= i && i <= 6021:
 		i -= 6000
 		return _ErrorCode_name_5[_ErrorCode_index_5[i]:_ErrorCode_index_5[i+1]]
 	case 8000 <= i && i <= 8003:

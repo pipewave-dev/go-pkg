@@ -14,6 +14,8 @@ import (
 )
 
 type mediatorSvc struct {
+	c configprovider.ConfigStore
+
 	activeConnRepo   repo.ActiveConnStore
 	cleanupTask      fncollector.CleanupTask
 	wpool            *workerpool.WorkerPool
@@ -35,6 +37,7 @@ func New(
 	ackMgr *ackmanager.AckManager,
 ) wsSv.WsService {
 	ins := &mediatorSvc{
+		c:                c,
 		activeConnRepo:   repo.ActiveConnStore(),
 		cleanupTask:      cleanupTask,
 		wpool:            wpool,

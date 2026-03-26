@@ -172,7 +172,7 @@ func (d *serverDelivery) onNewRegister() {
 			}
 
 			// Persist connection to DynamoDB
-			aErr := d.activeConnRepo.AddConnection(ctx, auth.UserID, auth.InstanceID)
+			aErr := d.activeConnRepo.AddConnection(ctx, auth.UserID, auth.InstanceID, connection.CoreType())
 			if aErr != nil {
 				return aErr
 			}

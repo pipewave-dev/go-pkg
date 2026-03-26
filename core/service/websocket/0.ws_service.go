@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"time"
 
+	voAuth "github.com/pipewave-dev/go-pkg/core/domain/value-object/auth"
 	"github.com/pipewave-dev/go-pkg/shared/aerror"
 )
 
@@ -27,9 +28,12 @@ type ServerDelivery interface {
 
 // SessionInfo contains information about an active user session.
 type SessionInfo struct {
-	InstanceID  string
-	ConnectedAt time.Time
-	IsAnonymous bool
+	UserID         string
+	InstanceID     string
+	HolderID       string
+	ConnectionType voAuth.WsCoreType
+	ConnectedAt    time.Time
+	IsAnonymous    bool
 }
 
 type WsService interface {

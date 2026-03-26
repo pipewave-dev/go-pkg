@@ -16,9 +16,12 @@ func (m *mediatorSvc) GetUserSessions(ctx context.Context, userID string) ([]wsS
 	sessions := make([]wsSv.SessionInfo, 0, len(connections))
 	for _, conn := range connections {
 		sessions = append(sessions, wsSv.SessionInfo{
-			InstanceID:  conn.SessionID,
-			ConnectedAt: conn.ConnectedAt,
-			IsAnonymous: conn.UserID == "",
+			UserID:         userID,
+			InstanceID:     conn.SessionID,
+			HolderID:       conn.HolderID,
+			ConnectionType: conn.ConnectionType,
+			ConnectedAt:    conn.ConnectedAt,
+			IsAnonymous:    conn.UserID == "",
 		})
 	}
 	return sessions, nil
