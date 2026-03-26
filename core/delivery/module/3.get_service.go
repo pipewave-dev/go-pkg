@@ -56,6 +56,14 @@ func (g *getServices) SendToAnonymous(ctx context.Context, msgType string, paylo
 	return g.wsService.SendToAnonymous(ctx, msgType, payload, isSendAll, instanceID)
 }
 
+func (g *getServices) SendToAuthenticated(ctx context.Context, msgType string, payload []byte) aerror.AError {
+	return g.wsService.SendToAuthenticated(ctx, msgType, payload)
+}
+
+func (g *getServices) SendToAll(ctx context.Context, msgType string, payload []byte) aerror.AError {
+	return g.wsService.SendToAll(ctx, msgType, payload)
+}
+
 func (g *getServices) DisconnectSession(ctx context.Context, userID string, instanceID string) aerror.AError {
 	return g.wsService.DisconnectSession(ctx, userID, instanceID)
 }
@@ -66,10 +74,6 @@ func (g *getServices) DisconnectUser(ctx context.Context, userID string) aerror.
 
 func (g *getServices) SendToUsers(ctx context.Context, userIDs []string, msgType string, payload []byte) aerror.AError {
 	return g.wsService.SendToUsers(ctx, userIDs, msgType, payload)
-}
-
-func (g *getServices) Broadcast(ctx context.Context, target delivery.BroadcastTarget, msgType string, payload []byte) aerror.AError {
-	return g.wsService.Broadcast(ctx, int(target), msgType, payload)
 }
 
 func (g *getServices) CheckOnlineMultiple(ctx context.Context, userIDs []string) (map[string]bool, aerror.AError) {

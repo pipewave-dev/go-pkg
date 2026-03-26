@@ -52,8 +52,6 @@ type ExportedServices interface {
 	//   - Browser process is active
 	PingConnections()
 
-	SendToAnonymous(ctx context.Context, msgType string, payload []byte, isSendAll bool, instanceID []string) aerror.AError
-
 	CheckOnline(ctx context.Context, userID string) (isOnline bool, aErr aerror.AError)
 
 	OnNewRegister() wsSv.OnNewStuffFn
@@ -68,9 +66,6 @@ type ExportedServices interface {
 	// SendToUsers broadcasts to multiple users in a single publish.
 	SendToUsers(ctx context.Context, userIDs []string, msgType string, payload []byte) aerror.AError
 
-	// Broadcast sends to all connected clients based on target filter.
-	Broadcast(ctx context.Context, target BroadcastTarget, msgType string, payload []byte) aerror.AError
-
 	// CheckOnlineMultiple checks online status of multiple users at once.
 	CheckOnlineMultiple(ctx context.Context, userIDs []string) (map[string]bool, aerror.AError)
 
@@ -82,4 +77,10 @@ type ExportedServices interface {
 
 	// SendToUserWithAck sends to a user and waits for client acknowledgment.
 	SendToUserWithAck(ctx context.Context, userID string, msgType string, payload []byte, timeout time.Duration) (acked bool, aErr aerror.AError)
+
+	SendToAll(ctx context.Context, msgType string, payload []byte) aerror.AError
+
+	SendToAnonymous(ctx context.Context, msgType string, payload []byte, isSendAll bool, instanceID []string) aerror.AError
+
+	SendToAuthenticated(ctx context.Context, msgType string, payload []byte) aerror.AError
 }
