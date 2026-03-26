@@ -22,4 +22,7 @@ type ActiveConnStore interface {
 
 	// GetActiveConnections returns all active connections for a user.
 	GetActiveConnections(ctx context.Context, userID string) ([]entities.ActiveConnection, aerror.AError)
+
+	// GetInstanceConnection returns an active connections for a session.
+	GetInstanceConnection(ctx context.Context, userID string, instanceID string) (*entities.ActiveConnection, aerror.AError)
 }

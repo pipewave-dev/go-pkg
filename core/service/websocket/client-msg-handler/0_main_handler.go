@@ -53,7 +53,7 @@ func New(
 		obs:           obs,
 		pubsubAdapter: pubsubAdapter,
 		otelProvider:  otelProvider,
-		broadcast:     broadcast.NewMsgCreator(pubsubAdapter, otelProvider, cleanupTask),
+		broadcast:     broadcast.NewMsgCreator(c, pubsubAdapter, otelProvider, cleanupTask),
 		rateLimiter:   rateLimiter,
 		activeConn:    repo.ActiveConnStore(),
 		user:          repo.User(),

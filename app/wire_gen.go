@@ -26,7 +26,7 @@ import (
 	"github.com/pipewave-dev/go-pkg/provider/mux-middleware"
 	"github.com/pipewave-dev/go-pkg/provider/observer-provider"
 	"github.com/pipewave-dev/go-pkg/provider/otel-provider"
-	pubsubfactory "github.com/pipewave-dev/go-pkg/provider/pubsub"
+	"github.com/pipewave-dev/go-pkg/provider/pubsub"
 	"github.com/pipewave-dev/go-pkg/provider/queue"
 	"github.com/pipewave-dev/go-pkg/provider/worker-pool-provider"
 	"log/slog"
@@ -38,7 +38,7 @@ import (
 
 // Injectors from wire.go:
 
-func NewPipewave(config configprovider.ConfigStore, s *slog.Logger, rf repository.RepoFactory, qf queue.QueueFactory, pf pubsubfactory.PubsubFactory) *AppDI {
+func NewPipewave(config configprovider.ConfigStore, s *slog.Logger, rf repository.RepoFactory, qf queue.QueueFactory, pf pubsub.PubsubFactory) *AppDI {
 	middlewareProvider := muxmiddleware.New(config)
 	v := healthyprovider.New(config)
 	cleanupTask := fncollector.NewCleanupTask()
@@ -49,11 +49,11 @@ func NewPipewave(config configprovider.ConfigStore, s *slog.Logger, rf repositor
 	connectionManager := connectionmanager.Singleton()
 	pubsubHandler := broadcastmsghandler.New(allRepository, connectionManager)
 	adapter := PubsubProvider(pf, config, cleanupTask)
-	ackMgr := ackmanager.New()
-	wsService := mediatorsvc.New(allRepository, cleanupTask, workerPool, connectionManager, pubsubHandler, adapter, otelProvider, ackMgr)
+	ackManager := ackmanager.New()
+	wsService := mediatorsvc.New(config, allRepository, cleanupTask, workerPool, connectionManager, pubsubHandler, adapter, otelProvider, ackManager)
 	rateLimiter := ratelimiter.New(config)
 	intervalTask := fncollector.NewIntervalTask()
-	clientMsgHandler := clientmsghandler.New(config, cleanupTask, intervalTask, observability, adapter, otelProvider, rateLimiter, allRepository, ackMgr)
+	clientMsgHandler := clientmsghandler.New(config, cleanupTask, intervalTask, observability, adapter, otelProvider, rateLimiter, allRepository, ackManager)
 	cacheProvider := cacheprovider.New(config, cleanupTask)
 	exchangeToken := exchangetoken.New(observability, cacheProvider)
 	queueAdapter := QueueProvider(qf, config, cleanupTask)

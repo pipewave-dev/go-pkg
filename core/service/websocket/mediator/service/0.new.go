@@ -9,6 +9,7 @@ import (
 	otelP "github.com/pipewave-dev/go-pkg/pkg/otel"
 	"github.com/pipewave-dev/go-pkg/pkg/pubsub"
 	workerpool "github.com/pipewave-dev/go-pkg/pkg/worker-pool"
+	configprovider "github.com/pipewave-dev/go-pkg/provider/config-provider"
 	fncollector "github.com/pipewave-dev/go-pkg/provider/fn-collector"
 )
 
@@ -23,6 +24,7 @@ type mediatorSvc struct {
 }
 
 func New(
+	c configprovider.ConfigStore,
 	repo repository.AllRepository,
 	cleanupTask fncollector.CleanupTask,
 	wpool *workerpool.WorkerPool,
@@ -39,11 +41,11 @@ func New(
 		connections:      connections,
 		broadcastHandler: broadcastHandler,
 
-		broadcast:  br.NewMsgCreator(pubsubAdapter, otelProvider, cleanupTask),
+		broadcast:  br.NewMsgCreator(c, pubsubAdapter, otelProvider, cleanupTask),
 		ackManager: ackMgr,
 	}
 
-	br.StartSubscribers(ins.broadcastHandler, pubsubAdapter, otelProvider, cleanupTask)
+	br.StartSubscribers(ins.broadcastHandler, c, pubsubAdapter, otelProvider, cleanupTask)
 
 	cleanupTask.RegTask(ins.Shutdown, fncollector.FnPriorityLate)
 

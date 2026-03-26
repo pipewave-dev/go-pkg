@@ -1,5 +1,7 @@
 package configprovider
 
+import "time"
+
 // configStore is the concrete implementation of ConfigStore interface
 type configStore struct {
 	env *globalEnvT
@@ -35,5 +37,9 @@ func (e *globalEnvT) loadDefault() {
 	// Set default timezone
 	{
 		e.Version = "v0.1.1"
+	}
+
+	if e.HeartbeatCutoff == 0 {
+		e.HeartbeatCutoff = 2 * time.Minute
 	}
 }

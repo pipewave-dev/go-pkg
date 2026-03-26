@@ -32,7 +32,7 @@ func (s *NetpollServer) validateFrame(frame ws.Frame) error {
 }
 
 // handleFrame dispatches a frame by OpCode.
-func (s *NetpollServer) handleFrame(client *Connection, frame ws.Frame) error {
+func (s *NetpollServer) handleFrame(client *GobwasConnection, frame ws.Frame) error {
 	// Unmask payload if masked (client-to-server frames are always masked).
 	payload := frame.Payload
 	if frame.Header.Masked {
@@ -65,7 +65,7 @@ func (s *NetpollServer) handleFrame(client *Connection, frame ws.Frame) error {
 }
 
 // handleTextFrame processes a text message frame.
-func (s *NetpollServer) handleTextFrame(client *Connection, payload []byte, fin bool) error {
+func (s *NetpollServer) handleTextFrame(client *GobwasConnection, payload []byte, fin bool) error {
 	if fin {
 		// Complete text message
 		s.onTextMessage(string(payload), client.auth, func(responsePayload []byte) {
@@ -83,7 +83,7 @@ func (s *NetpollServer) handleTextFrame(client *Connection, payload []byte, fin 
 }
 
 // handleBinaryFrame processes a binary message frame.
-func (s *NetpollServer) handleBinaryFrame(client *Connection, payload []byte, fin bool) error {
+func (s *NetpollServer) handleBinaryFrame(client *GobwasConnection, payload []byte, fin bool) error {
 	if fin {
 		// Complete binary message
 		s.onBinMessage(payload, client.auth, func(responsePayload []byte) {
@@ -100,7 +100,7 @@ func (s *NetpollServer) handleBinaryFrame(client *Connection, payload []byte, fi
 }
 
 // handleContinuationFrame processes a continuation frame (part of a fragmented message).
-func (s *NetpollServer) handleContinuationFrame(client *Connection, payload []byte, fin bool) error {
+func (s *NetpollServer) handleContinuationFrame(client *GobwasConnection, payload []byte, fin bool) error {
 	// TODO: Implement proper fragmentation handling
 	// For now, just log and continue
 	fmt.Printf("Received continuation frame, fin=%v, payload_len=%d\n", fin, len(payload))
@@ -108,7 +108,7 @@ func (s *NetpollServer) handleContinuationFrame(client *Connection, payload []by
 }
 
 // handleCloseFrame processes a close frame.
-func (s *NetpollServer) handleCloseFrame(client *Connection, payload []byte) error {
+func (s *NetpollServer) handleCloseFrame(client *GobwasConnection, payload []byte) error {
 	// Parse close code and reason if present
 	// var closeCode ws.StatusCode = ws.StatusNormalClosure
 	// var reason string
@@ -132,7 +132,7 @@ func (s *NetpollServer) handleCloseFrame(client *Connection, payload []byte) err
 }
 
 // handlePingFrame processes a ping frame.
-func (s *NetpollServer) handlePingFrame(client *Connection, payload []byte) error {
+func (s *NetpollServer) handlePingFrame(client *GobwasConnection, payload []byte) error {
 	// Respond with pong frame containing the same payload
 	pongFrame := ws.NewPongFrame(payload)
 	if err := ws.WriteFrame(client.conn, pongFrame); err != nil {
@@ -142,7 +142,7 @@ func (s *NetpollServer) handlePingFrame(client *Connection, payload []byte) erro
 }
 
 // handlePongFrame processes a pong frame.
-func (s *NetpollServer) handlePongFrame(client *Connection, payload []byte) error {
+func (s *NetpollServer) handlePongFrame(client *GobwasConnection, payload []byte) error {
 	// Pong frame received - could be response to our ping
 	// TODO: Implement ping/pong tracking if needed for keep-alive
 	fmt.Printf("Received pong frame with payload length: %d\n", len(payload))
@@ -150,7 +150,7 @@ func (s *NetpollServer) handlePongFrame(client *Connection, payload []byte) erro
 }
 
 // handleProtocolError sends a close frame with an error code and removes the client.
-func (s *NetpollServer) handleProtocolError(client *Connection, err error) {
+func (s *NetpollServer) handleProtocolError(client *GobwasConnection, err error) {
 	fmt.Printf("Protocol error: %v\n", err)
 
 	// Send close frame with protocol error status

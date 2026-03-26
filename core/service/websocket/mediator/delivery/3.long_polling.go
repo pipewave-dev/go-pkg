@@ -63,6 +63,10 @@ func newLongPollingConn(auth voAuth.WebsocketAuth, qa queue.Adapter, onCloseFn w
 	}
 }
 
+func (c *LongPollingConn) CoreType() wsSv.WsConnCoreType {
+	return wsSv.WsConnLongPolling
+}
+
 func (c *LongPollingConn) Auth() voAuth.WebsocketAuth { return c.auth }
 
 // Send publishes payload to the Valkey-backed queue.

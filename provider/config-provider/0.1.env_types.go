@@ -1,10 +1,15 @@
 package configprovider
 
+import "time"
+
 // globalEnvT contains all application configuration loaded from YAML files and environment variables
 type globalEnvT struct {
-	Env     string `koanf:"ENV_NAME"`
-	PodName string `koanf:"POD_NAME"`
-	Version string `koanf:"VERSION"`
+	Env         string `koanf:"ENV_NAME"`
+	PodName     string `koanf:"POD_NAME"`
+	ContainerID string `koanf:"CONTAINER_ID"`
+	Version     string `koanf:"VERSION"`
+
+	HeartbeatCutoff time.Duration `koanf:"HEARTBEAT_CUTOFF"`
 
 	WorkerPool WorkerPoolT `koanf:"WORKER_POOL"`
 

@@ -8,6 +8,7 @@ import (
 )
 
 func (m *mediatorSvc) DisconnectSession(ctx context.Context, userID string, instanceID string) aerror.AError {
+	m.activeConnRepo.GetActiveConnections()
 	pbPayload := br.DisconnectSessionParams{
 		UserId:     userID,
 		InstanceId: instanceID,

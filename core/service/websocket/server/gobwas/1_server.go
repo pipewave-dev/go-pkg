@@ -28,7 +28,7 @@ import (
 // Check types
 var (
 	_ wsSv.WebsocketServer = (*NetpollServer)(nil)
-	_ wsSv.WebsocketConn   = (*Connection)(nil)
+	_ wsSv.WebsocketConn   = (*GobwasConnection)(nil)
 )
 
 var (
@@ -108,7 +108,7 @@ func (s *NetpollServer) NewConnection(
 	atomic.AddInt64(&s.stats.ConnectionsAccepted, 1)
 	atomic.AddInt64(&s.connections, 1)
 
-	client := &Connection{
+	client := &GobwasConnection{
 		c:      s.c,
 		server: s,
 		conn:   conn,
@@ -156,14 +156,14 @@ func (s *NetpollServer) NewConnection(
 }
 
 // handleClientData processes data from a client (called by the netpoll callback).
-func (s *NetpollServer) handleClientData(client *Connection) {
+func (s *NetpollServer) handleClientData(client *GobwasConnection) {
 	s.workerPool.Submit(func() {
 		s.processClientMessage(client)
 	})
 }
 
 // send writes a binary frame to the client connection.
-func (s *NetpollServer) send(client *Connection, payload []byte) {
+func (s *NetpollServer) send(client *GobwasConnection, payload []byte) {
 	conn := client.conn
 	if conn == nil {
 		return
@@ -176,7 +176,7 @@ func (s *NetpollServer) send(client *Connection, payload []byte) {
 	}
 }
 
-func (s *NetpollServer) ping(client *Connection) {
+func (s *NetpollServer) ping(client *GobwasConnection) {
 	s.workerPool.Submit(func() {
 		conn := client.conn
 		if conn == nil {
@@ -191,7 +191,7 @@ func (s *NetpollServer) ping(client *Connection) {
 	})
 }
 
-func (s *NetpollServer) processClientMessage(client *Connection) {
+func (s *NetpollServer) processClientMessage(client *GobwasConnection) {
 	conn := client.conn
 	if conn == nil {
 		return
@@ -251,7 +251,7 @@ func (s *NetpollServer) processClientMessage(client *Connection) {
 }
 
 // removeClient cleans up a client on disconnect.
-func (s *NetpollServer) removeClient(client *Connection) {
+func (s *NetpollServer) removeClient(client *GobwasConnection) {
 	if !atomic.CompareAndSwapInt32(&client.closed, 0, 1) {
 		return
 	}

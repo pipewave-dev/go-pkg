@@ -4,6 +4,7 @@ import (
 	"github.com/google/wire"
 	module "github.com/pipewave-dev/go-pkg/core/delivery/module"
 	monitoring "github.com/pipewave-dev/go-pkg/core/service/business/monitoring"
+	ack_manager "github.com/pipewave-dev/go-pkg/core/service/websocket/ack-manager"
 	broadcast_msg_handler "github.com/pipewave-dev/go-pkg/core/service/websocket/broadcast-msg-handler"
 	client_msg_handler "github.com/pipewave-dev/go-pkg/core/service/websocket/client-msg-handler"
 	connection_manager "github.com/pipewave-dev/go-pkg/core/service/websocket/connection-manager"
@@ -19,7 +20,7 @@ import (
 	mux_middleware "github.com/pipewave-dev/go-pkg/provider/mux-middleware"
 	observer_provider "github.com/pipewave-dev/go-pkg/provider/observer-provider"
 	otel_provider "github.com/pipewave-dev/go-pkg/provider/otel-provider"
-validation_provider "github.com/pipewave-dev/go-pkg/provider/validation-provider"
+	validation_provider "github.com/pipewave-dev/go-pkg/provider/validation-provider"
 	worker_pool_provider "github.com/pipewave-dev/go-pkg/provider/worker-pool-provider"
 )
 
@@ -27,6 +28,7 @@ var DefaultWireSet = wire.NewSet(
 	// Default WireSet collects all WireSets without a specific name
 	module.WireSet,
 	monitoring.WireSet,
+	ack_manager.WireSet,
 	broadcast_msg_handler.WireSet,
 	client_msg_handler.WireSet,
 	connection_manager.WireSet,
@@ -42,6 +44,6 @@ var DefaultWireSet = wire.NewSet(
 	mux_middleware.WireSet,
 	observer_provider.WireSet,
 	otel_provider.WireSet,
-validation_provider.WireSet,
+	validation_provider.WireSet,
 	worker_pool_provider.WireSet,
 )

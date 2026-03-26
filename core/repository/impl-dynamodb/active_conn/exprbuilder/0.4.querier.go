@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue"
 	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/expression"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
@@ -123,7 +124,7 @@ func (querier *ActiveConnectionQuerier) CountTotalActive(ctx context.Context, dd
 func (querier *ActiveConnectionQuerier) QueryByUserID(ctx context.Context, ddbClient *dynamodb.Client, userID string) ([]entities.ActiveConnection, aerror.AError) {
 	keyEx := expression.Key(FieldUserID).Equal(expression.Value(userID))
 
-	cutoffTime := time.Now().Add(-2 * time.Minute)
+	cutoffTime := time.Now().Add(-querier.ConfigStore.Env().HeartbeatCutoff)
 	filterEx := expression.Name(FieldLastHeartbeat).GreaterThan(expression.Value(cutoffTime))
 
 	builder := expression.NewBuilder().
@@ -143,6 +144,7 @@ func (querier *ActiveConnectionQuerier) QueryByUserID(ctx context.Context, ddbCl
 		ExpressionAttributeNames:  expr.Names(),
 		ExpressionAttributeValues: expr.Values(),
 		FilterExpression:          expr.Filter(),
+		ConsistentRead:            lo.ToPtr(true),
 	}
 
 	paginator := dynamodb.NewQueryPaginator(ddbClient, queryParams)
@@ -164,4 +166,47 @@ func (querier *ActiveConnectionQuerier) QueryByUserID(ctx context.Context, ddbCl
 	}
 
 	return results, nil
+}
+
+// GetByUserAndSession returns a single active connection by userID and sessionID.
+func (querier *ActiveConnectionQuerier) GetByUserAndSession(ctx context.Context, ddbClient *dynamodb.Client, userID string, sessionID string) (*entities.ActiveConnection, aerror.AError) {
+	type keySchema struct {
+		UserID    string
+		SessionID string
+	}
+
+	keyAV, err := attributevalue.MarshalMap(keySchema{UserID: userID, SessionID: sessionID})
+	if err != nil {
+		msg := fmt.Sprintf("ActiveConnectionQuerier.GetByUserAndSession marshal key failed: %v", err)
+		panic(msg)
+	}
+
+	//nolint:exhaustruct
+	input := &dynamodb.GetItemInput{
+		TableName:      lo.ToPtr(querier.ConfigStore.Env().DynamoDB.Tables.ActiveConnection),
+		Key:            keyAV,
+		ConsistentRead: lo.ToPtr(true),
+	}
+
+	output, err2 := ddbClient.GetItem(ctx, input)
+	if err2 != nil {
+		return nil, aerror.New(ctx, aerror.ErrUnexpectedDynamoDB, err2)
+	}
+
+	if len(output.Item) == 0 {
+		return nil, aerror.New(ctx, aerror.RecordNotFound, nil)
+	}
+
+	entity, err3 := fromDynamoMap(output.Item)
+	if err3 != nil {
+		return nil, aerror.New(ctx, aerror.ErrUnexpectedDynamoDB, err3)
+	}
+
+	// If the connection's last heartbeat is too old, consider it as not found (stale connection)
+	cutoffTime := time.Now().Add(-querier.ConfigStore.Env().HeartbeatCutoff)
+	if entity.LastHeartbeat.Before(cutoffTime) {
+		return nil, aerror.New(ctx, aerror.RecordNotFound, nil)
+	}
+
+	return entity, nil
 }

@@ -30,8 +30,8 @@ type NetpollServer struct {
 	onClose       wsSv.OnCloseStuffFn
 }
 
-// Connection represents a single WebSocket client connection.
-type Connection struct {
+// GobwasConnection represents a single WebSocket client connection.
+type GobwasConnection struct {
 	c      configprovider.ConfigStore
 	conn   net.Conn
 	server *NetpollServer
@@ -40,23 +40,27 @@ type Connection struct {
 	closed int32
 }
 
-func (cl *Connection) Ping() {
+func (cl *GobwasConnection) CoreType() wsSv.WsConnCoreType {
+	return wsSv.WsConnGobwas
+}
+
+func (cl *GobwasConnection) Ping() {
 	if cl.server != nil {
 		cl.server.ping(cl)
 	}
 }
 
-func (cl *Connection) Auth() voAuth.WebsocketAuth {
+func (cl *GobwasConnection) Auth() voAuth.WebsocketAuth {
 	return cl.auth
 }
 
-func (cl *Connection) Send(payload []byte) {
+func (cl *GobwasConnection) Send(payload []byte) {
 	if cl.server != nil {
 		cl.server.send(cl, payload)
 	}
 }
 
-func (cl *Connection) Close() {
+func (cl *GobwasConnection) Close() {
 	if cl.server != nil {
 		cl.server.removeClient(cl)
 	}
