@@ -7,8 +7,10 @@ import (
 	"time"
 
 	voAuth "github.com/pipewave-dev/go-pkg/core/domain/value-object/auth"
+	voWs "github.com/pipewave-dev/go-pkg/core/domain/value-object/ws"
 	repo "github.com/pipewave-dev/go-pkg/core/repository"
 	wsSv "github.com/pipewave-dev/go-pkg/core/service/websocket"
+	msghub "github.com/pipewave-dev/go-pkg/core/service/websocket/msg-hub"
 	"github.com/pipewave-dev/go-pkg/core/service/websocket/server/gobwas"
 	"github.com/pipewave-dev/go-pkg/pkg/queue"
 	workerpool "github.com/pipewave-dev/go-pkg/pkg/worker-pool"
@@ -44,6 +46,9 @@ type serverDelivery struct {
 	// Event trigger
 	onNewStuff   wsSv.OnNewStuffFn
 	onCloseStuff wsSv.OnCloseStuffFn
+
+	msgHubSvc      msghub.MessageHubSvc
+	shutdownSignal *msghub.ShutdownSignal
 }
 
 // New creates a new ServerDelivery implementation
@@ -60,6 +65,8 @@ func New(
 	queueAdapter queue.Adapter,
 	onNewStuff wsSv.OnNewStuffFn,
 	onCloseStuff wsSv.OnCloseStuffFn,
+	msgHubSvc msghub.MessageHubSvc,
+	shutdownSignal *msghub.ShutdownSignal,
 ) wsSv.ServerDelivery {
 	ins := &serverDelivery{
 		c:                c,
@@ -74,6 +81,8 @@ func New(
 		queueAdapter:     queueAdapter,
 		onNewStuff:       onNewStuff,
 		onCloseStuff:     onCloseStuff,
+		msgHubSvc:        msgHubSvc,
+		shutdownSignal:   shutdownSignal,
 	}
 
 	ins.onCloseRegister()
@@ -142,20 +151,43 @@ func (d *serverDelivery) onWriteError() wsSv.OnWriteErrorFn {
 
 func (d *serverDelivery) onCloseRegister() {
 	d.onCloseStuff.RegisterAll(func(auth voAuth.WebsocketAuth) {
-		// Clean up in-memory state
 		d.connectionMgr.RemoveConnection(auth)
 		d.rateLimiter.Remove(auth)
 
-		aErr := d.activeConnRepo.RemoveConnection(context.Background(), auth.UserID, auth.InstanceID)
-		if aErr != nil {
-			slog.Error("Failed to remove connection from DynamoDB",
-				slog.Any("error", aErr),
-				slog.Any("auth", auth))
+		ctx := context.Background()
+
+		// Permanent path: anonymous sessions or sessions closing during graceful shutdown.
+		if auth.IsAnonymous() || d.shutdownSignal.IsShuttingDown() {
+			if aErr := d.activeConnRepo.RemoveConnection(ctx, auth.UserID, auth.InstanceID); aErr != nil {
+				slog.Error("onClose: failed to remove connection",
+					slog.Any("auth", auth), slog.Any("error", aErr))
+			}
+			return
 		}
+
+		// Temp-disconnect path: keep DB record + HolderID for cross-container routing.
+		aErr := d.activeConnRepo.UpdateStatus(ctx, auth.UserID, auth.InstanceID, voWs.WsStatusTempDisconnected)
+		if aErr != nil {
+			slog.Error("onClose: UpdateStatus failed, falling back to RemoveConnection",
+				slog.Any("auth", auth), slog.Any("error", aErr))
+			_ = d.activeConnRepo.RemoveConnection(ctx, auth.UserID, auth.InstanceID)
+			return
+		}
+
+		d.msgHubSvc.Register(auth.UserID, auth.InstanceID, func() {
+			// ExpiredTimer fired — session never reconnected within TTL.
+			if err := d.activeConnRepo.RemoveConnection(ctx, auth.UserID, auth.InstanceID); err != nil {
+				slog.Error("onExpired: failed to remove ActiveConnection",
+					slog.String("userID", auth.UserID),
+					slog.String("instanceID", auth.InstanceID),
+					slog.Any("error", err))
+			}
+			// PendingMessage records are cleaned up by DynamoDB TTL.
+		})
 	})
 }
 
-// onNew handles new WebSocket connection
+// onNewRegister handles new WebSocket connection
 func (d *serverDelivery) onNewRegister() {
 	d.onNewStuff.Register(
 		wsSv.OnNewWsKeyName("NewConnection"),
@@ -163,23 +195,50 @@ func (d *serverDelivery) onNewRegister() {
 			auth := connection.Auth()
 			ctx := context.Background()
 
-			// Check for duplicate connection in memory
-			existingConn, ok := d.connectionMgr.GetConnection(connection.Auth())
-			if ok {
+			// Close stale in-memory duplicate.
+			if existingConn, ok := d.connectionMgr.GetConnection(auth); ok {
 				slog.Warn("Duplicate connection detected, closing old connection")
 				existingConn.Close()
-				time.Sleep(time.Millisecond * 500) // Wait for old connection to close
+				time.Sleep(time.Millisecond * 500)
 			}
 
-			// Persist connection to DynamoDB
-			aErr := d.activeConnRepo.AddConnection(ctx, auth.UserID, auth.InstanceID, connection.CoreType())
-			if aErr != nil {
+			// Check if this session was previously temp-disconnected.
+			actConn, aErr := d.activeConnRepo.GetInstanceConnection(ctx, auth.UserID, auth.InstanceID)
+			if aErr == nil && actConn != nil && actConn.Status == voWs.WsStatusTempDisconnected {
+				if actConn.HolderID == d.c.Env().ContainerID {
+					// Same container — cancel the ExpiredTimer directly.
+					d.msgHubSvc.Deregister(auth.UserID, auth.InstanceID)
+				} else {
+					// Different container — signal it via pubsub.
+					if sigErr := d.wsService.ResumeSession(ctx, actConn.HolderID, auth.UserID, auth.InstanceID); sigErr != nil {
+						slog.WarnContext(ctx, "onNew: ResumeSession publish failed; old ExpiredTimer will eventually fire",
+							slog.String("holderID", actConn.HolderID),
+							slog.String("userID", auth.UserID),
+							slog.String("instanceID", auth.InstanceID),
+							slog.Any("error", sigErr))
+					}
+				}
+			}
+
+			// Upsert: updates HolderID to this container + resets Status to WsStatusConnected.
+			if aErr = d.activeConnRepo.AddConnection(ctx, auth.UserID, auth.InstanceID, connection.CoreType()); aErr != nil {
 				return aErr
 			}
 
-			// Add to in-memory manager
 			d.connectionMgr.AddConnection(connection)
-			d.rateLimiter.New(connection.Auth())
+			d.rateLimiter.New(auth)
+
+			// Drain buffered messages and deliver to the newly connected client.
+			msgs, consumeErr := d.msgHubSvc.Consume(ctx, auth.UserID, auth.InstanceID)
+			if consumeErr != nil {
+				slog.WarnContext(ctx, "onNew: failed to consume pending messages; session continues without them",
+					slog.String("userID", auth.UserID),
+					slog.String("instanceID", auth.InstanceID),
+					slog.Any("error", consumeErr))
+			}
+			for _, msg := range msgs {
+				connection.Send(msg)
+			}
 
 			return nil
 		})
