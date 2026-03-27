@@ -18,6 +18,8 @@ const (
 	msgTSendToUserWithAck msgType = "SendToUserWithAck"
 	// AckResolvedParams
 	msgTAckResolved msgType = "AckResolved"
+	// ResumeSessionParams
+	msgTResumeSession msgType = "ResumeSession"
 )
 
 // All

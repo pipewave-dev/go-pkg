@@ -48,6 +48,8 @@ type PubsubHandler interface {
 
 	AckResolved(ctx context.Context, payload AckResolvedParams)
 
+	ResumeSession(ctx context.Context, payload ResumeSessionParams)
+
 	SendToAnonymous(ctx context.Context, payload SendToAnonymousParams)
 
 	SendToAuthenticated(ctx context.Context, payload SendToAuthenticatedParams)
@@ -86,6 +88,8 @@ type MsgCreator interface {
 	SendToUserWithAck(ctx context.Context, containerIDs []string, payload SendToUserWithAckParams) *pubsubMessage
 
 	AckResolved(ctx context.Context, containerIDs []string, payload AckResolvedParams) *pubsubMessage
+
+	ResumeSession(ctx context.Context, containerIDs []string, payload ResumeSessionParams) *pubsubMessage
 
 	SendToAnonymous(ctx context.Context, payload SendToAnonymousParams) *pubsubMessage
 
@@ -169,6 +173,16 @@ func (f *_f) AckResolved(ctx context.Context, containerIDs []string, payload Ack
 		targetContainers: containerIDs,
 		context:          ctx,
 		msgType:          msgTAckResolved,
+		payload:          lo.Must(payload.Marshal()),
+		di:               f.di,
+	}
+}
+
+func (f *_f) ResumeSession(ctx context.Context, containerIDs []string, payload ResumeSessionParams) *pubsubMessage {
+	return &pubsubMessage{
+		targetContainers: containerIDs,
+		context:          ctx,
+		msgType:          msgTResumeSession,
 		payload:          lo.Must(payload.Marshal()),
 		di:               f.di,
 	}
@@ -341,6 +355,17 @@ func (t *diTmp) handleMsg(msg *pubsubMessage) {
 				return
 			}
 			t.hdl.AckResolved(ctx, payload)
+		}
+
+	case msgTResumeSession:
+		{
+			var payload ResumeSessionParams
+			err := payload.Unmarshal(msg.GetPayload())
+			if err != nil {
+				slog.Error("subscriber wrong type ResumeSessionParams", "error", err, "msgType", msg.GetMsgType())
+				return
+			}
+			t.hdl.ResumeSession(ctx, payload)
 		}
 
 	}

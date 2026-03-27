@@ -193,3 +193,19 @@ func (p *AckResolvedParams) Marshal() ([]byte, error) {
 func (p *AckResolvedParams) Unmarshal(b []byte) error {
 	return msgpack.Unmarshal(b, p)
 }
+
+type ResumeSessionParams struct {
+	UserID     string
+	InstanceID string
+}
+
+func (p *ResumeSessionParams) Marshal() ([]byte, error) {
+	if p == nil {
+		return nil, fmt.Errorf("ResumeSessionParams.Marshal: invalid input")
+	}
+	return msgpack.Marshal(p)
+}
+
+func (p *ResumeSessionParams) Unmarshal(b []byte) error {
+	return msgpack.Unmarshal(b, p)
+}
