@@ -5,7 +5,6 @@ import (
 	activeConnRepo "github.com/pipewave-dev/go-pkg/core/repository/impl-dynamodb/active_conn"
 	userRepo "github.com/pipewave-dev/go-pkg/core/repository/impl-dynamodb/user"
 	"github.com/pipewave-dev/go-pkg/pkg/observer"
-	_ "github.com/pipewave-dev/go-pkg/shared/aerror"
 
 	configprovider "github.com/pipewave-dev/go-pkg/provider/config-provider"
 	"github.com/pipewave-dev/go-pkg/provider/dynamodb"
