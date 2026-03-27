@@ -6,6 +6,7 @@ import (
 	wsSv "github.com/pipewave-dev/go-pkg/core/service/websocket"
 	ackmanager "github.com/pipewave-dev/go-pkg/core/service/websocket/ack-manager"
 	br "github.com/pipewave-dev/go-pkg/core/service/websocket/broadcast"
+	msghub "github.com/pipewave-dev/go-pkg/core/service/websocket/msg-hub"
 	otelP "github.com/pipewave-dev/go-pkg/pkg/otel"
 	"github.com/pipewave-dev/go-pkg/pkg/pubsub"
 	workerpool "github.com/pipewave-dev/go-pkg/pkg/worker-pool"
@@ -23,6 +24,8 @@ type mediatorSvc struct {
 	broadcastHandler br.PubsubHandler
 	broadcast        br.MsgCreator
 	ackManager       *ackmanager.AckManager
+	msgHubSvc        msghub.MessageHubSvc
+	shutdownSignal   *msghub.ShutdownSignal
 }
 
 func New(
@@ -35,6 +38,8 @@ func New(
 	pubsubAdapter pubsub.Adapter,
 	otelProvider otelP.OtelProvider,
 	ackMgr *ackmanager.AckManager,
+	msgHubSvc msghub.MessageHubSvc,
+	shutdownSignal *msghub.ShutdownSignal,
 ) wsSv.WsService {
 	ins := &mediatorSvc{
 		c:                c,
@@ -44,8 +49,10 @@ func New(
 		connections:      connections,
 		broadcastHandler: broadcastHandler,
 
-		broadcast:  br.NewMsgCreator(c, pubsubAdapter, otelProvider, cleanupTask),
-		ackManager: ackMgr,
+		broadcast:      br.NewMsgCreator(c, pubsubAdapter, otelProvider, cleanupTask),
+		ackManager:     ackMgr,
+		msgHubSvc:      msgHubSvc,
+		shutdownSignal: shutdownSignal,
 	}
 
 	br.StartSubscribers(ins.broadcastHandler, c, pubsubAdapter, otelProvider, cleanupTask)

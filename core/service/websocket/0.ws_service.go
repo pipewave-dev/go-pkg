@@ -83,4 +83,8 @@ type WsService interface {
 	SendToAuthenticated(ctx context.Context, msgType string, payload []byte) aerror.AError
 
 	SendToAll(ctx context.Context, msgType string, payload []byte) aerror.AError
+
+	// ResumeSession signals the target container to cancel the ExpiredTimer for a session.
+	// Called by the reconnecting container (P2) when a previously temp-disconnected session reconnects.
+	ResumeSession(ctx context.Context, targetContainerID, userID, instanceID string) aerror.AError
 }

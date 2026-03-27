@@ -2,6 +2,9 @@ package mediatorsvc
 
 // Shutdown performs graceful shutdown of the mediator service
 func (m *mediatorSvc) Shutdown() {
+	// Signal delivery layer: use permanent-disconnect path for all subsequent closes.
+	m.shutdownSignal.MarkShuttingDown()
+
 	// 1. Cancel all pending ACKs so goroutines blocked in WaitForAck are unblocked immediately
 	m.ackManager.Shutdown()
 
