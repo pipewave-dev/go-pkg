@@ -3,6 +3,7 @@ package msghub_test
 import (
 	"context"
 	"sort"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -16,6 +17,7 @@ import (
 
 // fakeRepo is an in-memory implementation of repository.PendingMessageRepo.
 type fakeRepo struct {
+	mu   sync.Mutex
 	data map[string][][]byte // key: userID+":"+instanceID
 }
 
@@ -28,12 +30,16 @@ func repoKey(userID, instanceID string) string {
 }
 
 func (f *fakeRepo) Create(_ context.Context, userID, instanceID string, _ time.Time, message []byte) aerror.AError {
+	f.mu.Lock()
+	defer f.mu.Unlock()
 	key := repoKey(userID, instanceID)
 	f.data[key] = append(f.data[key], message)
 	return nil
 }
 
 func (f *fakeRepo) GetAll(_ context.Context, userID, instanceID string) ([][]byte, aerror.AError) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
 	key := repoKey(userID, instanceID)
 	msgs := f.data[key]
 	if len(msgs) == 0 {
@@ -46,6 +52,8 @@ func (f *fakeRepo) GetAll(_ context.Context, userID, instanceID string) ([][]byt
 }
 
 func (f *fakeRepo) DeleteAll(_ context.Context, userID, instanceID string) aerror.AError {
+	f.mu.Lock()
+	defer f.mu.Unlock()
 	key := repoKey(userID, instanceID)
 	delete(f.data, key)
 	return nil

@@ -4,21 +4,28 @@ import (
 	"context"
 	"log/slog"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	repo "github.com/pipewave-dev/go-pkg/core/repository"
 )
 
+type entry struct {
+	cancel context.CancelFunc
+	gen    uint64
+}
+
 type msgHubSvc struct {
 	mu       sync.RWMutex
-	registry map[string]map[string]context.CancelFunc // userID -> instanceID -> cancelFn
+	registry map[string]map[string]entry // userID -> instanceID -> entry
 	repo     repo.PendingMessageRepo
 	ttl      time.Duration
+	genSeq   atomic.Uint64
 }
 
 func New(pendingRepo repo.PendingMessageRepo, ttl time.Duration) MessageHubSvc {
 	return &msgHubSvc{
-		registry: make(map[string]map[string]context.CancelFunc),
+		registry: make(map[string]map[string]entry),
 		repo:     pendingRepo,
 		ttl:      ttl,
 	}
@@ -26,24 +33,30 @@ func New(pendingRepo repo.PendingMessageRepo, ttl time.Duration) MessageHubSvc {
 
 func (s *msgHubSvc) Register(userID, instanceID string, onExpired func()) {
 	ctx, cancel := context.WithCancel(context.Background())
+	gen := s.genSeq.Add(1)
+
 	s.mu.Lock()
 	if s.registry[userID] == nil {
-		s.registry[userID] = make(map[string]context.CancelFunc)
+		s.registry[userID] = make(map[string]entry)
 	}
 	if prev, ok := s.registry[userID][instanceID]; ok {
-		prev() // cancel any stale registration
+		prev.cancel() // cancel any stale registration
 	}
-	s.registry[userID][instanceID] = cancel
+	s.registry[userID][instanceID] = entry{cancel: cancel, gen: gen}
 	s.mu.Unlock()
 
 	go func() {
+		timer := time.NewTimer(s.ttl)
+		defer timer.Stop()
 		select {
-		case <-time.After(s.ttl):
+		case <-timer.C:
 			s.mu.Lock()
 			if m, ok := s.registry[userID]; ok {
-				delete(m, instanceID)
-				if len(m) == 0 {
-					delete(s.registry, userID)
+				if e, ok2 := m[instanceID]; ok2 && e.gen == gen {
+					delete(m, instanceID)
+					if len(m) == 0 {
+						delete(s.registry, userID)
+					}
 				}
 			}
 			s.mu.Unlock()
@@ -57,8 +70,8 @@ func (s *msgHubSvc) Deregister(userID, instanceID string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if m, ok := s.registry[userID]; ok {
-		if cancel, ok2 := m[instanceID]; ok2 {
-			cancel()
+		if e, ok2 := m[instanceID]; ok2 {
+			e.cancel()
 			delete(m, instanceID)
 		}
 		if len(m) == 0 {
@@ -92,6 +105,7 @@ func (s *msgHubSvc) GetSessions(userID string) []string {
 }
 
 func (s *msgHubSvc) Save(ctx context.Context, userID, instanceID string, wrappedMsg []byte) error {
+	// sendAt uses wall-clock time for ordering within the repo; this is intentional.
 	aErr := s.repo.Create(ctx, userID, instanceID, time.Now(), wrappedMsg)
 	if aErr != nil {
 		slog.ErrorContext(ctx, "MessageHubSvc.Save: failed",

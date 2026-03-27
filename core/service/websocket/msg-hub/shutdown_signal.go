@@ -10,5 +10,7 @@ type ShutdownSignal struct {
 	v atomic.Bool
 }
 
+func NewShutdownSignal() *ShutdownSignal { return &ShutdownSignal{} }
+
 func (s *ShutdownSignal) MarkShuttingDown() { s.v.Store(true) }
 func (s *ShutdownSignal) IsShuttingDown() bool { return s.v.Load() }
