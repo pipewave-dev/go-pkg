@@ -8,5 +8,5 @@ import (
 )
 
 func (r *activeConnRepo) UpdateStatus(ctx context.Context, userID string, instanceID string, status voWs.WsStatus) aerror.AError {
-	panic("ActiveConnStore.UpdateStatus not implemented — add DynamoDB implementation")
+	panic("ActiveConnStore.UpdateStatus not implemented — add Postgres implementation")
 }

@@ -37,5 +37,5 @@ func (r *pgRepo) User() repository.User {
 }
 
 func (r *pgRepo) PendingMessage() repository.PendingMessageRepo {
-	panic("PendingMessageRepo not implemented — add DynamoDB implementation")
+	panic("PendingMessageRepo not implemented — add Postgres implementation")
 }
