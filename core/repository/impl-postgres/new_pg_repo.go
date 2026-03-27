@@ -35,3 +35,7 @@ func (r *pgRepo) ActiveConnStore() repository.ActiveConnStore {
 func (r *pgRepo) User() repository.User {
 	return r.u
 }
+
+func (r *pgRepo) PendingMessage() repository.PendingMessageRepo {
+	panic("PendingMessageRepo not implemented — add DynamoDB implementation")
+}

@@ -18,6 +18,9 @@ type ActiveConnStore interface {
 	RemoveConnection(ctx context.Context, userID string, instanceID string) aerror.AError
 	UpdateHeartBeat(ctx context.Context, userID string, instanceID string) aerror.AError
 
+	// UpdateStatus updates only the WsStatus field of a connection record without changing HolderID or other fields.
+	UpdateStatus(ctx context.Context, userID string, instanceID string, status voWs.WsStatus) aerror.AError
+
 	// CountActiveConnectionsBatch returns connection counts for multiple users at once.
 	CountActiveConnectionsBatch(ctx context.Context, userIDs []string) (map[string]int, aerror.AError)
 

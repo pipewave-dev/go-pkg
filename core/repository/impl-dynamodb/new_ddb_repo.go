@@ -37,3 +37,7 @@ func (r *ddbRepo) ActiveConnStore() repository.ActiveConnStore {
 func (r *ddbRepo) User() repository.User {
 	return r.u
 }
+
+func (r *ddbRepo) PendingMessage() repository.PendingMessageRepo {
+	panic("PendingMessageRepo not implemented — add DynamoDB implementation")
+}

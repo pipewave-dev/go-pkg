@@ -13,4 +13,5 @@ type RepoFactory func(
 type AllRepository interface {
 	ActiveConnStore() ActiveConnStore
 	User() User
+	PendingMessage() PendingMessageRepo
 }
