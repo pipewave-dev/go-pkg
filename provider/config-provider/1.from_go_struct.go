@@ -36,6 +36,7 @@ func FromGoStruct(input EnvType) ConfigStore {
 		PodName:         input.PodName,
 		ContainerID:     input.ContainerID,
 		HeartbeatCutoff: input.HeartbeatCutoff,
+		MessageHub:      input.MessageHub,
 		WorkerPool:      input.WorkerPool,
 		TraceIDHeader:   input.TraceIDHeader,
 		IpHeader:        input.IpHeader,
