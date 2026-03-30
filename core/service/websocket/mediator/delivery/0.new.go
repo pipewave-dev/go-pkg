@@ -208,16 +208,25 @@ func (d *serverDelivery) onNewRegister() {
 				time.Sleep(time.Millisecond * 500)
 			}
 
-			// Check if this session was previously temp-disconnected.
+			// Check previous session state for reconnect handling.
 			actConn, aErr := d.activeConnRepo.GetInstanceConnection(ctx, auth.UserID, auth.InstanceID)
-			if aErr == nil && actConn != nil && actConn.Status == voWs.WsStatusTempDisconnected {
-				// Different container — signal it via pubsub.
-				if sigErr := d.wsService.ResumeSession(ctx, actConn.HolderID, auth.UserID, auth.InstanceID); sigErr != nil {
-					slog.WarnContext(ctx, "onNew: ResumeSession publish failed; old ExpiredTimer will eventually fire",
-						slog.String("holderID", actConn.HolderID),
+			if aErr == nil && actConn != nil {
+				switch actConn.Status {
+				case voWs.WsStatusTempDisconnected:
+					// Normal reconnect: signal old container to cancel its ExpiredTimer.
+					if sigErr := d.wsService.ResumeSession(ctx, actConn.HolderID, auth.UserID, auth.InstanceID); sigErr != nil {
+						slog.WarnContext(ctx, "onNew: ResumeSession publish failed; old ExpiredTimer will eventually fire",
+							slog.String("holderID", actConn.HolderID),
+							slog.String("userID", auth.UserID),
+							slog.String("instanceID", auth.InstanceID),
+							slog.Any("error", sigErr))
+					}
+				case voWs.WsStatusTransferring:
+					// Container-shutdown reconnect: HolderID is empty, old container is shutting down.
+					// No signal needed — AddConnection below will claim this session.
+					slog.InfoContext(ctx, "onNew: reconnect after container shutdown (WsStatusTransferring)",
 						slog.String("userID", auth.UserID),
-						slog.String("instanceID", auth.InstanceID),
-						slog.Any("error", sigErr))
+						slog.String("instanceID", auth.InstanceID))
 				}
 			}
 
@@ -226,10 +235,19 @@ func (d *serverDelivery) onNewRegister() {
 				return aErr
 			}
 
+			// Begin drain BEFORE registering in ConnectionManager.
+			// This blocks concurrent Send() calls (which acquire RLock) until drain is complete,
+			// ensuring pending messages are delivered before any new messages.
+			if dc, ok := connection.(wsSv.DrainableConn); ok {
+				dc.BeginDrain()
+				defer dc.EndDrain()
+			}
+
 			d.connectionMgr.AddConnection(connection)
 			d.rateLimiter.New(auth)
 
-			// Drain buffered messages and deliver to the newly connected client.
+			// Consume buffered pending messages and deliver them via SendDirect
+			// (bypasses drainMu to avoid deadlock while WLock is held).
 			msgs, consumeErr := d.msgHubSvc.Consume(ctx, auth.UserID, auth.InstanceID)
 			if consumeErr != nil {
 				slog.WarnContext(ctx, "onNew: failed to consume pending messages; session continues without them",
@@ -238,14 +256,24 @@ func (d *serverDelivery) onNewRegister() {
 					slog.Any("error", consumeErr))
 			}
 			for _, msg := range msgs {
-				err := connection.Send(msg)
-				if err != nil {
-					slog.ErrorContext(ctx, "onNew: failed to send message from MessageHub to reconnected client; message is lost",
-						slog.String("userID", auth.UserID),
-						slog.String("instanceID", auth.InstanceID),
-						slog.Any("error", err))
+				if dc, ok := connection.(wsSv.DrainableConn); ok {
+					if err := dc.SendDirect(msg); err != nil {
+						slog.ErrorContext(ctx, "onNew: SendDirect failed for pending message",
+							slog.String("userID", auth.UserID),
+							slog.String("instanceID", auth.InstanceID),
+							slog.Any("error", err))
+					}
+				} else {
+					// Fallback: connection does not implement DrainableConn.
+					if err := connection.Send(msg); err != nil {
+						slog.ErrorContext(ctx, "onNew: Send failed for pending message",
+							slog.String("userID", auth.UserID),
+							slog.String("instanceID", auth.InstanceID),
+							slog.Any("error", err))
+					}
 				}
 			}
+			// defer dc.EndDrain() fires here → blocked Send() goroutines proceed after pending messages.
 
 			return nil
 		})
