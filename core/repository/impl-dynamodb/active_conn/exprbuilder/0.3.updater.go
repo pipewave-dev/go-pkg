@@ -110,3 +110,39 @@ func (updater *ActiveConnectionUpdater) UpdateLastHeartbeat(ctx context.Context,
 
 	return nil
 }
+
+func (updater *ActiveConnectionUpdater) UpdateStatusTransferring(ctx context.Context, ddbClient *dynamodb.Client, userID, sessionID string) aerror.AError {
+	type keySchema struct {
+		UserID    string
+		SessionID string
+	}
+
+	key, err := attributevalue.MarshalMap(keySchema{UserID: userID, SessionID: sessionID})
+	if err != nil {
+		panic(fmt.Sprintf("*ActiveConnectionUpdater.UpdateStatusTransferring marshal key error: %v", err))
+	}
+
+	update := expression.
+		Set(expression.Name(FieldStatus), expression.Value(voWs.WsStatusTransferring)).
+		Set(expression.Name(FieldHolderID), expression.Value(""))
+
+	expr, err := expression.NewBuilder().WithUpdate(update).Build()
+	if err != nil {
+		panic(fmt.Sprintf("*ActiveConnectionUpdater.UpdateStatusTransferring build expression error: %v", err))
+	}
+
+	//nolint:exhaustruct
+	input := &dynamodb.UpdateItemInput{
+		TableName:                 lo.ToPtr(updater.ConfigStore.Env().DynamoDB.Tables.ActiveConnection),
+		Key:                       key,
+		UpdateExpression:          expr.Update(),
+		ExpressionAttributeNames:  expr.Names(),
+		ExpressionAttributeValues: expr.Values(),
+	}
+
+	_, err2 := ddbClient.UpdateItem(ctx, input)
+	if err2 != nil {
+		return aerror.New(ctx, aerror.ErrUnexpectedDynamoDB, err2)
+	}
+	return nil
+}
