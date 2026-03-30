@@ -156,16 +156,23 @@ func (d *serverDelivery) onCloseRegister() {
 
 		ctx := context.Background()
 
-		// Permanent path: anonymous sessions or sessions closing during graceful shutdown.
-		if auth.IsAnonymous() || d.shutdownSignal.IsShuttingDown() {
+		// Anonymous sessions: always remove permanently (no reconnect buffering for anon).
+		if auth.IsAnonymous() {
 			if aErr := d.activeConnRepo.RemoveConnection(ctx, auth.UserID, auth.InstanceID); aErr != nil {
-				slog.Error("onClose: failed to remove connection",
+				slog.Error("onClose: failed to remove anonymous connection",
 					slog.Any("auth", auth), slog.Any("error", aErr))
 			}
 			return
 		}
 
-		// Temp-disconnect path: keep DB record + HolderID for cross-container routing.
+		// Graceful shutdown path: Shutdown() already called UpdateStatusTransferring +
+		// msgHubSvc.Register for this connection before closing. Skip all DB operations
+		// to avoid overwriting the Transferring record.
+		if d.shutdownSignal.IsShuttingDown() {
+			return
+		}
+
+		// Normal temp-disconnect path: keep DB record + HolderID for cross-container routing.
 		aErr := d.activeConnRepo.UpdateStatus(ctx, auth.UserID, auth.InstanceID, voWs.WsStatusTempDisconnected)
 		if aErr != nil {
 			slog.Error("onClose: UpdateStatus failed, falling back to RemoveConnection",
@@ -182,7 +189,6 @@ func (d *serverDelivery) onCloseRegister() {
 					slog.String("instanceID", auth.InstanceID),
 					slog.Any("error", err))
 			}
-			// PendingMessage records are cleaned up by DynamoDB TTL.
 		})
 	})
 }
