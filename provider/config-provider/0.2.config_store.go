@@ -1,6 +1,10 @@
 package configprovider
 
-import "time"
+import (
+	"time"
+
+	gonanoid "github.com/matoous/go-nanoid/v2"
+)
 
 // configStore is the concrete implementation of ConfigStore interface
 type configStore struct {
@@ -43,4 +47,13 @@ func (e *globalEnvT) loadDefault() {
 	if e.HeartbeatCutoff == 0 {
 		e.HeartbeatCutoff = 2 * time.Minute
 	}
+
+	if e.ContainerID == "" {
+		e.ContainerID = generateUniqueID() // Auto generate an unique ID
+	}
+}
+
+func generateUniqueID() string {
+	nid := gonanoid.Must(12)
+	return nid
 }

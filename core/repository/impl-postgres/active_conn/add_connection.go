@@ -27,7 +27,7 @@ func (r *activeConnRepo) AddConnection(ctx context.Context, userID string, sessi
 		SET holder_id = $3, connection_type = $4, status = $5, last_heartbeat = $6, ttl = $7
 	`
 
-	_, err := r.pool.Exec(ctx, query, userID, sessionID, r.c.Env().PodName, connectionType, voWs.WsStatusConnected, now, ttl)
+	_, err := r.pool.Exec(ctx, query, userID, sessionID, r.c.Env().ContainerID, connectionType, voWs.WsStatusConnected, now, ttl)
 	if err != nil {
 		aErr = aerror.New(ctx, aerror.ErrUnexpectedDatabase, err)
 		return aErr

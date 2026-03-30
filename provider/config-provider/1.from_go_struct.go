@@ -3,14 +3,17 @@ package configprovider
 import "time"
 
 type EnvType struct {
-	Env     string
-	PodName string
+	Env         string
+	PodName     string
+	ContainerID string
 
 	Debug struct {
 		Enabled bool
 	}
 
 	HeartbeatCutoff time.Duration
+
+	MessageHub MessageHubT
 
 	RateLimiter RateLimiterT
 
@@ -31,6 +34,7 @@ func FromGoStruct(input EnvType) ConfigStore {
 	env := globalEnvT{
 		Env:             input.Env,
 		PodName:         input.PodName,
+		ContainerID:     input.ContainerID,
 		HeartbeatCutoff: input.HeartbeatCutoff,
 		WorkerPool:      input.WorkerPool,
 		TraceIDHeader:   input.TraceIDHeader,
@@ -43,6 +47,7 @@ func FromGoStruct(input EnvType) ConfigStore {
 		Postgres:        input.Postgres,
 	}
 
+	env.loadDefault()
 	env.validate()
 
 	return &configStore{
