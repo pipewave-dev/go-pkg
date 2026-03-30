@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"sync"
 	"time"
 
 	voAuth "github.com/pipewave-dev/go-pkg/core/domain/value-object/auth"
@@ -34,12 +35,13 @@ type NetpollServer struct {
 
 // GobwasConnection represents a single WebSocket client connection.
 type GobwasConnection struct {
-	c      configprovider.ConfigStore
-	conn   net.Conn
-	server *NetpollServer
-	auth   voAuth.WebsocketAuth
-	desc   *netpoll.Desc
-	closed int32
+	c       configprovider.ConfigStore
+	conn    net.Conn
+	server  *NetpollServer
+	auth    voAuth.WebsocketAuth
+	desc    *netpoll.Desc
+	closed  int32
+	drainMu sync.RWMutex
 }
 
 func (cl *GobwasConnection) CoreType() voWs.WsCoreType {
@@ -57,6 +59,23 @@ func (cl *GobwasConnection) Auth() voAuth.WebsocketAuth {
 }
 
 func (cl *GobwasConnection) Send(payload []byte) error {
+	cl.drainMu.RLock()
+	defer cl.drainMu.RUnlock()
+	if cl.server != nil {
+		return cl.server.send(cl, payload)
+	}
+	return fmt.Errorf("connection is not associated with a server")
+}
+
+// BeginDrain acquires an exclusive lock, blocking all concurrent Send() calls.
+func (cl *GobwasConnection) BeginDrain() { cl.drainMu.Lock() }
+
+// EndDrain releases the exclusive lock, allowing blocked Send() calls to proceed.
+func (cl *GobwasConnection) EndDrain() { cl.drainMu.Unlock() }
+
+// SendDirect writes directly to the server without acquiring drainMu.
+// Must only be called between BeginDrain/EndDrain.
+func (cl *GobwasConnection) SendDirect(payload []byte) error {
 	if cl.server != nil {
 		return cl.server.send(cl, payload)
 	}

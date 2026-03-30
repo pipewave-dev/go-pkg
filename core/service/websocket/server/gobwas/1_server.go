@@ -29,6 +29,7 @@ import (
 var (
 	_ wsSv.WebsocketServer = (*NetpollServer)(nil)
 	_ wsSv.WebsocketConn   = (*GobwasConnection)(nil)
+	_ wsSv.DrainableConn   = (*GobwasConnection)(nil)
 )
 
 var (
