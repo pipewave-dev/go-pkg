@@ -232,7 +232,13 @@ func (d *serverDelivery) onNewRegister() {
 					slog.Any("error", consumeErr))
 			}
 			for _, msg := range msgs {
-				connection.Send(msg) // TODO: warning if send fails
+				err := connection.Send(msg)
+				if err != nil {
+					slog.ErrorContext(ctx, "onNew: failed to send message from MessageHub to reconnected client; message is lost",
+						slog.String("userID", auth.UserID),
+						slog.String("instanceID", auth.InstanceID),
+						slog.Any("error", err))
+				}
 			}
 
 			return nil

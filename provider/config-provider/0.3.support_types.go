@@ -1,6 +1,8 @@
 package configprovider
 
 import (
+	"time"
+
 	"github.com/samber/lo"
 )
 
@@ -8,6 +10,16 @@ type CorsConfig struct {
 	Enabled        bool     `koanf:"ENABLED"`
 	ExactlyOrigins []string `koanf:"EXACTLY_ORIGINS"`
 	RegexOrigins   []string `koanf:"REGEX_ORIGINS"`
+}
+
+type MessageHubT struct {
+	TTL time.Duration `koanf:"TTL"`
+}
+
+func (m MessageHubT) Validate() {
+	if m.TTL <= 0 {
+		panic("message hub TTL must be greater than 0")
+	}
 }
 
 type WorkerPoolT struct {
@@ -28,14 +40,14 @@ func (r RateLimiterT) Validate() {
 	if r.UserRate <= 0 {
 		panic("rate limiter user rate must be greater than 0")
 	}
-	if r.UserBurst <= 0 {
-		panic("rate limiter user burst must be greater than 0")
+	if r.UserBurst < r.UserRate {
+		panic("rate limiter user burst must be greater than or equal to user rate")
 	}
 	if r.AnonymousRate <= 0 {
 		panic("rate limiter anonymous rate must be greater than 0")
 	}
-	if r.AnonymousBurst <= 0 {
-		panic("rate limiter anonymous burst must be greater than 0")
+	if r.AnonymousBurst < r.AnonymousRate {
+		panic("rate limiter anonymous burst must be greater than or equal to anonymous rate")
 	}
 }
 

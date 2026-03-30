@@ -8,6 +8,7 @@ import (
 	"time"
 
 	repo "github.com/pipewave-dev/go-pkg/core/repository"
+	configprovider "github.com/pipewave-dev/go-pkg/provider/config-provider"
 )
 
 type entry struct {
@@ -23,11 +24,15 @@ type msgHubSvc struct {
 	genSeq   atomic.Uint64
 }
 
-func New(pendingRepo repo.PendingMessageRepo, ttl time.Duration) MessageHubSvc {
+func New(
+	c configprovider.ConfigStore,
+	pendingRepo repo.PendingMessageRepo,
+) MessageHubSvc {
+	cfg := c.Env().MessageHub
 	return &msgHubSvc{
 		registry: make(map[string]map[string]entry),
 		repo:     pendingRepo,
-		ttl:      ttl,
+		ttl:      cfg.TTL,
 	}
 }
 

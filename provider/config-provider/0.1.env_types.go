@@ -11,6 +11,8 @@ type globalEnvT struct {
 
 	HeartbeatCutoff time.Duration `koanf:"HEARTBEAT_CUTOFF"`
 
+	MessageHub MessageHubT `koanf:"MESSAGE_HUB"`
+
 	WorkerPool WorkerPoolT `koanf:"WORKER_POOL"`
 
 	TraceIDHeader string     `koanf:"TRACE_ID_HEADER"`

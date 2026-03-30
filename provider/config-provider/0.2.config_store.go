@@ -30,6 +30,7 @@ func (e *globalEnvT) validate() {
 
 	// Validate RateLimiter configuration
 	e.RateLimiter.Validate()
+	e.MessageHub.Validate()
 }
 
 // loadDefault sets default values for configuration fields if they are not provided

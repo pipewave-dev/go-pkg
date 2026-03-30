@@ -8,7 +8,6 @@ package app
 
 import (
 	"log/slog"
-	"time"
 
 	moduledelivery "github.com/pipewave-dev/go-pkg/core/delivery/module"
 	"github.com/pipewave-dev/go-pkg/core/repository"
@@ -50,8 +49,7 @@ func NewPipewave(config configprovider.ConfigStore, s *slog.Logger, rf repositor
 	connectionManager := connectionmanager.Singleton()
 	adapter := PubsubProvider(pf, config, cleanupTask)
 	ackManager := ackmanager.New()
-	// TODO: replace 5*time.Minute with c.Ws().TempDisconnectTTL() once config exposes it.
-	msgHubSvc := msghub.New(allRepository.PendingMessage(), 5*time.Minute)
+	msgHubSvc := msghub.New(c, allRepository.PendingMessage())
 	shutdownSignal := msghub.NewShutdownSignal()
 	pubsubHandler := broadcastmsghandler.New(allRepository, connectionManager, ackManager, msgHubSvc, workerPool)
 	wsService := mediatorsvc.New(config, allRepository, cleanupTask, workerPool, connectionManager, pubsubHandler, adapter, otelProvider, ackManager, msgHubSvc, shutdownSignal)
