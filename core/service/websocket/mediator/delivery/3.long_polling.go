@@ -40,12 +40,14 @@ type LongPollingConn struct {
 	done      chan struct{}
 	closed    int32 // atomic: 0=open, 1=closed
 	mu        sync.Mutex
+	drainMu   sync.RWMutex
 	idleTimer *time.Timer
 	onCloseFn wsSv.OnCloseStuffFn
 }
 
 // Compile-time check: LongPollingConn must implement WebsocketConn.
 var _ wsSv.WebsocketConn = (*LongPollingConn)(nil)
+var _ wsSv.DrainableConn = (*LongPollingConn)(nil)
 
 func lpChannelName(auth voAuth.WebsocketAuth) string {
 	if auth.IsAnonymous() {
@@ -72,9 +74,27 @@ func (c *LongPollingConn) Auth() voAuth.WebsocketAuth { return c.auth }
 
 // Send publishes payload to the Valkey-backed queue.
 func (c *LongPollingConn) Send(payload []byte) error {
+	c.drainMu.RLock()
+	defer c.drainMu.RUnlock()
 	if err := c.queue.Publish(context.Background(), c.channel, payload); err != nil {
 		slog.Error("LP conn: failed to publish message", slog.Any("error", err), slog.Any("auth", c.auth))
-		return err // TODO: convert errors from queur to a well-known set (e.g. LongPollingQueueError)
+		return err
+	}
+	return nil
+}
+
+// BeginDrain acquires an exclusive lock, blocking all concurrent Send() calls.
+func (c *LongPollingConn) BeginDrain() { c.drainMu.Lock() }
+
+// EndDrain releases the exclusive lock, allowing blocked Send() calls to proceed.
+func (c *LongPollingConn) EndDrain() { c.drainMu.Unlock() }
+
+// SendDirect publishes directly to the Valkey queue without acquiring drainMu.
+// Must only be called between BeginDrain/EndDrain.
+func (c *LongPollingConn) SendDirect(payload []byte) error {
+	if err := c.queue.Publish(context.Background(), c.channel, payload); err != nil {
+		slog.Error("LP conn: SendDirect failed", slog.Any("error", err), slog.Any("auth", c.auth))
+		return err
 	}
 	return nil
 }
