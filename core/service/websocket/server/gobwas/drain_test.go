@@ -38,7 +38,7 @@ func (c *mockDrainableConn) endDrain()   { c.drainMu.Unlock() }
 func TestDrainOrdering(t *testing.T) {
 	const iterations = 100
 
-	for i := 0; i < iterations; i++ {
+	for i := range iterations {
 		conn := &mockDrainableConn{}
 		conn.beginDrain()
 
@@ -46,7 +46,7 @@ func TestDrainOrdering(t *testing.T) {
 		var started atomic.Bool
 
 		// Simulate 5 concurrent senders that fire as soon as drain begins.
-		for j := 0; j < 5; j++ {
+		for j := range 5 {
 			wg.Add(1)
 			go func(n int) {
 				defer wg.Done()
