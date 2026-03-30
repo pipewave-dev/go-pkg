@@ -7,4 +7,5 @@ type (
 const (
 	WsStatusConnected WsStatus = iota + 1
 	WsStatusTempDisconnected
+	WsStatusTransferring
 )

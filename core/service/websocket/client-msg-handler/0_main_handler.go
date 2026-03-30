@@ -63,27 +63,21 @@ func New(
 	}
 }
 
-var (
-	hearbeatResMsg = wsSv.WebsocketResponse{
-		MsgType: wsSv.MessageTypeHeartbeat,
-		Binary:  nil,
-	}
-	lenHearbeat = len((&wsSv.WebsocketResquest{
-		MsgType: wsSv.MessageTypeHeartbeat,
-		Binary:  nil,
-	}).Marshall())
-)
+var hearbeatResMsg = wsSv.WebsocketResponse{
+	MsgType: wsSv.MessageTypeHeartbeat,
+	Binary:  nil,
+}
 
-func (h *clientMsgHandler) HandleTextMessage(clientMsg string, auth voAuth.WebsocketAuth, sendFn func([]byte)) {
+func (h *clientMsgHandler) HandleTextMessage(clientMsg string, auth voAuth.WebsocketAuth, sendFn func([]byte) error) {
 	msg := fmt.Sprintf("Your UserID: %s, send msg: %s", auth.UserID, clientMsg)
 	sendFn([]byte(msg))
 }
 
-func (h *clientMsgHandler) HandleBinMessage(clientMsg []byte, auth voAuth.WebsocketAuth, sendFn func([]byte)) {
+func (h *clientMsgHandler) HandleBinMessage(clientMsg []byte, auth voAuth.WebsocketAuth, sendFn func([]byte) error) {
 	h.handleMessage(clientMsg, auth, sendFn)
 }
 
-func (h *clientMsgHandler) handleMessage(clientMsg []byte, auth voAuth.WebsocketAuth, sendFn func([]byte)) {
+func (h *clientMsgHandler) handleMessage(clientMsg []byte, auth voAuth.WebsocketAuth, sendFn func([]byte) error) {
 	var response *wsSv.WebsocketResponse
 	aCtx := actx.From(context.Background())
 

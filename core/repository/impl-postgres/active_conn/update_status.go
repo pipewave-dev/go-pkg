@@ -8,5 +8,6 @@ import (
 )
 
 func (r *activeConnRepo) UpdateStatus(ctx context.Context, userID string, instanceID string, status voWs.WsStatus) aerror.AError {
+	// TODO
 	panic("ActiveConnStore.UpdateStatus not implemented — add Postgres implementation")
 }

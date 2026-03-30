@@ -2,6 +2,7 @@ package gobwas
 
 import (
 	"context"
+	"fmt"
 	"net"
 	"time"
 
@@ -55,10 +56,11 @@ func (cl *GobwasConnection) Auth() voAuth.WebsocketAuth {
 	return cl.auth
 }
 
-func (cl *GobwasConnection) Send(payload []byte) {
+func (cl *GobwasConnection) Send(payload []byte) error {
 	if cl.server != nil {
-		cl.server.send(cl, payload)
+		return cl.server.send(cl, payload)
 	}
+	return fmt.Errorf("connection is not associated with a server")
 }
 
 func (cl *GobwasConnection) Close() {

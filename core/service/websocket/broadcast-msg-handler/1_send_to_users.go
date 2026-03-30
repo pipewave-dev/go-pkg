@@ -18,7 +18,7 @@ func (h *broadcastMsgHandler) SendToUsers(ctx context.Context, payload broadcast
 	for _, userID := range payload.UserIds {
 		connections := h.connections.GetAllUserConn(userID)
 		for _, conn := range connections {
-			conn.Send(wsRes)
+			h.sendOrSaveMessageHub(ctx, conn, wsRes)
 		}
 	}
 }

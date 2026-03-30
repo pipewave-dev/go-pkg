@@ -10,7 +10,7 @@ import (
 	"log/slog"
 	"time"
 
-	"github.com/pipewave-dev/go-pkg/core/delivery/module"
+	moduledelivery "github.com/pipewave-dev/go-pkg/core/delivery/module"
 	"github.com/pipewave-dev/go-pkg/core/repository"
 	"github.com/pipewave-dev/go-pkg/core/service/business/monitoring"
 	ackmanager "github.com/pipewave-dev/go-pkg/core/service/websocket/ack-manager"
@@ -33,9 +33,7 @@ import (
 	pubsubfactory "github.com/pipewave-dev/go-pkg/provider/pubsub"
 	queuefactory "github.com/pipewave-dev/go-pkg/provider/queue"
 	workerpoolprovider "github.com/pipewave-dev/go-pkg/provider/worker-pool-provider"
-)
 
-import (
 	_ "github.com/pipewave-dev/go-pkg/shared/aerror"
 )
 
@@ -55,7 +53,7 @@ func NewPipewave(config configprovider.ConfigStore, s *slog.Logger, rf repositor
 	// TODO: replace 5*time.Minute with c.Ws().TempDisconnectTTL() once config exposes it.
 	msgHubSvc := msghub.New(allRepository.PendingMessage(), 5*time.Minute)
 	shutdownSignal := msghub.NewShutdownSignal()
-	pubsubHandler := broadcastmsghandler.New(allRepository, connectionManager, ackManager, msgHubSvc)
+	pubsubHandler := broadcastmsghandler.New(allRepository, connectionManager, ackManager, msgHubSvc, workerPool)
 	wsService := mediatorsvc.New(config, allRepository, cleanupTask, workerPool, connectionManager, pubsubHandler, adapter, otelProvider, ackManager, msgHubSvc, shutdownSignal)
 	rateLimiter := ratelimiter.New(config)
 	intervalTask := fncollector.NewIntervalTask()

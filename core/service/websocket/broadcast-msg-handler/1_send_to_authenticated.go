@@ -21,6 +21,6 @@ func (h *broadcastMsgHandler) SendToAuthenticated(ctx context.Context, payload b
 		payload.Payload)
 
 	for _, conn := range connections {
-		conn.Send(wsRes)
+		h.sendOrSaveMessageHub(ctx, conn, wsRes)
 	}
 }

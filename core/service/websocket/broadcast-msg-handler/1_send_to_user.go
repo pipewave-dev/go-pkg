@@ -24,7 +24,7 @@ func (h *broadcastMsgHandler) SendToUser(ctx context.Context, payload broadcast.
 		wsSv.MessageType(payload.MsgType), payload.Payload)
 
 	for _, conn := range connections {
-		conn.Send(wsRes)
+		h.sendOrSaveMessageHub(ctx, conn, wsRes)
 	}
 
 	for _, instanceID := range tempSessions {

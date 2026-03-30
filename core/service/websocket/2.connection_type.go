@@ -14,7 +14,7 @@ const (
 
 type WebsocketConn interface {
 	Auth() voAuth.WebsocketAuth
-	Send(payload []byte)
+	Send(payload []byte) error
 	CoreType() voWs.WsCoreType
 	Close()
 	Ping()

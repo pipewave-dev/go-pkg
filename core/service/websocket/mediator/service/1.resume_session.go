@@ -13,14 +13,35 @@ func (m *mediatorSvc) ResumeSession(ctx context.Context, targetContainerID, user
 		UserID:     userID,
 		InstanceID: instanceID,
 	}
-	aErr := m.broadcast.ResumeSession(ctx, []string{targetContainerID}, pl).Publish()
-	if aErr != nil {
-		slog.ErrorContext(ctx, "ResumeSession: failed to publish",
-			slog.String("targetContainerID", targetContainerID),
-			slog.String("userID", userID),
-			slog.String("instanceID", instanceID),
-			slog.Any("error", aErr))
-		return aErr
+	localAction := func() {
+		m.broadcastHandler.ResumeSession(ctx, pl)
 	}
-	return nil
+	targetContainerAction := func(containerIDs []string) {
+		err := m.broadcast.ResumeSession(ctx, containerIDs, pl).Publish()
+		if err != nil {
+			slog.ErrorContext(ctx, "Failed to broadcast ResumeSession",
+				slog.String("userID", userID),
+				slog.String("instanceID", instanceID),
+				slog.Any("containerIDs", containerIDs),
+				slog.Any("error", err))
+		}
+	}
+
+	findThenAction := &findSessionConn{
+		ctx:                   ctx,
+		userID:                userID,
+		instanceID:            instanceID,
+		localAction:           localAction,
+		targetContainerAction: targetContainerAction,
+		callbackNotfound: func() {
+			slog.WarnContext(ctx, "InstanceID not found when ResumeSession",
+				slog.String("userID", userID),
+				slog.String("instanceID", instanceID))
+		},
+		c:              m.c,
+		connections:    m.connections,
+		activeConnRepo: m.activeConnRepo,
+	}
+
+	return findThenAction.findThenAction()
 }

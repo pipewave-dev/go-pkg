@@ -6,42 +6,36 @@ import (
 	"time"
 
 	voAuth "github.com/pipewave-dev/go-pkg/core/domain/value-object/auth"
-	wsSv "github.com/pipewave-dev/go-pkg/core/service/websocket"
 	br "github.com/pipewave-dev/go-pkg/core/service/websocket/broadcast"
 	"github.com/pipewave-dev/go-pkg/shared/aerror"
-	"github.com/pipewave-dev/go-pkg/shared/utils/fn"
 )
 
 func (m *mediatorSvc) SendToSessionWithAck(ctx context.Context, userID string, instanceID string, msgType string, payload []byte, timeout time.Duration) (acked bool, aErr aerror.AError) {
 	ackID, ch := m.ackManager.CreateAck()
+	pl := br.SendToSessionWithAckParams{
+		UserId:            userID,
+		InstanceId:        instanceID,
+		MsgType:           msgType,
+		Payload:           payload,
+		AckID:             ackID,
+		SourceContainerID: m.c.Env().ContainerID,
+	}
 
 	found := false
 	localAction := func() {
 		auth := voAuth.UserWebsocketAuth(userID, instanceID)
-		conn, ok := m.connections.GetConnection(auth)
+		_, ok := m.connections.GetConnection(auth)
 		if !ok {
 			return
 		}
 		found = true
-		id := fn.NewUUID()
-		wsRes := wsSv.WebsocketResponse{
-			Id:      id.String(),
-			MsgType: wsSv.MessageType(msgType),
-			Binary:  payload,
-			AckId:   ackID,
-		}
-		conn.Send(wsRes.Marshall())
+		m.broadcastHandler.SendToSessionWithAck(ctx, pl)
 	}
 	targetContainerAction := func(containerIDs []string) {
-		found = true
-		pl := br.SendToSessionWithAckParams{
-			UserId:            userID,
-			InstanceId:        instanceID,
-			MsgType:           msgType,
-			Payload:           payload,
-			AckID:             ackID,
-			SourceContainerID: m.c.Env().ContainerID,
+		if len(containerIDs) == 0 {
+			return
 		}
+		found = true
 		if err := m.broadcast.SendToSessionWithAck(ctx, containerIDs, pl).Publish(); err != nil {
 			slog.ErrorContext(ctx, "Failed to broadcast SendToSessionWithAck",
 				slog.String("userID", userID),
@@ -77,35 +71,28 @@ func (m *mediatorSvc) SendToSessionWithAck(ctx context.Context, userID string, i
 
 func (m *mediatorSvc) SendToUserWithAck(ctx context.Context, userID string, msgType string, payload []byte, timeout time.Duration) (acked bool, aErr aerror.AError) {
 	ackID, ch := m.ackManager.CreateAck()
+	pl := br.SendToUserWithAckParams{
+		UserId:            userID,
+		MsgType:           msgType,
+		Payload:           payload,
+		AckID:             ackID,
+		SourceContainerID: m.c.Env().ContainerID,
+	}
 
 	found := false
 	localAction := func() {
-		connections := m.connections.GetAllUserConn(userID)
-		if len(connections) == 0 {
+		conns := m.connections.GetAllUserConn(userID)
+		if len(conns) == 0 {
 			return
 		}
 		found = true
-		id := fn.NewUUID()
-		wsRes := wsSv.WebsocketResponse{
-			Id:      id.String(),
-			MsgType: wsSv.MessageType(msgType),
-			Binary:  payload,
-			AckId:   ackID,
-		}
-		data := wsRes.Marshall()
-		for _, conn := range connections {
-			conn.Send(data)
-		}
+		m.broadcastHandler.SendToUserWithAck(ctx, pl)
 	}
 	targetContainerAction := func(containerIDs []string) {
-		found = true
-		pl := br.SendToUserWithAckParams{
-			UserId:            userID,
-			MsgType:           msgType,
-			Payload:           payload,
-			AckID:             ackID,
-			SourceContainerID: m.c.Env().ContainerID,
+		if len(containerIDs) == 0 {
+			return
 		}
+		found = true
 		if err := m.broadcast.SendToUserWithAck(ctx, containerIDs, pl).Publish(); err != nil {
 			slog.ErrorContext(ctx, "Failed to broadcast SendToUserWithAck",
 				slog.String("userID", userID),

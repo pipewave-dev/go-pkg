@@ -36,5 +36,5 @@ func (h *broadcastMsgHandler) SendToSession(ctx context.Context, payload broadca
 		return
 	}
 
-	conn.Send(wsRes)
+	h.sendOrSaveMessageHub(ctx, conn, wsRes)
 }

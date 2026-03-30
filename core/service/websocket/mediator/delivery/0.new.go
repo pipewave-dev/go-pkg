@@ -126,13 +126,13 @@ func (d *serverDelivery) registerHandlers() {
 // Callback functions for WebSocket server
 
 func (d *serverDelivery) onTextMessage() wsSv.OnTextMessageFn {
-	return func(payload string, auth voAuth.WebsocketAuth, sendFn func([]byte)) {
+	return func(payload string, auth voAuth.WebsocketAuth, sendFn func([]byte) error) {
 		d.clientMsgHandler.HandleTextMessage(payload, auth, sendFn)
 	}
 }
 
 func (d *serverDelivery) onBinMessage() wsSv.OnBinMessageFn {
-	return func(payload []byte, auth voAuth.WebsocketAuth, sendFn func([]byte)) {
+	return func(payload []byte, auth voAuth.WebsocketAuth, sendFn func([]byte) error) {
 		d.clientMsgHandler.HandleBinMessage(payload, auth, sendFn)
 	}
 }
@@ -205,18 +205,13 @@ func (d *serverDelivery) onNewRegister() {
 			// Check if this session was previously temp-disconnected.
 			actConn, aErr := d.activeConnRepo.GetInstanceConnection(ctx, auth.UserID, auth.InstanceID)
 			if aErr == nil && actConn != nil && actConn.Status == voWs.WsStatusTempDisconnected {
-				if actConn.HolderID == d.c.Env().ContainerID {
-					// Same container — cancel the ExpiredTimer directly.
-					d.msgHubSvc.Deregister(auth.UserID, auth.InstanceID)
-				} else {
-					// Different container — signal it via pubsub.
-					if sigErr := d.wsService.ResumeSession(ctx, actConn.HolderID, auth.UserID, auth.InstanceID); sigErr != nil {
-						slog.WarnContext(ctx, "onNew: ResumeSession publish failed; old ExpiredTimer will eventually fire",
-							slog.String("holderID", actConn.HolderID),
-							slog.String("userID", auth.UserID),
-							slog.String("instanceID", auth.InstanceID),
-							slog.Any("error", sigErr))
-					}
+				// Different container — signal it via pubsub.
+				if sigErr := d.wsService.ResumeSession(ctx, actConn.HolderID, auth.UserID, auth.InstanceID); sigErr != nil {
+					slog.WarnContext(ctx, "onNew: ResumeSession publish failed; old ExpiredTimer will eventually fire",
+						slog.String("holderID", actConn.HolderID),
+						slog.String("userID", auth.UserID),
+						slog.String("instanceID", auth.InstanceID),
+						slog.Any("error", sigErr))
 				}
 			}
 
@@ -237,7 +232,7 @@ func (d *serverDelivery) onNewRegister() {
 					slog.Any("error", consumeErr))
 			}
 			for _, msg := range msgs {
-				connection.Send(msg)
+				connection.Send(msg) // TODO: warning if send fails
 			}
 
 			return nil

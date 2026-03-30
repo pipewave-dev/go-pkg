@@ -37,5 +37,6 @@ func (r *pgRepo) User() repository.User {
 }
 
 func (r *pgRepo) PendingMessage() repository.PendingMessageRepo {
+	// TODO
 	panic("PendingMessageRepo not implemented — add Postgres implementation")
 }

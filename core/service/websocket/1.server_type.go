@@ -24,12 +24,12 @@ type (
 	OnTextMessageFn func(
 		payload string,
 		auth voAuth.WebsocketAuth,
-		sendFn func([]byte),
+		sendFn func([]byte) error,
 	)
 	OnBinMessageFn func(
 		payload []byte,
 		auth voAuth.WebsocketAuth,
-		sendFn func([]byte),
+		sendFn func([]byte) error,
 	)
 	OnReadErrorFn  func(auth voAuth.WebsocketAuth, err error)
 	OnWriteErrorFn func(auth voAuth.WebsocketAuth, err error)
@@ -57,6 +57,6 @@ type OnNewStuffFn interface {
 }
 
 type ClientMsgHandler interface {
-	HandleTextMessage(payload string, auth voAuth.WebsocketAuth, sendFn func([]byte))
-	HandleBinMessage(payload []byte, auth voAuth.WebsocketAuth, sendFn func([]byte))
+	HandleTextMessage(payload string, auth voAuth.WebsocketAuth, sendFn func([]byte) error)
+	HandleBinMessage(payload []byte, auth voAuth.WebsocketAuth, sendFn func([]byte) error)
 }

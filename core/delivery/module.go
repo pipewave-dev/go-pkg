@@ -75,7 +75,7 @@ type ExportedServices interface {
 	// SendToSessionWithAck sends to a specific session and waits for client acknowledgment.
 	SendToSessionWithAck(ctx context.Context, userID string, instanceID string, msgType string, payload []byte, timeout time.Duration) (acked bool, aErr aerror.AError)
 
-	// SendToUserWithAck sends to a user and waits for client acknowledgment.
+	// SendToUserWithAck sends to a user and waits for client acknowledgment. (experimental, may be removed in the future)
 	SendToUserWithAck(ctx context.Context, userID string, msgType string, payload []byte, timeout time.Duration) (acked bool, aErr aerror.AError)
 
 	SendToAll(ctx context.Context, msgType string, payload []byte) aerror.AError

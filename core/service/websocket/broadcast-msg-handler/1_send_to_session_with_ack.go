@@ -25,5 +25,5 @@ func (h *broadcastMsgHandler) SendToSessionWithAck(ctx context.Context, payload 
 		Binary:  payload.Payload,
 		AckId:   payload.AckID,
 	}
-	conn.Send(wsRes.Marshall())
+	h.sendOrSaveMessageHub(ctx, conn, wsRes.Marshall())
 }

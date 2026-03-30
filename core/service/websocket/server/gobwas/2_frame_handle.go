@@ -68,15 +68,15 @@ func (s *NetpollServer) handleFrame(client *GobwasConnection, frame ws.Frame) er
 func (s *NetpollServer) handleTextFrame(client *GobwasConnection, payload []byte, fin bool) error {
 	if fin {
 		// Complete text message
-		s.onTextMessage(string(payload), client.auth, func(responsePayload []byte) {
-			s.send(client, responsePayload)
+		s.onTextMessage(string(payload), client.auth, func(responsePayload []byte) error {
+			return s.send(client, responsePayload)
 		})
 	} else {
 		// Fragmented message - store fragment
 		// Future: Implement message fragmentation handling if needed
 		// For now, treat as complete message
-		s.onTextMessage(string(payload), client.auth, func(responsePayload []byte) {
-			s.send(client, responsePayload)
+		s.onTextMessage(string(payload), client.auth, func(responsePayload []byte) error {
+			return s.send(client, responsePayload)
 		})
 	}
 	return nil
@@ -86,14 +86,14 @@ func (s *NetpollServer) handleTextFrame(client *GobwasConnection, payload []byte
 func (s *NetpollServer) handleBinaryFrame(client *GobwasConnection, payload []byte, fin bool) error {
 	if fin {
 		// Complete binary message
-		s.onBinMessage(payload, client.auth, func(responsePayload []byte) {
-			s.send(client, responsePayload)
+		s.onBinMessage(payload, client.auth, func(responsePayload []byte) error {
+			return s.send(client, responsePayload)
 		})
 	} else {
 		// Fragmented message - store fragment
 		// Future: Implement message fragmentation handling if needed
-		s.onBinMessage(payload, client.auth, func(responsePayload []byte) {
-			s.send(client, responsePayload)
+		s.onBinMessage(payload, client.auth, func(responsePayload []byte) error {
+			return s.send(client, responsePayload)
 		})
 	}
 	return nil

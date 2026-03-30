@@ -163,17 +163,19 @@ func (s *NetpollServer) handleClientData(client *GobwasConnection) {
 }
 
 // send writes a binary frame to the client connection.
-func (s *NetpollServer) send(client *GobwasConnection, payload []byte) {
+func (s *NetpollServer) send(client *GobwasConnection, payload []byte) error {
 	conn := client.conn
 	if conn == nil {
-		return
+		return fmt.Errorf("connection is nil")
 	}
 	// Use a binary frame because payload may be MessagePack/binary, not UTF-8.
 	frame := ws.NewBinaryFrame(payload)
 	if err := ws.WriteFrame(conn, frame); err != nil {
 		s.onWriteError(client.auth, fmt.Errorf("failed to send message: %w", err))
 		client.Close()
+		return fmt.Errorf("failed to send message: %w", err)
 	}
+	return nil
 }
 
 func (s *NetpollServer) ping(client *GobwasConnection) {

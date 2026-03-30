@@ -71,10 +71,12 @@ func (c *LongPollingConn) CoreType() voWs.WsCoreType {
 func (c *LongPollingConn) Auth() voAuth.WebsocketAuth { return c.auth }
 
 // Send publishes payload to the Valkey-backed queue.
-func (c *LongPollingConn) Send(payload []byte) {
+func (c *LongPollingConn) Send(payload []byte) error {
 	if err := c.queue.Publish(context.Background(), c.channel, payload); err != nil {
 		slog.Error("LP conn: failed to publish message", slog.Any("error", err), slog.Any("auth", c.auth))
+		return err // TODO: convert errors from queur to a well-known set (e.g. LongPollingQueueError)
 	}
+	return nil
 }
 
 // Close terminates the connection and triggers the onClose callback exactly once.

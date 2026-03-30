@@ -38,5 +38,6 @@ func (r *ddbRepo) User() repository.User {
 }
 
 func (r *ddbRepo) PendingMessage() repository.PendingMessageRepo {
+	// TODO
 	panic("PendingMessageRepo not implemented — add DynamoDB implementation")
 }

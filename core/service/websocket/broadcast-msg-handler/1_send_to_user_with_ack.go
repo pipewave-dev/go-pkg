@@ -25,6 +25,6 @@ func (h *broadcastMsgHandler) SendToUserWithAck(ctx context.Context, payload bro
 	}
 	data := wsRes.Marshall()
 	for _, conn := range connections {
-		conn.Send(data)
+		h.sendOrSaveMessageHub(ctx, conn, data)
 	}
 }
