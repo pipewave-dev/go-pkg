@@ -3,11 +3,24 @@ package activeConnRepo
 import (
 	"context"
 
+	activeConnExp "github.com/pipewave-dev/go-pkg/core/repository/impl-dynamodb/active_conn/exprbuilder"
 	voWs "github.com/pipewave-dev/go-pkg/core/domain/value-object/ws"
+	"github.com/pipewave-dev/go-pkg/pkg/observer"
 	"github.com/pipewave-dev/go-pkg/shared/aerror"
 )
 
-func (r *activeConnRepo) UpdateStatus(ctx context.Context, userID string, instanceID string, status voWs.WsStatus) aerror.AError {
-	// TODO: Implement UpdateStatus for DynamoDB
-	panic("ActiveConnStore.UpdateStatus not implemented — add DynamoDB implementation")
+const fnUpdateStatus = "activeConnRepo.UpdateStatus"
+
+func (r *activeConnRepo) UpdateStatus(ctx context.Context, userID string, instanceID string, status voWs.WsStatus) (aErr aerror.AError) {
+	var op observer.Operation
+	ctx, op = r.obs.StartOperation(ctx, fnUpdateStatus)
+	defer op.Finish(aErr)
+
+	updater := activeConnExp.ActiveConnectionUpdater{ConfigStore: r.c}
+	aErr = updater.UpdateStatus(ctx, r.ddbC, activeConnExp.UpdateStatusParams{
+		UserID:    userID,
+		SessionID: instanceID,
+		Status:    status,
+	})
+	return aErr
 }

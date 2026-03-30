@@ -3,6 +3,7 @@ package impldynamodb
 import (
 	"github.com/pipewave-dev/go-pkg/core/repository"
 	activeConnRepo "github.com/pipewave-dev/go-pkg/core/repository/impl-dynamodb/active_conn"
+	pendingMessageRepo "github.com/pipewave-dev/go-pkg/core/repository/impl-dynamodb/pending_message"
 	userRepo "github.com/pipewave-dev/go-pkg/core/repository/impl-dynamodb/user"
 	"github.com/pipewave-dev/go-pkg/pkg/observer"
 
@@ -18,15 +19,18 @@ func NewDynamoRepo(
 	ddbC := ddbP.Client()
 	acs := activeConnRepo.New(c, ddbC, obs)
 	u := userRepo.New(c, ddbC, obs)
+	pm := pendingMessageRepo.New(c, ddbC, obs)
 	return &ddbRepo{
 		acs: acs,
 		u:   u,
+		pm:  pm,
 	}
 }
 
 type ddbRepo struct {
 	acs repository.ActiveConnStore
 	u   repository.User
+	pm  repository.PendingMessageRepo
 }
 
 func (r *ddbRepo) ActiveConnStore() repository.ActiveConnStore {
@@ -38,6 +42,5 @@ func (r *ddbRepo) User() repository.User {
 }
 
 func (r *ddbRepo) PendingMessage() repository.PendingMessageRepo {
-	// TODO
-	panic("PendingMessageRepo not implemented — add DynamoDB implementation")
+	return r.pm
 }

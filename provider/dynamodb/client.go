@@ -214,5 +214,20 @@ func tablesSchema(cfg configprovider.ConfigStore) []dynamodb.CreateTableParams {
 				AttributeType: types.ScalarAttributeTypeS,
 			},
 		},
+		// pending_message
+		// PK: SessionKey (S) — composite: "{userID}:{instanceID}"
+		// SK: SendAt (N)     — Unix nano int64, ascending order for GetAll
+		// TTL: TTL           — same duration as MessageHub.TTL (temp-disconnect window)
+		{
+			TableName: tables.PendingMessage,
+			PartitionKey: dynamodb.KeySchema{
+				AttributeName: "SessionKey",
+				AttributeType: types.ScalarAttributeTypeS,
+			},
+			SortKey: &dynamodb.KeySchema{
+				AttributeName: "SendAt",
+				AttributeType: types.ScalarAttributeTypeN,
+			},
+		},
 	}
 }

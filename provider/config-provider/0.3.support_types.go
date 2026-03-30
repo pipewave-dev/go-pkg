@@ -183,4 +183,5 @@ type DynamoTables struct {
 	GNoti            string `koanf:"G_NOTI"`
 	UNoti            string `koanf:"U_NOTI"`
 	NotiTimeBucket   string `koanf:"NOTI_TIME_BUCKET"`
+	PendingMessage   string `koanf:"PENDING_MESSAGE"`
 }
