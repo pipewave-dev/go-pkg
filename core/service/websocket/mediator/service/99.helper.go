@@ -57,6 +57,10 @@ type findSessionConn struct {
 	userID           string
 	instanceID       string
 	callbackNotfound func() // Only need when find by instanceID
+	// transferringAction is called when the session is found in DB but HolderID is empty
+	// (WsStatusTransferring). Callers should save the message to MessageHub.
+	// If nil, callbackNotfound is called instead.
+	transferringAction func() aerror.AError
 
 	localAction           func()
 	targetContainerAction func(containerIDs []string)
@@ -83,6 +87,16 @@ func (f *findSessionConn) findThenAction() aerror.AError {
 			return nil
 		}
 		return aErr
+	}
+
+	// Session is in WsStatusTransferring: HolderID is cleared, container is shutting down.
+	// Route message to MessageHub so client receives it on reconnect.
+	if actConn.HolderID == "" {
+		if f.transferringAction != nil {
+			return f.transferringAction()
+		}
+		f.callbackNotfound()
+		return nil
 	}
 
 	f.targetContainerAction([]string{actConn.HolderID})
