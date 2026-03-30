@@ -4,9 +4,10 @@ import (
 	"context"
 	"log/slog"
 
-	"github.com/pipewave-dev/go-pkg/shared/aerror"
-
+	wsSv "github.com/pipewave-dev/go-pkg/core/service/websocket"
 	br "github.com/pipewave-dev/go-pkg/core/service/websocket/broadcast"
+	"github.com/pipewave-dev/go-pkg/shared/aerror"
+	fn "github.com/pipewave-dev/go-pkg/shared/utils/fn"
 )
 
 func (m *mediatorSvc) SendToSession(ctx context.Context, userID string, instanceID string, msgType string, payload []byte) aerror.AError {
@@ -29,6 +30,16 @@ func (m *mediatorSvc) SendToSession(ctx context.Context, userID string, instance
 				slog.Any("error", err))
 		}
 	}
+	// When the session is in WsStatusTransferring, wrap the message and save to MessageHub
+	// so the client receives it upon reconnect to any container.
+	transferringAction := func() aerror.AError {
+		id := fn.NewUUID()
+		wsRes := wsSv.WrapperBytesToWebsocketResponse(id.String(), "", wsSv.MessageType(msgType), payload)
+		if err := m.msgHubSvc.Save(ctx, userID, instanceID, wsRes); err != nil {
+			return aerror.New(ctx, aerror.ErrUnexpectedDatabase, err)
+		}
+		return nil
+	}
 
 	findThenAction := &findSessionConn{
 		ctx:                   ctx,
@@ -36,11 +47,11 @@ func (m *mediatorSvc) SendToSession(ctx context.Context, userID string, instance
 		instanceID:            instanceID,
 		localAction:           localAction,
 		targetContainerAction: targetContainerAction,
+		transferringAction:    transferringAction,
 		callbackNotfound: func() {
 			slog.WarnContext(ctx, "InstanceID not found when SendToSession",
 				slog.String("userID", userID),
 				slog.String("instanceID", instanceID))
-			return
 		},
 		c:              m.c,
 		connections:    m.connections,
