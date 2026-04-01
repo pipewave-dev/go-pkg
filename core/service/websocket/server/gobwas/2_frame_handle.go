@@ -1,6 +1,7 @@
 package gobwas
 
 import (
+	"encoding/binary"
 	"fmt"
 
 	"github.com/gobwas/ws"
@@ -100,7 +101,7 @@ func (s *NetpollServer) handleBinaryFrame(client *GobwasConnection, payload []by
 }
 
 // handleContinuationFrame processes a continuation frame (part of a fragmented message).
-func (s *NetpollServer) handleContinuationFrame(client *GobwasConnection, payload []byte, fin bool) error {
+func (s *NetpollServer) handleContinuationFrame(_ *GobwasConnection, payload []byte, fin bool) error {
 	// TODO: Implement proper fragmentation handling
 	// For now, just log and continue
 	fmt.Printf("Received continuation frame, fin=%v, payload_len=%d\n", fin, len(payload))
@@ -109,25 +110,30 @@ func (s *NetpollServer) handleContinuationFrame(client *GobwasConnection, payloa
 
 // handleCloseFrame processes a close frame.
 func (s *NetpollServer) handleCloseFrame(client *GobwasConnection, payload []byte) error {
-	// Parse close code and reason if present
-	// var closeCode ws.StatusCode = ws.StatusNormalClosure
-	// var reason string
-	// fmt.Printf("Received close frame: code=%d, reason=%s\n", closeCode, reason)
+	client.MarkCloseReceived()
 
-	// if len(payload) >= 2 {
-	// 	closeCode = ws.StatusCode(uint16(payload[0])<<8 | uint16(payload[1]))
-	// 	if len(payload) > 2 {
-	// 		reason = string(payload[2:])
-	// 	}
-	// }
+	if len(payload) == 1 {
+		return s.writeCloseOnce(client, ws.StatusProtocolError, "invalid close payload")
+	}
 
-	// Send close frame response
-	closeFrame := ws.NewCloseFrame(ws.NewCloseFrameBody(ws.StatusNormalClosure, ""))
-	if err := ws.WriteFrame(client.conn, closeFrame); err != nil {
+	closeCode := ws.StatusNormalClosure
+	closeReason := ""
+	if len(payload) >= 2 {
+		closeCode = ws.StatusCode(binary.BigEndian.Uint16(payload[:2]))
+		if len(payload) > 2 {
+			closeReason = string(payload[2:])
+		}
+	}
+
+	// Per RFC 6455, if we receive close and have not sent close yet,
+	// respond with close and then close the transport.
+	if err := s.writeCloseOnce(client, closeCode, closeReason); err != nil {
+		client.Close()
 		return err
 	}
 
-	// Return false to indicate connection should be closed
+	client.Close()
+
 	return nil
 }
 
@@ -142,26 +148,33 @@ func (s *NetpollServer) handlePingFrame(client *GobwasConnection, payload []byte
 }
 
 // handlePongFrame processes a pong frame.
-func (s *NetpollServer) handlePongFrame(client *GobwasConnection, payload []byte) error {
+func (s *NetpollServer) handlePongFrame(_ *GobwasConnection, payload []byte) error {
 	// Pong frame received - could be response to our ping
 	// TODO: Implement ping/pong tracking if needed for keep-alive
-	fmt.Printf("Received pong frame with payload length: %d\n", len(payload))
+	// fmt.Printf("Received pong frame with payload length: %d\n", len(payload))
 	return nil
 }
 
 // handleProtocolError sends a close frame with an error code and removes the client.
 func (s *NetpollServer) handleProtocolError(client *GobwasConnection, err error) {
 	fmt.Printf("Protocol error: %v\n", err)
-
-	// Send close frame with protocol error status
-	closeFrame := ws.NewCloseFrame(ws.NewCloseFrameBody(
-		ws.StatusProtocolError,
-		err.Error(),
-	))
-
-	// Ignore write error — connection may already be closed.
-	ws.WriteFrame(client.conn, closeFrame)
+	if errWrite := s.writeCloseOnce(client, ws.StatusProtocolError, err.Error()); errWrite != nil {
+		_ = errWrite
+	}
 
 	// Remove client
 	client.Close()
+}
+
+func (s *NetpollServer) writeCloseOnce(client *GobwasConnection, code ws.StatusCode, reason string) error {
+	if !client.MarkCloseSentIfFirst() {
+		return nil
+	}
+
+	closeFrame := ws.NewCloseFrame(ws.NewCloseFrameBody(code, reason))
+	if err := ws.WriteFrame(client.conn, closeFrame); err != nil {
+		return err
+	}
+
+	return nil
 }

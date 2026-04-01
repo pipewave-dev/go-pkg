@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	voAuth "github.com/pipewave-dev/go-pkg/core/domain/value-object/auth"
@@ -41,6 +42,8 @@ type GobwasConnection struct {
 	auth    voAuth.WebsocketAuth
 	desc    *netpoll.Desc
 	closed  int32
+	closeTx int32
+	closeRx int32
 	drainMu sync.RWMutex
 }
 
@@ -89,6 +92,14 @@ func (cl *GobwasConnection) Close() {
 	if cl.c.Env().Fns.OnCloseConnection != nil {
 		cl.c.Env().Fns.OnCloseConnection.OnCloseConnection(context.Background(), cl.auth)
 	}
+}
+
+func (cl *GobwasConnection) MarkCloseSentIfFirst() bool {
+	return atomic.CompareAndSwapInt32(&cl.closeTx, 0, 1)
+}
+
+func (cl *GobwasConnection) MarkCloseReceived() {
+	atomic.StoreInt32(&cl.closeRx, 1)
 }
 
 // serverStats tracks server performance metrics.
