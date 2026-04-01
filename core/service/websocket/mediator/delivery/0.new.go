@@ -85,8 +85,7 @@ func New(
 		shutdownSignal:   shutdownSignal,
 	}
 
-	ins.onCloseRegister()
-	ins.onNewRegister()
+	ins.registerCallback()
 	// Create gobwas WebSocket server with callbacks
 	ins.gobwasServer = gobwas.NewServer(
 		c,
@@ -149,52 +148,8 @@ func (d *serverDelivery) onWriteError() wsSv.OnWriteErrorFn {
 	}
 }
 
-func (d *serverDelivery) onCloseRegister() {
-	d.onCloseStuff.RegisterAll(func(auth voAuth.WebsocketAuth) {
-		d.connectionMgr.RemoveConnection(auth)
-		d.rateLimiter.Remove(auth)
-
-		ctx := context.Background()
-
-		// Anonymous sessions: always remove permanently (no reconnect buffering for anon).
-		if auth.IsAnonymous() {
-			if aErr := d.activeConnRepo.RemoveConnection(ctx, auth.UserID, auth.InstanceID); aErr != nil {
-				slog.Error("onClose: failed to remove anonymous connection",
-					slog.Any("auth", auth), slog.Any("error", aErr))
-			}
-			return
-		}
-
-		// Graceful shutdown path: Shutdown() already called UpdateStatusTransferring +
-		// msgHubSvc.Register for this connection before closing. Skip all DB operations
-		// to avoid overwriting the Transferring record.
-		if d.shutdownSignal.IsShuttingDown() {
-			return
-		}
-
-		// Normal temp-disconnect path: keep DB record + HolderID for cross-container routing.
-		aErr := d.activeConnRepo.UpdateStatus(ctx, auth.UserID, auth.InstanceID, voWs.WsStatusTempDisconnected)
-		if aErr != nil {
-			slog.Error("onClose: UpdateStatus failed, falling back to RemoveConnection",
-				slog.Any("auth", auth), slog.Any("error", aErr))
-			_ = d.activeConnRepo.RemoveConnection(ctx, auth.UserID, auth.InstanceID)
-			return
-		}
-
-		d.msgHubSvc.Register(auth.UserID, auth.InstanceID, func() {
-			// ExpiredTimer fired — session never reconnected within TTL.
-			if err := d.activeConnRepo.RemoveConnection(ctx, auth.UserID, auth.InstanceID); err != nil {
-				slog.Error("onExpired: failed to remove ActiveConnection",
-					slog.String("userID", auth.UserID),
-					slog.String("instanceID", auth.InstanceID),
-					slog.Any("error", err))
-			}
-		})
-	})
-}
-
-// onNewRegister handles new WebSocket connection
-func (d *serverDelivery) onNewRegister() {
+// registerCallback handles new WebSocket connection
+func (d *serverDelivery) registerCallback() {
 	d.onNewStuff.Register(
 		wsSv.OnNewWsKeyName("NewConnection"),
 		func(connection wsSv.WebsocketConn) error {
@@ -277,4 +232,46 @@ func (d *serverDelivery) onNewRegister() {
 
 			return nil
 		})
+
+	d.onCloseStuff.RegisterAll(func(auth voAuth.WebsocketAuth) {
+		d.connectionMgr.RemoveConnection(auth)
+		d.rateLimiter.Remove(auth)
+
+		ctx := context.Background()
+
+		// Anonymous sessions: always remove permanently (no reconnect buffering for anon).
+		if auth.IsAnonymous() {
+			if aErr := d.activeConnRepo.RemoveConnection(ctx, auth.UserID, auth.InstanceID); aErr != nil {
+				slog.Error("onClose: failed to remove anonymous connection",
+					slog.Any("auth", auth), slog.Any("error", aErr))
+			}
+			return
+		}
+
+		// Graceful shutdown path: Shutdown() already called UpdateStatusTransferring +
+		// msgHubSvc.Register for this connection before closing. Skip all DB operations
+		// to avoid overwriting the Transferring record.
+		if d.shutdownSignal.IsShuttingDown() {
+			return
+		}
+
+		// Normal temp-disconnect path: keep DB record + HolderID for cross-container routing.
+		aErr := d.activeConnRepo.UpdateStatus(ctx, auth.UserID, auth.InstanceID, voWs.WsStatusTempDisconnected)
+		if aErr != nil {
+			slog.Error("onClose: UpdateStatus failed, falling back to RemoveConnection",
+				slog.Any("auth", auth), slog.Any("error", aErr))
+			_ = d.activeConnRepo.RemoveConnection(ctx, auth.UserID, auth.InstanceID)
+			return
+		}
+
+		d.msgHubSvc.Register(auth.UserID, auth.InstanceID, func() {
+			// ExpiredTimer fired — session never reconnected within TTL.
+			if err := d.activeConnRepo.RemoveConnection(ctx, auth.UserID, auth.InstanceID); err != nil {
+				slog.Error("onExpired: failed to remove ActiveConnection",
+					slog.String("userID", auth.UserID),
+					slog.String("instanceID", auth.InstanceID),
+					slog.Any("error", err))
+			}
+		})
+	})
 }

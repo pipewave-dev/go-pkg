@@ -7,10 +7,6 @@ type EnvType struct {
 	PodName     string
 	ContainerID string
 
-	Debug struct {
-		Enabled bool
-	}
-
 	HeartbeatCutoff time.Duration
 
 	MessageHub MessageHubT

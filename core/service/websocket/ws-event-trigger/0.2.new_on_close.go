@@ -1,6 +1,7 @@
 package wseventtrigger
 
 import (
+	"log/slog"
 	"sync"
 
 	voAuth "github.com/pipewave-dev/go-pkg/core/domain/value-object/auth"
@@ -56,6 +57,7 @@ func (o *onCloseStuffFn) RegisterAll(fn func(auth voAuth.WebsocketAuth)) {
 
 // When complete, auto remove from map
 func (o *onCloseStuffFn) Do(auth voAuth.WebsocketAuth) {
+	slog.Debug("trigger onclose")
 	key := authKey(auth)
 	o.mu.Lock()
 	fn, ok := o.fnsMap[key]
