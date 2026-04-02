@@ -21,7 +21,7 @@ func (r *activeConnRepo) CountActiveConnectionsBatch(ctx context.Context, userID
 	for _, userID := range userIDs {
 		count, err := querier.CountActive(ctx, r.ddbC, activeConnExp.CountActiveParams{
 			UserID:         userID,
-			CutOffDuration: r.c.Env().HeartbeatCutoff,
+			CutOffDuration: r.c.Env().ActConn.HeartbeatCutoff,
 		})
 		if err != nil {
 			return nil, err

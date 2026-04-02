@@ -32,11 +32,11 @@ func New(
 	pendingRepo repo.PendingMessageRepo,
 	wp *workerpool.WorkerPool,
 ) MessageHubSvc {
-	cfg := c.Env().MessageHub
+	cfg := c.Env().ActConn
 	return &msgHubSvc{
 		registry: make(map[string]map[string]entry),
 		repo:     pendingRepo,
-		ttl:      cfg.TTL,
+		ttl:      cfg.PendingMsgTTL,
 		wp:       wp,
 	}
 }

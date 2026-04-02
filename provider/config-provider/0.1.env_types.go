@@ -1,7 +1,5 @@
 package configprovider
 
-import "time"
-
 // globalEnvT contains all application configuration loaded from YAML files and environment variables
 type globalEnvT struct {
 	Env         string `koanf:"ENV_NAME"`
@@ -9,9 +7,7 @@ type globalEnvT struct {
 	ContainerID string `koanf:"CONTAINER_ID"`
 	Version     string `koanf:"VERSION"`
 
-	HeartbeatCutoff time.Duration `koanf:"HEARTBEAT_CUTOFF"`
-
-	MessageHub MessageHubT `koanf:"MESSAGE_HUB"`
+	ActConn ActiveConnectionT `koanf:"ACTIVE_CONNECTION"`
 
 	WorkerPool WorkerPoolT `koanf:"WORKER_POOL"`
 

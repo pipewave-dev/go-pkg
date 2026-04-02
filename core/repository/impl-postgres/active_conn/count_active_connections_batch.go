@@ -16,7 +16,7 @@ func (r *activeConnRepo) CountActiveConnectionsBatch(ctx context.Context, userID
 	defer op.Finish(aErr)
 
 	result = make(map[string]int, len(userIDs))
-	cutoff := time.Now().Add(-r.c.Env().HeartbeatCutoff)
+	cutoff := time.Now().Add(-r.c.Env().ActConn.HeartbeatCutoff)
 
 	query := `
 		SELECT user_id, COUNT(*) as cnt FROM active_connections

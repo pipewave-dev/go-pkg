@@ -1,8 +1,6 @@
 package configprovider
 
 import (
-	"time"
-
 	gonanoid "github.com/matoous/go-nanoid/v2"
 )
 
@@ -34,7 +32,7 @@ func (e *globalEnvT) validate() {
 
 	// Validate RateLimiter configuration
 	e.RateLimiter.Validate()
-	e.MessageHub.Validate()
+	e.ActConn.Validate()
 }
 
 // loadDefault sets default values for configuration fields if they are not provided
@@ -42,10 +40,6 @@ func (e *globalEnvT) loadDefault() {
 	// Set default timezone
 	{
 		e.Version = "v0.1.1"
-	}
-
-	if e.HeartbeatCutoff == 0 {
-		e.HeartbeatCutoff = 2 * time.Minute
 	}
 
 	if e.ContainerID == "" {

@@ -12,13 +12,17 @@ type CorsConfig struct {
 	RegexOrigins   []string `koanf:"REGEX_ORIGINS"`
 }
 
-type MessageHubT struct {
-	TTL time.Duration `koanf:"TTL"`
+type ActiveConnectionT struct {
+	HeartbeatCutoff time.Duration `koanf:"HEARTBEAT_CUTOFF"`
+	PendingMsgTTL   time.Duration `koanf:"PENDING_MSG_TTL"`
 }
 
-func (m MessageHubT) Validate() {
-	if m.TTL <= 0 {
-		panic("message hub TTL must be greater than 0")
+func (m ActiveConnectionT) Validate() {
+	if m.HeartbeatCutoff <= 0 {
+		panic("active connection heartbeat cutoff must be greater than 0")
+	}
+	if m.PendingMsgTTL < m.HeartbeatCutoff {
+		panic("active connection pending message ttl must be greater than heartbeat cutoff")
 	}
 }
 
