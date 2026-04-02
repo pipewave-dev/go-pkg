@@ -52,8 +52,6 @@ type ExportedServices interface {
 	//   - Browser process is active
 	PingConnections()
 
-	CheckOnline(ctx context.Context, userID string) (isOnline bool, aErr aerror.AError)
-
 	OnNewRegister() wsSv.OnNewStuffFn
 	OnCloseRegister() wsSv.OnCloseStuffFn
 
@@ -66,6 +64,7 @@ type ExportedServices interface {
 	// SendToUsers broadcasts to multiple users in a single publish.
 	SendToUsers(ctx context.Context, userIDs []string, msgType string, payload []byte) aerror.AError
 
+	CheckOnline(ctx context.Context, userID string) (isOnline bool, aErr aerror.AError)
 	// CheckOnlineMultiple checks online status of multiple users at once.
 	CheckOnlineMultiple(ctx context.Context, userIDs []string) (map[string]bool, aerror.AError)
 

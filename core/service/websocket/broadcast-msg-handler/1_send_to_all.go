@@ -21,6 +21,6 @@ func (h *broadcastMsgHandler) SendToAll(ctx context.Context, payload broadcast.S
 		payload.Payload)
 
 	for _, conn := range connections {
-		conn.Send(wsRes)
+		conn.Send(ctx, wsRes)
 	}
 }

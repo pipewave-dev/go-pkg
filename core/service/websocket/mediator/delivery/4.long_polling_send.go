@@ -79,7 +79,7 @@ func (d *serverDelivery) LongPollingSendEndpoint() http.HandlerFunc {
 		}
 
 		// 4. Route through the same handler as WS binary frames.
-		d.clientMsgHandler.HandleBinMessage(body, wsAuth, lpConn.Send)
+		d.clientMsgHandler.HandleBinMessage(r.Context(), body, wsAuth, lpConn.Send)
 
 		slog.Debug("LP client message received",
 			slog.Any("auth", wsAuth),

@@ -22,7 +22,9 @@ import (
 	workerpool "github.com/pipewave-dev/go-pkg/pkg/worker-pool"
 	configprovider "github.com/pipewave-dev/go-pkg/provider/config-provider"
 	healthyprovider "github.com/pipewave-dev/go-pkg/provider/healthy-provider"
+	"github.com/pipewave-dev/go-pkg/shared/actx"
 	"github.com/pipewave-dev/go-pkg/shared/aerror"
+	"github.com/pipewave-dev/go-pkg/shared/utils/fn"
 )
 
 // Check types
@@ -164,15 +166,16 @@ func (s *NetpollServer) handleClientData(client *GobwasConnection) {
 }
 
 // send writes a binary frame to the client connection.
-func (s *NetpollServer) send(client *GobwasConnection, payload []byte) error {
+func (s *NetpollServer) send(ctx context.Context, client *GobwasConnection, payload []byte) error {
 	conn := client.conn
 	if conn == nil {
+		client.Close()
 		return fmt.Errorf("connection is nil")
 	}
 	// Use a binary frame because payload may be MessagePack/binary, not UTF-8.
 	frame := ws.NewBinaryFrame(payload)
 	if err := ws.WriteFrame(conn, frame); err != nil {
-		s.onWriteError(client.auth, fmt.Errorf("failed to send message: %w", err))
+		s.onWriteError(ctx, client.auth, fmt.Errorf("failed to send message: %w", err))
 		client.Close()
 		return fmt.Errorf("failed to send message: %w", err)
 	}
@@ -187,7 +190,10 @@ func (s *NetpollServer) ping(client *GobwasConnection) {
 		}
 		err := wsutil.WriteServerMessage(conn, ws.OpPing, nil)
 		if err != nil {
-			s.onWriteError(client.auth, err)
+			ctx := context.Background()
+			aCtx := actx.From(ctx)
+			aCtx.SetTraceID("pingfail" + fn.NewNanoID(12))
+			s.onWriteError(aCtx, client.auth, err)
 			client.Close()
 			return
 		}
@@ -212,7 +218,9 @@ func (s *NetpollServer) processClientMessage(client *GobwasConnection) {
 			return
 		}
 		// Read error
-		s.onReadError(client.auth, err)
+		aCtx := actx.New()
+		aCtx.SetTraceID("readheaderfail" + fn.NewNanoID(12))
+		s.onReadError(aCtx, client.auth, err)
 		return
 	}
 
@@ -227,7 +235,9 @@ func (s *NetpollServer) processClientMessage(client *GobwasConnection) {
 	payload := make([]byte, header.Length)
 	if header.Length > 0 {
 		if _, err = io.ReadFull(conn, payload); err != nil {
-			s.onReadError(client.auth, fmt.Errorf("failed to read frame payload: %w", err))
+			aCtx := actx.New()
+			aCtx.SetTraceID("headertoolarge" + fn.NewNanoID(12))
+			s.onReadError(aCtx, client.auth, fmt.Errorf("failed to read frame payload: %w", err))
 			client.Close()
 			return
 		}
@@ -245,12 +255,7 @@ func (s *NetpollServer) processClientMessage(client *GobwasConnection) {
 	}
 
 	// Process frame based on OpCode
-	err = s.handleFrame(client, frame)
-	if err != nil {
-		s.onReadError(client.auth, err)
-		client.Close()
-		return
-	}
+	s.handleFrame(client, frame)
 }
 
 // removeClient cleans up a client on disconnect.

@@ -28,17 +28,26 @@ func channelName(containerID string) channelType {
 }
 
 func (p *pubsubMessage) Publish() aerror.AError {
-	for _, c := range p.targetContainers {
-		if c == p.di.c.Env().ContainerID {
-			slog.WarnContext(p.context, "Publishing to the same container, consider using local broadcast instead")
-		}
-		channel := channelName(c)
+	if p.sendAllContainers {
+		channel := channelName(broadcastChannel)
 		err := p.di.pubsub.Publish(p.context, channel, p)
 		if err != nil {
 			return aerror.New(p.context, aerror.ErrUnexpectedPubsub, err)
 		}
+		return nil
+	} else {
+		for _, c := range p.targetContainers {
+			if c == p.di.c.Env().ContainerID {
+				slog.WarnContext(p.context, "Publishing to the same container, consider using local broadcast instead")
+			}
+			channel := channelName(c)
+			err := p.di.pubsub.Publish(p.context, channel, p)
+			if err != nil {
+				return aerror.New(p.context, aerror.ErrUnexpectedPubsub, err)
+			}
+		}
+		return nil
 	}
-	return nil
 }
 
 func (p *pubsubMessage) GetMsgType() msgType {
@@ -81,8 +90,9 @@ func (p *pubsubMessage) UnmarshalMsgpack(b []byte) error {
 	aCtx := actx.From(ctx)
 	aCtx.SetTraceID(dataT.TraceID)
 	aCtx.RefreshTraceId()
+	aCtx.SetFromBroadcast()
 
-	p.context = ctx
+	p.context = aCtx
 
 	return nil
 }

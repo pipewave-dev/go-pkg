@@ -61,11 +61,11 @@ func (cl *GobwasConnection) Auth() voAuth.WebsocketAuth {
 	return cl.auth
 }
 
-func (cl *GobwasConnection) Send(payload []byte) error {
+func (cl *GobwasConnection) Send(ctx context.Context, payload []byte) error {
 	cl.drainMu.RLock()
 	defer cl.drainMu.RUnlock()
 	if cl.server != nil {
-		return cl.server.send(cl, payload)
+		return cl.server.send(ctx, cl, payload)
 	}
 	return fmt.Errorf("connection is not associated with a server")
 }
@@ -78,9 +78,9 @@ func (cl *GobwasConnection) EndDrain() { cl.drainMu.Unlock() }
 
 // SendDirect writes directly to the server without acquiring drainMu.
 // Must only be called between BeginDrain/EndDrain.
-func (cl *GobwasConnection) SendDirect(payload []byte) error {
+func (cl *GobwasConnection) SendDirect(ctx context.Context, payload []byte) error {
 	if cl.server != nil {
-		return cl.server.send(cl, payload)
+		return cl.server.send(ctx, cl, payload)
 	}
 	return fmt.Errorf("connection is not associated with a server")
 }

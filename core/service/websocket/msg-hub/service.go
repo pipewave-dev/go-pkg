@@ -8,6 +8,7 @@ import (
 	"time"
 
 	repo "github.com/pipewave-dev/go-pkg/core/repository"
+	workerpool "github.com/pipewave-dev/go-pkg/pkg/worker-pool"
 	configprovider "github.com/pipewave-dev/go-pkg/provider/config-provider"
 )
 
@@ -22,17 +23,21 @@ type msgHubSvc struct {
 	repo     repo.PendingMessageRepo
 	ttl      time.Duration
 	genSeq   atomic.Uint64
+
+	wp *workerpool.WorkerPool
 }
 
 func New(
 	c configprovider.ConfigStore,
 	pendingRepo repo.PendingMessageRepo,
+	wp *workerpool.WorkerPool,
 ) MessageHubSvc {
 	cfg := c.Env().MessageHub
 	return &msgHubSvc{
 		registry: make(map[string]map[string]entry),
 		repo:     pendingRepo,
 		ttl:      cfg.TTL,
+		wp:       wp,
 	}
 }
 
@@ -50,7 +55,7 @@ func (s *msgHubSvc) Register(userID, instanceID string, onExpired func()) {
 	s.registry[userID][instanceID] = entry{cancel: cancel, gen: gen}
 	s.mu.Unlock()
 
-	go func() {
+	s.wp.Submit(func() {
 		timer := time.NewTimer(s.ttl)
 		defer timer.Stop()
 		select {
@@ -68,7 +73,7 @@ func (s *msgHubSvc) Register(userID, instanceID string, onExpired func()) {
 			onExpired()
 		case <-ctx.Done():
 		}
-	}()
+	})
 }
 
 func (s *msgHubSvc) Deregister(userID, instanceID string) {

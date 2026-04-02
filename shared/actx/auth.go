@@ -4,10 +4,10 @@ import (
 	voAuth "github.com/pipewave-dev/go-pkg/core/domain/value-object/auth"
 )
 
-func (a *aContext) SetAuth(auth voAuth.Auth) {
-	a.data.auth = auth
+func (a *aContext) SetWebsocketAuth(auth voAuth.WebsocketAuth) {
+	a.data.wsAuth = auth
 }
 
-func (a *aContext) GetAuth() voAuth.Auth {
-	return a.data.auth
+func (a *aContext) GetWebsocketAuth() voAuth.WebsocketAuth {
+	return a.data.wsAuth
 }

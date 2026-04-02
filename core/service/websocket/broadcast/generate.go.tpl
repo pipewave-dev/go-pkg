@@ -4,6 +4,7 @@ package {{.PackageName}}
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"sync"
 
@@ -196,6 +197,8 @@ func (t *diTmp) handleMsg(msg *pubsubMessage) {
 		}
 {{ end }}
 {{ end }}
+		default:
+			slog.Error("Unexpected pubsub MsgType")
 	}
 }
 
@@ -230,5 +233,7 @@ func (t *diTmp) handleBroadcastMsg(msg *pubsubMessage) {
 
 {{ end }}
 {{end}}
+		default:
+			slog.Error(fmt.Sprintf("Unexpected pubsub MsgType: %v", msg.GetMsgType()))
 	}
 }

@@ -1,6 +1,7 @@
 package websocket
 
 import (
+	"context"
 	"net"
 
 	voAuth "github.com/pipewave-dev/go-pkg/core/domain/value-object/auth"
@@ -22,17 +23,19 @@ type WebsocketServer interface {
 
 type (
 	OnTextMessageFn func(
+		ctx context.Context,
 		payload string,
 		auth voAuth.WebsocketAuth,
-		sendFn func([]byte) error,
+		sendFn func(ctx context.Context, payload []byte) error,
 	)
 	OnBinMessageFn func(
+		ctx context.Context,
 		payload []byte,
 		auth voAuth.WebsocketAuth,
-		sendFn func([]byte) error,
+		sendFn func(ctx context.Context, payload []byte) error,
 	)
-	OnReadErrorFn  func(auth voAuth.WebsocketAuth, err error)
-	OnWriteErrorFn func(auth voAuth.WebsocketAuth, err error)
+	OnReadErrorFn  func(ctx context.Context, auth voAuth.WebsocketAuth, err error)
+	OnWriteErrorFn func(ctx context.Context, auth voAuth.WebsocketAuth, err error)
 )
 
 type OnCloseStuffFn interface {
@@ -57,6 +60,6 @@ type OnNewStuffFn interface {
 }
 
 type ClientMsgHandler interface {
-	HandleTextMessage(payload string, auth voAuth.WebsocketAuth, sendFn func([]byte) error)
-	HandleBinMessage(payload []byte, auth voAuth.WebsocketAuth, sendFn func([]byte) error)
+	HandleTextMessage(ctx context.Context, payload string, auth voAuth.WebsocketAuth, sendFn func(ctx context.Context, payload []byte) error)
+	HandleBinMessage(ctx context.Context, payload []byte, auth voAuth.WebsocketAuth, sendFn func(ctx context.Context, payload []byte) error)
 }

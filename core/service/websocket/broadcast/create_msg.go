@@ -4,6 +4,7 @@ package broadcast
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"sync"
 
@@ -368,6 +369,8 @@ func (t *diTmp) handleMsg(msg *pubsubMessage) {
 			t.hdl.ResumeSession(ctx, payload)
 		}
 
+	default:
+		slog.Error("Unexpected pubsub MsgType")
 	}
 }
 
@@ -411,5 +414,7 @@ func (t *diTmp) handleBroadcastMsg(msg *pubsubMessage) {
 			t.hdl.SendToAll(ctx, payload)
 		}
 
+	default:
+		slog.Error(fmt.Sprintf("Unexpected pubsub MsgType: %v", msg.GetMsgType()))
 	}
 }

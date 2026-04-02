@@ -1,6 +1,8 @@
 package websocket
 
 import (
+	"context"
+
 	voAuth "github.com/pipewave-dev/go-pkg/core/domain/value-object/auth"
 	voWs "github.com/pipewave-dev/go-pkg/core/domain/value-object/ws"
 )
@@ -14,7 +16,7 @@ const (
 
 type WebsocketConn interface {
 	Auth() voAuth.WebsocketAuth
-	Send(payload []byte) error
+	Send(ctx context.Context, payload []byte) error
 	CoreType() voWs.WsCoreType
 	Close()
 	Ping()
@@ -39,5 +41,5 @@ type DrainableConn interface {
 	EndDrain()
 	// SendDirect writes payload to the underlying transport without acquiring drainMu.
 	// MUST only be called between BeginDrain and EndDrain.
-	SendDirect(payload []byte) error
+	SendDirect(ctx context.Context, payload []byte) error
 }

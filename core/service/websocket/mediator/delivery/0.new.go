@@ -1,10 +1,8 @@
 package delivery
 
 import (
-	"context"
 	"log/slog"
 	"net/http"
-	"time"
 
 	voAuth "github.com/pipewave-dev/go-pkg/core/domain/value-object/auth"
 	voWs "github.com/pipewave-dev/go-pkg/core/domain/value-object/ws"
@@ -16,6 +14,7 @@ import (
 	workerpool "github.com/pipewave-dev/go-pkg/pkg/worker-pool"
 	configprovider "github.com/pipewave-dev/go-pkg/provider/config-provider"
 	healthyprovider "github.com/pipewave-dev/go-pkg/provider/healthy-provider"
+	"github.com/pipewave-dev/go-pkg/shared/actx"
 )
 
 type serverDelivery struct {
@@ -91,10 +90,10 @@ func New(
 		c,
 		wpool,
 		healthy,
-		ins.onTextMessage(),
-		ins.onBinMessage(),
-		ins.onReadError(),
-		ins.onWriteError(),
+		ins.clientMsgHandler.HandleTextMessage,
+		ins.clientMsgHandler.HandleBinMessage,
+		c.Env().Fns.OnReadError.OnReadError,
+		c.Env().Fns.OnWriteError.OnWriteError,
 		onCloseStuff,
 	)
 
@@ -122,51 +121,29 @@ func (d *serverDelivery) registerHandlers() {
 	d.mux.Handle("POST /lp-send", d.LongPollingSendEndpoint())
 }
 
-// Callback functions for WebSocket server
-
-func (d *serverDelivery) onTextMessage() wsSv.OnTextMessageFn {
-	return func(payload string, auth voAuth.WebsocketAuth, sendFn func([]byte) error) {
-		d.clientMsgHandler.HandleTextMessage(payload, auth, sendFn)
-	}
-}
-
-func (d *serverDelivery) onBinMessage() wsSv.OnBinMessageFn {
-	return func(payload []byte, auth voAuth.WebsocketAuth, sendFn func([]byte) error) {
-		d.clientMsgHandler.HandleBinMessage(payload, auth, sendFn)
-	}
-}
-
-func (d *serverDelivery) onReadError() wsSv.OnReadErrorFn {
-	return func(auth voAuth.WebsocketAuth, err error) {
-		slog.Error("WebSocket read error", slog.Any("auth", auth), slog.Any("error", err))
-	}
-}
-
-func (d *serverDelivery) onWriteError() wsSv.OnWriteErrorFn {
-	return func(auth voAuth.WebsocketAuth, err error) {
-		slog.Error("WebSocket write error", slog.Any("auth", auth), slog.Any("error", err))
-	}
-}
-
 // registerCallback handles new WebSocket connection
 func (d *serverDelivery) registerCallback() {
 	d.onNewStuff.Register(
 		wsSv.OnNewWsKeyName("NewConnection"),
 		func(connection wsSv.WebsocketConn) error {
 			auth := connection.Auth()
-			ctx := context.Background()
+			ctx := actx.New()
+			ctx.SetWebsocketAuth(auth)
 
 			// Close stale in-memory duplicate.
 			if existingConn, ok := d.connectionMgr.GetConnection(auth); ok {
 				slog.Warn("Duplicate connection detected, closing old connection")
 				existingConn.Close()
-				time.Sleep(time.Millisecond * 500)
 			}
 
 			// Check previous session state for reconnect handling.
 			actConn, aErr := d.activeConnRepo.GetInstanceConnection(ctx, auth.UserID, auth.InstanceID)
 			if aErr == nil && actConn != nil {
 				switch actConn.Status {
+				case voWs.WsStatusConnected:
+					// Stale duplicate: signal old container to disconnect immediately.
+					d.wsService.DisconnectSession(ctx, actConn.UserID, auth.InstanceID)
+
 				case voWs.WsStatusTempDisconnected:
 					// Normal reconnect: signal old container to cancel its ExpiredTimer.
 					if sigErr := d.wsService.ResumeSession(ctx, actConn.HolderID, auth.UserID, auth.InstanceID); sigErr != nil {
@@ -212,7 +189,7 @@ func (d *serverDelivery) registerCallback() {
 			}
 			for _, msg := range msgs {
 				if dc, ok := connection.(wsSv.DrainableConn); ok {
-					if err := dc.SendDirect(msg); err != nil {
+					if err := dc.SendDirect(ctx, msg); err != nil {
 						slog.ErrorContext(ctx, "onNew: SendDirect failed for pending message",
 							slog.String("userID", auth.UserID),
 							slog.String("instanceID", auth.InstanceID),
@@ -220,7 +197,7 @@ func (d *serverDelivery) registerCallback() {
 					}
 				} else {
 					// Fallback: connection does not implement DrainableConn.
-					if err := connection.Send(msg); err != nil {
+					if err := connection.Send(ctx, msg); err != nil {
 						slog.ErrorContext(ctx, "onNew: Send failed for pending message",
 							slog.String("userID", auth.UserID),
 							slog.String("instanceID", auth.InstanceID),
@@ -237,7 +214,8 @@ func (d *serverDelivery) registerCallback() {
 		d.connectionMgr.RemoveConnection(auth)
 		d.rateLimiter.Remove(auth)
 
-		ctx := context.Background()
+		ctx := actx.New()
+		ctx.SetWebsocketAuth(auth)
 
 		// Anonymous sessions: always remove permanently (no reconnect buffering for anon).
 		if auth.IsAnonymous() {

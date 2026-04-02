@@ -12,7 +12,7 @@ type alterData struct {
 
 	traceId       string
 	parentTraceId []string
-	auth          voAuth.Auth
+	wsAuth        voAuth.WebsocketAuth
 
 	fromBroadcast bool
 
@@ -41,7 +41,7 @@ func From(ctx context.Context) AContext {
 		newAData := alterData{
 			m:      sync.Mutex{},
 			userIp: "",
-			auth:   voAuth.NoAuth(),
+			wsAuth: voAuth.WebsocketAuth{},
 		}
 		ctx = context.WithValue(ctx, privKey, &newAData)
 		return &aContext{
@@ -49,6 +49,12 @@ func From(ctx context.Context) AContext {
 			data:    &newAData,
 		}
 	}
+}
+
+func New() AContext {
+	ctx := context.Background()
+
+	return From(ctx)
 }
 
 type aCtxKey int

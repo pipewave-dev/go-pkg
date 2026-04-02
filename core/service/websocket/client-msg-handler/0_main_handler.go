@@ -2,7 +2,6 @@ package clientmsghandler
 
 import (
 	"context"
-	"fmt"
 	"log/slog"
 
 	wsSv "github.com/pipewave-dev/go-pkg/core/service/websocket"
@@ -10,7 +9,6 @@ import (
 	"github.com/pipewave-dev/go-pkg/pkg/pubsub"
 	configprovider "github.com/pipewave-dev/go-pkg/provider/config-provider"
 	fncollector "github.com/pipewave-dev/go-pkg/provider/fn-collector"
-	"github.com/pipewave-dev/go-pkg/shared/actx"
 	"github.com/pipewave-dev/go-pkg/shared/aerror"
 	"github.com/pipewave-dev/go-pkg/shared/utils/fn"
 
@@ -68,27 +66,21 @@ var hearbeatResMsg = wsSv.WebsocketResponse{
 	Binary:  nil,
 }
 
-func (h *clientMsgHandler) HandleTextMessage(clientMsg string, auth voAuth.WebsocketAuth, sendFn func([]byte) error) {
-	msg := fmt.Sprintf("Your UserID: %s, send msg: %s", auth.UserID, clientMsg)
-	sendFn([]byte(msg))
+func (h *clientMsgHandler) HandleTextMessage(ctx context.Context, clientMsg string, auth voAuth.WebsocketAuth, sendFn func(context.Context, []byte) error) {
+	slog.ErrorContext(ctx, "Text message isn't supported")
 }
 
-func (h *clientMsgHandler) HandleBinMessage(clientMsg []byte, auth voAuth.WebsocketAuth, sendFn func([]byte) error) {
-	h.handleMessage(clientMsg, auth, sendFn)
+func (h *clientMsgHandler) HandleBinMessage(ctx context.Context, clientMsg []byte, auth voAuth.WebsocketAuth, sendFn func(context.Context, []byte) error) {
+	h.handleMessage(ctx, clientMsg, auth, sendFn)
 }
 
-func (h *clientMsgHandler) handleMessage(clientMsg []byte, auth voAuth.WebsocketAuth, sendFn func([]byte) error) {
+func (h *clientMsgHandler) handleMessage(ctx context.Context, clientMsg []byte, auth voAuth.WebsocketAuth, sendFn func(context.Context, []byte) error) {
 	var response *wsSv.WebsocketResponse
-	aCtx := actx.From(context.Background())
-
-	aCtx.SetAuth(
-		voAuth.UserAuth(auth.UserID, auth.InstanceID, false))
-	aCtx.SetTraceID("wsmsg" + fn.NewNanoID(18))
 
 	defer func() {
 		if response != nil {
 			data := response.Marshall()
-			sendFn(data)
+			sendFn(ctx, data)
 		}
 	}()
 
@@ -97,14 +89,14 @@ func (h *clientMsgHandler) handleMessage(clientMsg []byte, auth voAuth.Websocket
 	if err2 != nil {
 		// Invalid message format
 		response = &wsSv.WebsocketResponse{
-			Error: aerror.New(aCtx, aerror.InvalidInputSchema, err2).Error(),
+			Error: aerror.New(ctx, aerror.InvalidInputSchema, err2).Error(),
 		}
 		return
 	}
 
 	switch msg.MsgType {
 	case wsSv.MessageTypeHeartbeat:
-		h.handleHeartbeat(aCtx, auth)
+		h.handleHeartbeat(ctx, auth)
 		response = &hearbeatResMsg
 
 	case wsSv.MessageTypeAck:
@@ -118,8 +110,8 @@ func (h *clientMsgHandler) handleMessage(clientMsg []byte, auth voAuth.Websocket
 		}
 		// Not a local ack — route back to the originating container
 		if sourceContainerID, ok := h.ackManager.ResolveRemoteAck(ackID); ok {
-			if err := h.broadcast.AckResolved(aCtx, []string{sourceContainerID}, broadcast.AckResolvedParams{AckID: ackID}).Publish(); err != nil {
-				slog.WarnContext(aCtx, "Failed to publish AckResolved",
+			if err := h.broadcast.AckResolved(ctx, []string{sourceContainerID}, broadcast.AckResolvedParams{AckID: ackID}).Publish(); err != nil {
+				slog.WarnContext(ctx, "Failed to publish AckResolved",
 					slog.String("ackID", ackID),
 					slog.String("sourceContainerID", sourceContainerID),
 					slog.Any("error", err))
@@ -135,7 +127,7 @@ func (h *clientMsgHandler) handleMessage(clientMsg []byte, auth voAuth.Websocket
 				Id:           resID.String(),
 				ResponseToId: msg.Id,
 				MsgType:      msg.MsgType,
-				Error:        aerror.New(aCtx, aerror.RateLimitExceeded, nil).Error(),
+				Error:        aerror.New(ctx, aerror.RateLimitExceeded, nil).Error(),
 			}
 			return
 		}
@@ -144,7 +136,7 @@ func (h *clientMsgHandler) handleMessage(clientMsg []byte, auth voAuth.Websocket
 			return
 		}
 
-		msgType, res, err := h.c.Env().Fns.HandleMessage.HandleMessage(aCtx, auth, string(msg.MsgType), msg.Binary)
+		msgType, res, err := h.c.Env().Fns.HandleMessage.HandleMessage(ctx, auth, string(msg.MsgType), msg.Binary)
 		if err != nil {
 			response = &wsSv.WebsocketResponse{
 				Id:           resID.String(),

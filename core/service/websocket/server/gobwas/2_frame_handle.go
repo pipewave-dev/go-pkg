@@ -1,10 +1,13 @@
 package gobwas
 
 import (
+	"context"
 	"encoding/binary"
 	"fmt"
 
 	"github.com/gobwas/ws"
+	"github.com/pipewave-dev/go-pkg/shared/actx"
+	"github.com/pipewave-dev/go-pkg/shared/utils/fn"
 )
 
 // validateFrame validates a WebSocket frame against the protocol specification.
@@ -33,51 +36,61 @@ func (s *NetpollServer) validateFrame(frame ws.Frame) error {
 }
 
 // handleFrame dispatches a frame by OpCode.
-func (s *NetpollServer) handleFrame(client *GobwasConnection, frame ws.Frame) error {
+func (s *NetpollServer) handleFrame(client *GobwasConnection, frame ws.Frame) {
 	// Unmask payload if masked (client-to-server frames are always masked).
 	payload := frame.Payload
 	if frame.Header.Masked {
 		ws.Cipher(payload, frame.Header.Mask, 0)
 	}
 
+	var err error
+
 	switch frame.Header.OpCode {
 	case ws.OpText:
-		return s.handleTextFrame(client, payload, frame.Header.Fin)
+		err = s.handleTextFrame(client, payload, frame.Header.Fin)
 
 	case ws.OpBinary:
-		return s.handleBinaryFrame(client, payload, frame.Header.Fin)
+		err = s.handleBinaryFrame(client, payload, frame.Header.Fin)
 
 	case ws.OpContinuation:
-		return s.handleContinuationFrame(client, payload, frame.Header.Fin)
+		err = s.handleContinuationFrame(client, payload, frame.Header.Fin)
 
 	case ws.OpClose:
-		return s.handleCloseFrame(client, payload)
+		err = s.handleCloseFrame(client, payload)
 
 	case ws.OpPing:
-		return s.handlePingFrame(client, payload)
+		err = s.handlePingFrame(client, payload)
 
 	case ws.OpPong:
-		return s.handlePongFrame(client, payload)
+		err = s.handlePongFrame(client, payload)
 
 	default:
 		// Should not be reached; validated above.
-		return fmt.Errorf("unexpected opcode: %d", frame.Header.OpCode)
+		err = fmt.Errorf("unexpected opcode: %d", frame.Header.OpCode)
+	}
+
+	if err != nil {
+		s.handleProtocolError(client, err)
 	}
 }
 
 // handleTextFrame processes a text message frame.
 func (s *NetpollServer) handleTextFrame(client *GobwasConnection, payload []byte, fin bool) error {
+	aCtx := actx.New()
+	aCtx.SetWebsocketAuth(client.Auth())
+	aCtx.SetTraceID("textmsg" + fn.NewNanoID(18))
+
 	if fin {
 		// Complete text message
-		s.onTextMessage(string(payload), client.auth, func(responsePayload []byte) error {
-			return s.send(client, responsePayload)
+		s.onTextMessage(aCtx, string(payload), client.auth, func(ctx context.Context, responsePayload []byte) error {
+			return s.send(ctx, client, responsePayload)
 		})
 	} else {
 		// Fragmented message - store fragment
 		// Future: Implement message fragmentation handling if needed
 		// For now, treat as complete message
-		s.onTextMessage(string(payload), client.auth, func(responsePayload []byte) error {
-			return s.send(client, responsePayload)
+		s.onTextMessage(aCtx, string(payload), client.auth, func(ctx context.Context, responsePayload []byte) error {
+			return s.send(ctx, client, responsePayload)
 		})
 	}
 	return nil
@@ -85,16 +98,20 @@ func (s *NetpollServer) handleTextFrame(client *GobwasConnection, payload []byte
 
 // handleBinaryFrame processes a binary message frame.
 func (s *NetpollServer) handleBinaryFrame(client *GobwasConnection, payload []byte, fin bool) error {
+	aCtx := actx.New()
+	aCtx.SetWebsocketAuth(client.Auth())
+	aCtx.SetTraceID("binmsg" + fn.NewNanoID(18))
+
 	if fin {
 		// Complete binary message
-		s.onBinMessage(payload, client.auth, func(responsePayload []byte) error {
-			return s.send(client, responsePayload)
+		s.onBinMessage(aCtx, payload, client.auth, func(ctx context.Context, responsePayload []byte) error {
+			return s.send(ctx, client, responsePayload)
 		})
 	} else {
 		// Fragmented message - store fragment
 		// Future: Implement message fragmentation handling if needed
-		s.onBinMessage(payload, client.auth, func(responsePayload []byte) error {
-			return s.send(client, responsePayload)
+		s.onBinMessage(aCtx, payload, client.auth, func(ctx context.Context, responsePayload []byte) error {
+			return s.send(ctx, client, responsePayload)
 		})
 	}
 	return nil
@@ -133,7 +150,6 @@ func (s *NetpollServer) handleCloseFrame(client *GobwasConnection, payload []byt
 	}
 
 	client.Close()
-
 	return nil
 }
 

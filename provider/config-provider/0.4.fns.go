@@ -17,6 +17,8 @@ type Fns struct {
 
 	OnNewConnection   OnNewConnectionT
 	OnCloseConnection OnCloseConnectionT
+	OnReadError       OnReadErrorT
+	OnWriteError      OnWriteErrorT
 }
 
 type HandlerMessageT interface {
@@ -27,4 +29,25 @@ type OnNewConnectionT interface {
 }
 type OnCloseConnectionT interface {
 	OnCloseConnection(ctx context.Context, auth voAuth.WebsocketAuth)
+}
+
+type OnReadErrorT interface {
+	OnReadError(ctx context.Context, auth voAuth.WebsocketAuth, err error)
+}
+type OnWriteErrorT interface {
+	OnWriteError(ctx context.Context, auth voAuth.WebsocketAuth, err error)
+}
+
+//
+
+type OnReadErrorFn func(ctx context.Context, auth voAuth.WebsocketAuth, err error)
+
+type OnWriteErrorFn func(ctx context.Context, auth voAuth.WebsocketAuth, err error)
+
+func (f OnReadErrorFn) OnReadError(ctx context.Context, auth voAuth.WebsocketAuth, err error) {
+	f(ctx, auth, err)
+}
+
+func (f OnWriteErrorFn) OnWriteError(ctx context.Context, auth voAuth.WebsocketAuth, err error) {
+	f(ctx, auth, err)
 }

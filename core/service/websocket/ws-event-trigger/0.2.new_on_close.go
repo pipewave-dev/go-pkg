@@ -1,7 +1,6 @@
 package wseventtrigger
 
 import (
-	"log/slog"
 	"sync"
 
 	voAuth "github.com/pipewave-dev/go-pkg/core/domain/value-object/auth"
@@ -25,7 +24,7 @@ type onCloseStuffFn struct {
 	mu       sync.RWMutex
 	fnsMap   map[string]func(auth voAuth.WebsocketAuth)
 	authsMap map[string]voAuth.WebsocketAuth
-	fnAll    func(auth voAuth.WebsocketAuth)
+	fnsAll   []func(auth voAuth.WebsocketAuth)
 }
 
 func authKey(auth voAuth.WebsocketAuth) string {
@@ -52,12 +51,11 @@ func (o *onCloseStuffFn) Register(auth voAuth.WebsocketAuth, fn func(auth voAuth
 }
 
 func (o *onCloseStuffFn) RegisterAll(fn func(auth voAuth.WebsocketAuth)) {
-	o.fnAll = fn
+	o.fnsAll = append(o.fnsAll, fn)
 }
 
 // When complete, auto remove from map
 func (o *onCloseStuffFn) Do(auth voAuth.WebsocketAuth) {
-	slog.Debug("trigger onclose")
 	key := authKey(auth)
 	o.mu.Lock()
 	fn, ok := o.fnsMap[key]
@@ -71,7 +69,9 @@ func (o *onCloseStuffFn) Do(auth voAuth.WebsocketAuth) {
 		fn(auth)
 	}
 
-	if o.fnAll != nil {
-		o.fnAll(auth)
+	for _, allFn := range o.fnsAll {
+		if allFn != nil {
+			allFn(auth)
+		}
 	}
 }

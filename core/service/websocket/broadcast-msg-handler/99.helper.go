@@ -11,15 +11,17 @@ import (
 )
 
 func (h *broadcastMsgHandler) sendOrSaveMessageHub(ctx context.Context, conn wsSv.WebsocketConn, payload []byte) {
-	err := conn.Send(payload)
+	err := conn.Send(ctx, payload)
 	if err != nil {
 		ctx = context.WithoutCancel(ctx)
 		auth := conn.Auth()
-		h.saveMessageHub(ctx, auth, payload, 0)
+		h.wp.Submit(func() {
+			h.saveMessageHub(ctx, auth, payload, 0)
+		})
 	}
 }
 
-const maxRetryNumber = 3
+const maxRetryNumber = 5
 
 func (h *broadcastMsgHandler) saveMessageHub(ctx context.Context, auth voAuth.WebsocketAuth, payload []byte, retryNumber int) {
 	if retryNumber >= maxRetryNumber {
@@ -45,11 +47,13 @@ func (h *broadcastMsgHandler) saveMessageHub(ctx context.Context, auth voAuth.We
 			slog.String("userID", auth.UserID),
 			slog.String("instanceID", auth.InstanceID),
 			slog.Int("retryNumber", retryNumber))
-		delay := time.Duration((retryNumber+1)*500) * time.Millisecond
+		delay := time.Duration((retryNumber+1)*750) * time.Millisecond
 		time.AfterFunc(
-			delay,
+			min(delay, 3*time.Second), // max delay 3 seconds
 			func() {
-				h.saveMessageHub(ctx, auth, payload, retryNumber+1)
+				h.wp.Submit(func() {
+					h.saveMessageHub(ctx, auth, payload, retryNumber+1)
+				})
 			})
 	} else {
 		err := h.msgHubSvc.Save(ctx,

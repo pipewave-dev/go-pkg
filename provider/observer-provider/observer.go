@@ -2,9 +2,9 @@ package observerprovider
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 
-	voAuth "github.com/pipewave-dev/go-pkg/core/domain/value-object/auth"
 	"github.com/pipewave-dev/go-pkg/global/constants"
 	"github.com/pipewave-dev/go-pkg/pkg/observer"
 	"github.com/pipewave-dev/go-pkg/pkg/observer/obs"
@@ -31,11 +31,14 @@ func New(
 			return traceId
 		},
 		GetAuthStringFn: func(ctx context.Context) string {
-			auth := actx.From(ctx).GetAuth()
-			if auth == voAuth.NoAuth() {
-				return ""
+			auth := actx.From(ctx).GetWebsocketAuth()
+			if auth.InstanceID == "" {
+				return "" // No auth info available
 			}
-			return auth.String()
+			if auth.IsAnonymous() {
+				return fmt.Sprintf("anon[%s]", auth.InstanceID)
+			}
+			return fmt.Sprintf("%s@%s", auth.UserID, auth.InstanceID)
 		},
 		OtelTrace: otelProvider,
 		Slogger:   slogIns,
