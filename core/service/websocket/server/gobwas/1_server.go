@@ -14,7 +14,6 @@ import (
 	"time"
 
 	"github.com/gobwas/ws"
-	"github.com/gobwas/ws/wsutil"
 	"github.com/mailru/easygo/netpoll"
 	voAuth "github.com/pipewave-dev/go-pkg/core/domain/value-object/auth"
 	wsSv "github.com/pipewave-dev/go-pkg/core/service/websocket"
@@ -37,6 +36,11 @@ var (
 var (
 	server *NetpollServer
 	once   sync.Once
+)
+
+const (
+	pingIdleAfter = 15 * time.Second
+	pongTimeout   = 8 * time.Second
 )
 
 func NewServer(
@@ -112,10 +116,11 @@ func (s *NetpollServer) NewConnection(
 	atomic.AddInt64(&s.connections, 1)
 
 	client := &GobwasConnection{
-		c:      s.c,
-		server: s,
-		conn:   conn,
-		auth:   propAuth,
+		c:          s.c,
+		server:     s,
+		conn:       conn,
+		auth:       propAuth,
+		lastReadAt: time.Now(),
 	}
 
 	// Create netpoll descriptor with better error handling
@@ -174,7 +179,7 @@ func (s *NetpollServer) send(ctx context.Context, client *GobwasConnection, payl
 	}
 	// Use a binary frame because payload may be MessagePack/binary, not UTF-8.
 	frame := ws.NewBinaryFrame(payload)
-	if err := ws.WriteFrame(conn, frame); err != nil {
+	if err := s.writeFrame(client, frame); err != nil {
 		s.onWriteError(ctx, client.auth, fmt.Errorf("failed to send message: %w", err))
 		client.Close()
 		return fmt.Errorf("failed to send message: %w", err)
@@ -188,8 +193,14 @@ func (s *NetpollServer) ping(client *GobwasConnection) {
 		if conn == nil {
 			return
 		}
-		err := wsutil.WriteServerMessage(conn, ws.OpPing, nil)
-		if err != nil {
+		switch client.nextPingAction(time.Now(), pingIdleAfter, pongTimeout) {
+		case pingActionSkip:
+			return
+		case pingActionClose:
+			client.Close()
+			return
+		}
+		if err := s.writeFrame(client, ws.NewPingFrame(nil)); err != nil {
 			ctx := context.Background()
 			aCtx := actx.From(ctx)
 			aCtx.SetTraceID("pingfail" + fn.NewNanoID(12))
@@ -254,8 +265,21 @@ func (s *NetpollServer) processClientMessage(client *GobwasConnection) {
 		return
 	}
 
+	client.noteRead(time.Now())
+
 	// Process frame based on OpCode
 	s.handleFrame(client, frame)
+}
+
+func (s *NetpollServer) writeFrame(client *GobwasConnection, frame ws.Frame) error {
+	client.writeMu.Lock()
+	defer client.writeMu.Unlock()
+
+	if client.conn == nil {
+		return net.ErrClosed
+	}
+
+	return ws.WriteFrame(client.conn, frame)
 }
 
 // removeClient cleans up a client on disconnect.

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/binary"
 	"fmt"
+	"time"
 
 	"github.com/gobwas/ws"
 	"github.com/pipewave-dev/go-pkg/shared/actx"
@@ -157,17 +158,16 @@ func (s *NetpollServer) handleCloseFrame(client *GobwasConnection, payload []byt
 func (s *NetpollServer) handlePingFrame(client *GobwasConnection, payload []byte) error {
 	// Respond with pong frame containing the same payload
 	pongFrame := ws.NewPongFrame(payload)
-	if err := ws.WriteFrame(client.conn, pongFrame); err != nil {
+	if err := s.writeFrame(client, pongFrame); err != nil {
 		return fmt.Errorf("failed to send pong: %w", err)
 	}
 	return nil
 }
 
 // handlePongFrame processes a pong frame.
-func (s *NetpollServer) handlePongFrame(_ *GobwasConnection, payload []byte) error {
-	// Pong frame received - could be response to our ping
-	// TODO: Implement ping/pong tracking if needed for keep-alive
-	// fmt.Printf("Received pong frame with payload length: %d\n", len(payload))
+func (s *NetpollServer) handlePongFrame(client *GobwasConnection, payload []byte) error {
+	// Pong confirms the transport is still alive after a server ping.
+	client.notePong(time.Now())
 	return nil
 }
 
@@ -188,7 +188,7 @@ func (s *NetpollServer) writeCloseOnce(client *GobwasConnection, code ws.StatusC
 	}
 
 	closeFrame := ws.NewCloseFrame(ws.NewCloseFrameBody(code, reason))
-	if err := ws.WriteFrame(client.conn, closeFrame); err != nil {
+	if err := s.writeFrame(client, closeFrame); err != nil {
 		return err
 	}
 

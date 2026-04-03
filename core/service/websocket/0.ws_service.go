@@ -43,7 +43,7 @@ type WsService interface {
 	// SendToUser broadcasts to all containers to find all sessions of the given userID.
 	SendToUser(ctx context.Context, userID string, msgType string, payload []byte) aerror.AError
 
-	// PingConnections actively pings all connected clients to verify liveness.
+	// PingAllLocalConnections actively pings all connected clients to verify liveness.
 	// Broadcasts to all containers; removes sessions that do not respond.
 	// Browser automatically responds with Pong when:
 	//   - Tab is active/focused
@@ -51,7 +51,7 @@ type WsService interface {
 	//   - JavaScript engine is running
 	//   - WebSocket connection is open
 	//   - Browser process is active
-	PingConnections()
+	PingAllLocalConnections()
 
 	Shutdown()
 

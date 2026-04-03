@@ -44,7 +44,15 @@ type GobwasConnection struct {
 	closed  int32
 	closeTx int32
 	closeRx int32
-	drainMu sync.RWMutex
+	writeMu sync.Mutex
+	stateMu sync.Mutex
+	// lastReadAt tracks the last successfully received frame of any kind.
+	lastReadAt time.Time
+	lastPingAt time.Time
+	lastPongAt time.Time
+	// awaitingPong is set after a server ping is sent and cleared on pong.
+	awaitingPong bool
+	drainMu      sync.RWMutex
 }
 
 func (cl *GobwasConnection) CoreType() voWs.WsCoreType {
@@ -100,6 +108,49 @@ func (cl *GobwasConnection) MarkCloseSentIfFirst() bool {
 
 func (cl *GobwasConnection) MarkCloseReceived() {
 	atomic.StoreInt32(&cl.closeRx, 1)
+}
+
+func (cl *GobwasConnection) noteRead(now time.Time) {
+	cl.stateMu.Lock()
+	defer cl.stateMu.Unlock()
+	cl.lastReadAt = now
+	cl.awaitingPong = false
+}
+
+func (cl *GobwasConnection) notePong(now time.Time) {
+	cl.stateMu.Lock()
+	defer cl.stateMu.Unlock()
+	cl.lastReadAt = now
+	cl.lastPongAt = now
+	cl.awaitingPong = false
+}
+
+type pingAction int8
+
+const (
+	pingActionSkip pingAction = iota
+	pingActionSend
+	pingActionClose
+)
+
+func (cl *GobwasConnection) nextPingAction(now time.Time, idleAfter, pongTimeout time.Duration) pingAction {
+	cl.stateMu.Lock()
+	defer cl.stateMu.Unlock()
+
+	if cl.awaitingPong {
+		if now.Sub(cl.lastPingAt) >= pongTimeout {
+			return pingActionClose
+		}
+		return pingActionSkip
+	}
+
+	if now.Sub(cl.lastReadAt) < idleAfter {
+		return pingActionSkip
+	}
+
+	cl.awaitingPong = true
+	cl.lastPingAt = now
+	return pingActionSend
 }
 
 // serverStats tracks server performance metrics.

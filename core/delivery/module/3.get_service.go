@@ -49,7 +49,7 @@ func (g *getServices) SendToUser(ctx context.Context, userID string, msgType str
 }
 
 func (g *getServices) PingConnections() {
-	g.wsService.PingConnections()
+	g.wsService.PingAllLocalConnections()
 }
 
 func (g *getServices) SendToAnonymous(ctx context.Context, msgType string, payload []byte, isSendAll bool, instanceID []string) aerror.AError {

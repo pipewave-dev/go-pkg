@@ -57,6 +57,8 @@ func New(
 
 	br.StartSubscribers(ins.broadcastHandler, c, pubsubAdapter, otelProvider, cleanupTask)
 
+	stopPingLoop := ins.startPingLoop()
+	cleanupTask.RegTask(stopPingLoop, fncollector.FnPriorityEarlyest)
 	cleanupTask.RegTask(ins.Shutdown, fncollector.FnPriorityLate)
 
 	return ins

@@ -1,7 +1,6 @@
 package mediatorsvc
 
-func (m *mediatorSvc) PingConnections() {
-	// TODO: broadcast to ping all
+func (m *mediatorSvc) PingAllLocalConnections() {
 	conns := m.connections.GetAllConnections()
 	for _, conn := range conns {
 		if conn == nil {
