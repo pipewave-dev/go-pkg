@@ -61,7 +61,7 @@ func New(config *ValkeyConfig) cache.StoreAdapter {
 }
 
 func sendPingToValkey(c valkey.Client) {
-	err := c.Do(context.TODO(),
+	err := c.Do(context.Background(),
 		c.B().Ping().Build()).
 		Error()
 	if err != nil {
