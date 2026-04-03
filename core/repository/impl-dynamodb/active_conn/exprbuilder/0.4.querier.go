@@ -169,13 +169,13 @@ func (querier *ActiveConnectionQuerier) QueryByUserID(ctx context.Context, ddbCl
 }
 
 // GetByUserAndSession returns a single active connection by userID and sessionID.
-func (querier *ActiveConnectionQuerier) GetByUserAndSession(ctx context.Context, ddbClient *dynamodb.Client, userID string, sessionID string) (*entities.ActiveConnection, aerror.AError) {
+func (querier *ActiveConnectionQuerier) GetByUserAndSession(ctx context.Context, ddbClient *dynamodb.Client, userID string, instanceID string) (*entities.ActiveConnection, aerror.AError) {
 	type keySchema struct {
-		UserID    string
-		SessionID string
+		UserID     string
+		InstanceID string
 	}
 
-	keyAV, err := attributevalue.MarshalMap(keySchema{UserID: userID, SessionID: sessionID})
+	keyAV, err := attributevalue.MarshalMap(keySchema{UserID: userID, InstanceID: instanceID})
 	if err != nil {
 		msg := fmt.Sprintf("ActiveConnectionQuerier.GetByUserAndSession marshal key failed: %v", err)
 		panic(msg)

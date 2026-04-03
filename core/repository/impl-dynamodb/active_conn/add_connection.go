@@ -11,7 +11,7 @@ import (
 
 const fnAddConnection = "activeConnRepo.AddConnection"
 
-func (r *activeConnRepo) AddConnection(ctx context.Context, userID string, sessionID string, connectionType voWs.WsCoreType) (aErr aerror.AError) {
+func (r *activeConnRepo) AddConnection(ctx context.Context, userID string, instanceID string, connectionType voWs.WsCoreType) (aErr aerror.AError) {
 	var op observer.Operation
 	ctx, op = r.obs.StartOperation(ctx, fnAddConnection)
 	defer op.Finish(aErr)
@@ -19,7 +19,7 @@ func (r *activeConnRepo) AddConnection(ctx context.Context, userID string, sessi
 	creator := activeConnExp.ActiveConnectionCreator{ConfigStore: r.c}
 	_, aErr = creator.Create(ctx, r.ddbC, activeConnExp.CreateParams{
 		UserID:         userID,
-		SessionID:      sessionID,
+		InstanceID:     instanceID,
 		HolderID:       r.c.Env().ContainerID,
 		ConnectionType: connectionType,
 	})

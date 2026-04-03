@@ -250,6 +250,7 @@ func (d *serverDelivery) registerCallback() {
 					slog.String("instanceID", auth.InstanceID),
 					slog.Any("error", err))
 			}
+			d.msgHubSvc.DeleteAllPendingMessage(ctx, auth.UserID, auth.InstanceID) // clean up pending messages on session expiration
 		})
 	})
 }

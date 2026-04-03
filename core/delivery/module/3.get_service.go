@@ -48,10 +48,6 @@ func (g *getServices) SendToUser(ctx context.Context, userID string, msgType str
 	return g.wsService.SendToUser(ctx, userID, msgType, payload)
 }
 
-func (g *getServices) PingConnections() {
-	g.wsService.PingAllLocalConnections()
-}
-
 func (g *getServices) SendToAnonymous(ctx context.Context, msgType string, payload []byte, isSendAll bool, instanceID []string) aerror.AError {
 	return g.wsService.SendToAnonymous(ctx, msgType, payload, isSendAll, instanceID)
 }

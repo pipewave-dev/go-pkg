@@ -1,6 +1,9 @@
 package mediatorsvc
 
 import (
+	"fmt"
+	"time"
+
 	"github.com/pipewave-dev/go-pkg/core/repository"
 	repo "github.com/pipewave-dev/go-pkg/core/repository"
 	wsSv "github.com/pipewave-dev/go-pkg/core/service/websocket"
@@ -26,6 +29,9 @@ type mediatorSvc struct {
 	ackManager       *ackmanager.AckManager
 	msgHubSvc        msghub.MessageHubSvc
 	shutdownSignal   *msghub.ShutdownSignal
+
+	// tmp fields for shutdown logic
+	transferingConns []connectionInfo
 }
 
 func New(
@@ -59,7 +65,21 @@ func New(
 
 	stopPingLoop := ins.startPingLoop()
 	cleanupTask.RegTask(stopPingLoop, fncollector.FnPriorityEarlyest)
-	cleanupTask.RegTask(ins.Shutdown, fncollector.FnPriorityLate)
+	cleanupTask.RegTask(ins.Shutdown, fncollector.FnPriorityNormal)
+	// Report result, should occur after all cleanup tasks are done.
+	cleanupTask.RegTask(func() {
+		time.Sleep(3 * time.Second) // allow some time for reconnects before declaring shutdown complete
+		ins.checkTransferingConns()
+	}, fncollector.FnPriorityLatest)
 
 	return ins
+}
+
+type connectionInfo struct {
+	userID     string
+	instanceID string
+}
+
+func (c *connectionInfo) String() string {
+	return fmt.Sprintf("%s@%s", c.userID, c.instanceID)
 }

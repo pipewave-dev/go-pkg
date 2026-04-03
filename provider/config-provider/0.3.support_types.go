@@ -12,9 +12,27 @@ type CorsConfig struct {
 	RegexOrigins   []string `koanf:"REGEX_ORIGINS"`
 }
 
+/*
+	ActiveConnectionT
+
+How it works:
+- Whenever a new connection is established, we create an active connection record in the database with the current timestamp as the last heartbeat time.
+- The client is expected to send heartbeat messages at regular intervals (e.g. every 30 seconds) to update the last heartbeat time in the database.
+- When checking for active connections, we compare the current time with the last heartbeat time. If the difference exceeds the HeartbeatCutoff, we consider the connection as dead and ignore it.
+- For pending messages, when a message is sent to a user, we check the last
+Known limitation:
+- In some specific edge cases, it's possible that a connection is considered active (i.e. not cleaned up by the cronjob) but is actually dead (e.g. due to network issues). This is because the cleanup relies on the heartbeat cutoff, which may not be perfectly in sync with the actual connection state. To mitigate this, we can consider implementing a hybrid approach where we also check for connection liveness using Ping messages, in addition to relying on the heartbeat cutoff. This way, we can detect dead connections more proactively and reduce reliance on the cronjob to clean up old heartbeats.
+*/
 type ActiveConnectionT struct {
 	HeartbeatCutoff time.Duration `koanf:"HEARTBEAT_CUTOFF"`
 	PendingMsgTTL   time.Duration `koanf:"PENDING_MSG_TTL"`
+	// DisconnectDelay is the duration to wait before forcefully disconnecting a connection that has exceeded the heartbeat cutoff. This allows some grace period for connections that may have temporarily lost connectivity but can still recover.
+	DisconnectDelay time.Duration `koanf:"DISCONNECT_DELAY"`
+}
+
+type PingCheckerT struct {
+	PingIdleAfter time.Duration `koanf:"HEARTBEAT_CUTOFF"`
+	PongTimeout   time.Duration `koanf:"PENDING_MSG_TTL"`
 }
 
 func (m ActiveConnectionT) Validate() {

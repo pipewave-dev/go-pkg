@@ -2,7 +2,12 @@ package mediatorsvc
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
+	"strings"
+
+	voWs "github.com/pipewave-dev/go-pkg/core/domain/value-object/ws"
+	"github.com/pipewave-dev/go-pkg/shared/actx"
 )
 
 // Shutdown performs graceful shutdown of the mediator service.
@@ -26,49 +31,86 @@ func (m *mediatorSvc) Shutdown() {
 	// 2. Cancel all pending ACKs so goroutines blocked in WaitForAck are unblocked immediately.
 	m.ackManager.Shutdown()
 
-	// 3. Update all authenticated connections to WsStatusTransferring and register in MessageHub.
+	// 3. Close all anonymous connections immediately — no DB state to worry about.
+	m.closeAllAnonymousConnections()
+
+	// 4. Update all authenticated connections to WsStatusTransferring and register in MessageHub.
+	m.shutdownAuthenticatedConnections(ctx)
+	// 5. Close all authenticated connections — onClose skips DB ops (MarkShuttingDown was called above).
+	m.closeAllAuthenticatedConnections()
+}
+
+// shutdownAuthenticatedConnections updates all authenticated connections to WsStatusTransferring
+// and registers them in MessageHub so that messages are buffered until the client reconnects.
+func (m *mediatorSvc) shutdownAuthenticatedConnections(ctx context.Context) {
 	allAuthConns := m.connections.GetAllAuthenticatedConn()
+	m.transferingConns = make([]connectionInfo, 0, len(allAuthConns))
 	for _, conn := range allAuthConns {
 		auth := conn.Auth()
-		if auth.IsAnonymous() {
+		m.transferingConns = append(m.transferingConns, connectionInfo{
+			userID:     auth.UserID,
+			instanceID: auth.InstanceID,
+		})
+		m.transitionConnectionToTransferring(ctx, auth.UserID, auth.InstanceID)
+	}
+}
+
+// transitionConnectionToTransferring atomically updates a connection to WsStatusTransferring
+// and registers it in MessageHub for message buffering.
+func (m *mediatorSvc) transitionConnectionToTransferring(ctx context.Context, userID, instanceID string) {
+	// Atomically set Status=Transferring and clear HolderID so any container can claim on reconnect.
+	if aErr := m.activeConnRepo.UpdateStatusTransferring(ctx, userID, instanceID); aErr != nil {
+		slog.ErrorContext(ctx, "Shutdown: UpdateStatusTransferring failed — session may be lost",
+			slog.String("userID", userID),
+			slog.String("instanceID", instanceID),
+			slog.Any("error", aErr))
+		// Continue: best-effort. Other sessions should still be processed.
+	}
+}
+
+// closeAllAuthenticatedConnections closes all authenticated WebSocket connections.
+
+func (m *mediatorSvc) closeAllAuthenticatedConnections() {
+	for _, conn := range m.connections.GetAllAuthenticatedConn() {
+		conn.Close()
+	}
+}
+
+func (m *mediatorSvc) checkTransferingConns() {
+	ctx := actx.New()
+	ctx.SetTraceID(
+		fmt.Sprintf("shutdown%s", m.c.Env().ContainerID))
+	notTransferedConns := make([]connectionInfo, 0, len(m.transferingConns))
+	for _, connInfo := range m.transferingConns {
+		ac, err := m.activeConnRepo.GetInstanceConnection(ctx, connInfo.userID, connInfo.instanceID)
+		if err != nil {
+			slog.ErrorContext(ctx, "Shutdown: Failed to get instance connection",
+				slog.String("userID", connInfo.userID),
+				slog.String("instanceID", connInfo.instanceID),
+				slog.Any("error", err))
 			continue
 		}
-
-		// Atomically set Status=Transferring and clear HolderID so any container can claim on reconnect.
-		if aErr := m.activeConnRepo.UpdateStatusTransferring(ctx, auth.UserID, auth.InstanceID); aErr != nil {
-			slog.ErrorContext(ctx, "Shutdown: UpdateStatusTransferring failed — session may be lost",
-				slog.String("userID", auth.UserID),
-				slog.String("instanceID", auth.InstanceID),
-				slog.Any("error", aErr))
-			// Continue: best-effort. Other sessions should still be processed.
+		if ac.Status == voWs.WsStatusTransferring {
+			notTransferedConns = append(notTransferedConns, connectionInfo{
+				userID:     ac.UserID,
+				instanceID: ac.InstanceID,
+			})
 		}
-
-		// Register in MessageHub so incoming messages are buffered until the client reconnects.
-		// onExpired fires if TTL elapses without reconnect.
-		// Guard: only remove the DB record if no other container has claimed the session
-		// (HolderID still empty). If HolderID != "", the client reconnected elsewhere — skip removal.
-		userID := auth.UserID
-		instanceID := auth.InstanceID
-		m.msgHubSvc.Register(userID, instanceID, func() {
-			actConn, aErr := m.activeConnRepo.GetInstanceConnection(ctx, userID, instanceID)
-			if aErr != nil || actConn == nil {
-				return // Already removed or not found — nothing to do.
-			}
-			if actConn.HolderID != "" {
-				// Another container claimed the session. Don't remove.
-				return
-			}
-			if err := m.activeConnRepo.RemoveConnection(ctx, userID, instanceID); err != nil {
-				slog.ErrorContext(ctx, "Shutdown.onExpired: failed to remove ActiveConnection",
-					slog.String("userID", userID),
-					slog.String("instanceID", instanceID),
-					slog.Any("error", err))
-			}
-		})
 	}
+	if len(notTransferedConns) > 0 {
+		connsStr := strings.Builder{}
+		for _, conn := range notTransferedConns {
+			connsStr.WriteString(conn.String())
+			connsStr.WriteString("; ")
+		}
+		slog.WarnContext(ctx, "Some connection still stuck in Transfering status. This session is not reconnected from browser",
+			slog.Any("connections", connsStr))
+	}
+}
 
-	// 4. Close all connections — onClose skips DB ops (MarkShuttingDown was called above).
-	for _, conn := range m.connections.GetAllConnections() {
+// closeAllAnonymousConnections closes all anonymous WebSocket connections.
+func (m *mediatorSvc) closeAllAnonymousConnections() {
+	for _, conn := range m.connections.GetAllAnonymousConn() {
 		conn.Close()
 	}
 }

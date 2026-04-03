@@ -19,8 +19,8 @@ type ActiveConnectionCreator struct {
 }
 
 type CreateParams struct {
-	UserID    string
-	SessionID string
+	UserID     string
+	InstanceID string
 
 	HolderID       string
 	ConnectionType voWs.WsCoreType
@@ -29,9 +29,9 @@ type CreateParams struct {
 func (creator *ActiveConnectionCreator) Create(ctx context.Context, ddbClient *dynamodb.Client, params CreateParams) (*entities.ActiveConnection, aerror.AError) {
 	now := time.Now()
 	result := &entities.ActiveConnection{
-		UserID:    params.UserID,
-		SessionID: params.SessionID,
-		HolderID:  params.HolderID,
+		UserID:     params.UserID,
+		InstanceID: params.InstanceID,
+		HolderID:   params.HolderID,
 
 		ConnectionType: params.ConnectionType,
 		Status:         voWs.WsStatusConnected,

@@ -7,8 +7,8 @@ import (
 )
 
 type ActiveConnection struct {
-	UserID    string // PartitionKey ~ contraint User.ID
-	SessionID string // SortKey
+	UserID     string // PartitionKey ~ contraint User.ID
+	InstanceID string // SortKey
 
 	HolderID string // ContainerID that holds this connection, used for routing message via publish-subscribe system
 

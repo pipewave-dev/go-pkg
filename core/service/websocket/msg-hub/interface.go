@@ -1,6 +1,8 @@
 package msghub
 
-import "context"
+import (
+	"context"
+)
 
 // MessageHubSvc buffers pre-wrapped WebSocket response bytes for temporarily disconnected sessions.
 // It holds an in-memory registry (this container only) and delegates DB persistence to PendingMessageRepo.
@@ -21,4 +23,11 @@ type MessageHubSvc interface {
 	Save(ctx context.Context, userID, instanceID string, wrappedMsg []byte) error
 	// Consume runs GetAll → DeleteAll → return. Prefers duplicate delivery over message loss.
 	Consume(ctx context.Context, userID, instanceID string) ([][]byte, error)
+	// DeleteAllPendingMessage deletes all pending messages for a session, used when a temp-disconnected session reconnects and we want to clear buffered messages that are no longer relevant.
+	DeleteAllPendingMessage(ctx context.Context, userID, instanceID string)
+
+	Shutdown() // clean up resources, e.g. stop background goroutines for expired timers
+
+	// TODO:
+	// CleanUpExpiredPendingMessage(ctx context.Context) error
 }

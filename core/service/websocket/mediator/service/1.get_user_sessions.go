@@ -17,7 +17,7 @@ func (m *mediatorSvc) GetUserSessions(ctx context.Context, userID string) ([]wsS
 	for _, conn := range connections {
 		sessions = append(sessions, wsSv.SessionInfo{
 			UserID:         userID,
-			InstanceID:     conn.SessionID,
+			InstanceID:     conn.InstanceID,
 			HolderID:       conn.HolderID,
 			ConnectionType: conn.ConnectionType,
 			ConnectedAt:    conn.ConnectedAt,

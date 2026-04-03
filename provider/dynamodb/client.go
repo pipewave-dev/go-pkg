@@ -62,7 +62,7 @@ func tablesSchema(cfg configprovider.ConfigStore) []dynamodb.CreateTableParams {
 	tables := cfg.Env().DynamoDB.Tables
 	return []dynamodb.CreateTableParams{
 		// active_connection
-		// PK: UserID (S), SK: SessionID (S)
+		// PK: UserID (S), SK: InstanceID (S)
 		// Queries: CountActive by UserID + filter on LastHeartbeat (no GSI needed)
 		{
 			TableName: tables.ActiveConnection,
@@ -71,16 +71,16 @@ func tablesSchema(cfg configprovider.ConfigStore) []dynamodb.CreateTableParams {
 				AttributeType: types.ScalarAttributeTypeS,
 			},
 			SortKey: &dynamodb.KeySchema{
-				AttributeName: "SessionID",
+				AttributeName: "InstanceID",
 				AttributeType: types.ScalarAttributeTypeS,
 			},
 		},
 		// fcm_device
-		// PK: UserID (S), SK: SessionID (S)
+		// PK: UserID (S), SK: InstanceID (S)
 		// Queries:
 		//   - ByUser: query main table by UserID (PK)
 		//   - ByToken: query GSI FcmDeviceTokenIndex by FcmDeviceToken
-		//   - ByUserSession: query main table by UserID + SessionID (PK+SK)
+		//   - ByUserSession: query main table by UserID + InstanceID (PK+SK)
 		{
 			TableName: tables.FcmDevice,
 			PartitionKey: dynamodb.KeySchema{
@@ -88,7 +88,7 @@ func tablesSchema(cfg configprovider.ConfigStore) []dynamodb.CreateTableParams {
 				AttributeType: types.ScalarAttributeTypeS,
 			},
 			SortKey: &dynamodb.KeySchema{
-				AttributeName: "SessionID",
+				AttributeName: "InstanceID",
 				AttributeType: types.ScalarAttributeTypeS,
 			},
 			GSIs: []dynamodb.IndexSchema{

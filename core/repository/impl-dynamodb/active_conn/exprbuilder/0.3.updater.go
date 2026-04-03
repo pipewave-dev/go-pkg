@@ -22,8 +22,8 @@ type ActiveConnectionUpdater struct {
 }
 
 type UpdateLastHeartbeatParams struct {
-	UserID    string
-	SessionID string
+	UserID     string
+	InstanceID string
 }
 
 func (updater *ActiveConnectionUpdater) buildUpdateHeartbeatQuery(params UpdateLastHeartbeatParams, now time.Time) *dynamodb.UpdateItemInput {
@@ -56,18 +56,18 @@ func (updater *ActiveConnectionUpdater) buildUpdateHeartbeatQuery(params UpdateL
 }
 
 type UpdateStatusParams struct {
-	UserID    string
-	SessionID string
-	Status    voWs.WsStatus
+	UserID     string
+	InstanceID string
+	Status     voWs.WsStatus
 }
 
 func (updater *ActiveConnectionUpdater) UpdateStatus(ctx context.Context, ddbClient *dynamodb.Client, params UpdateStatusParams) aerror.AError {
 	type keySchema struct {
-		UserID    string
-		SessionID string
+		UserID     string
+		InstanceID string
 	}
 
-	key, err := attributevalue.MarshalMap(keySchema{UserID: params.UserID, SessionID: params.SessionID})
+	key, err := attributevalue.MarshalMap(keySchema{UserID: params.UserID, InstanceID: params.InstanceID})
 	if err != nil {
 		msg := fmt.Sprintf("*ActiveConnectionUpdater.UpdateStatus marshal key error: %v", err)
 		panic(msg)
@@ -111,13 +111,13 @@ func (updater *ActiveConnectionUpdater) UpdateLastHeartbeat(ctx context.Context,
 	return nil
 }
 
-func (updater *ActiveConnectionUpdater) UpdateStatusTransferring(ctx context.Context, ddbClient *dynamodb.Client, userID, sessionID string) aerror.AError {
+func (updater *ActiveConnectionUpdater) UpdateStatusTransferring(ctx context.Context, ddbClient *dynamodb.Client, userID, instanceID string) aerror.AError {
 	type keySchema struct {
-		UserID    string
-		SessionID string
+		UserID     string
+		InstanceID string
 	}
 
-	key, err := attributevalue.MarshalMap(keySchema{UserID: userID, SessionID: sessionID})
+	key, err := attributevalue.MarshalMap(keySchema{UserID: userID, InstanceID: instanceID})
 	if err != nil {
 		panic(fmt.Sprintf("*ActiveConnectionUpdater.UpdateStatusTransferring marshal key error: %v", err))
 	}

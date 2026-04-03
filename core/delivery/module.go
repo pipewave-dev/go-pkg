@@ -41,17 +41,6 @@ type ExportedServices interface {
 	// SendToUser broadcasts to all containers to find all sessions of the given userID.
 	SendToUser(ctx context.Context, userID string, msgType string, payload []byte) aerror.AError
 
-	// PingConnections actively pings all connected clients to verify liveness.
-	// Broadcasts to all containers; removes sessions that do not respond.
-	// Not work when connection type is long-polling
-	// Browser automatically responds with Pong when:
-	//   - Tab is active/focused
-	//   - Page is not suspended
-	//   - JavaScript engine is running
-	//   - WebSocket connection is open
-	//   - Browser process is active
-	PingConnections()
-
 	OnNewRegister() wsSv.OnNewStuffFn
 	OnCloseRegister() wsSv.OnCloseStuffFn
 

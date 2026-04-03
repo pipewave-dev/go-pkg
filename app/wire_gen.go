@@ -49,7 +49,7 @@ func NewPipewave(config configprovider.ConfigStore, s *slog.Logger, rf repositor
 	connectionManager := connectionmanager.Singleton()
 	adapter := PubsubProvider(pf, config, cleanupTask)
 	ackManager := ackmanager.New()
-	msgHubSvc := msghub.New(config, allRepository.PendingMessage(), workerPool)
+	msgHubSvc := msghub.New(config, allRepository.PendingMessage(), cleanupTask, workerPool)
 	shutdownSignal := msghub.NewShutdownSignal()
 	pubsubHandler := broadcastmsghandler.New(allRepository, connectionManager, ackManager, msgHubSvc, workerPool)
 	wsService := mediatorsvc.New(config, allRepository, cleanupTask, workerPool, connectionManager, pubsubHandler, adapter, otelProvider, ackManager, msgHubSvc, shutdownSignal)

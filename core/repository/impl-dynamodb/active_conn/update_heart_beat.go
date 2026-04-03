@@ -10,7 +10,7 @@ import (
 
 const fnUpdateHeartBeat = "activeConnRepo.UpdateHeartBeat"
 
-func (r *activeConnRepo) UpdateHeartBeat(ctx context.Context, userID string, sessionID string) (aErr aerror.AError) {
+func (r *activeConnRepo) UpdateHeartBeat(ctx context.Context, userID string, instanceID string) (aErr aerror.AError) {
 	var op observer.Operation
 	ctx, op = r.obs.StartOperation(ctx, fnUpdateHeartBeat)
 	defer op.Finish(aErr)
@@ -19,8 +19,8 @@ func (r *activeConnRepo) UpdateHeartBeat(ctx context.Context, userID string, ses
 		ConfigStore: r.c,
 	}
 	aErr = updater.UpdateLastHeartbeat(ctx, r.ddbC, activeConnExp.UpdateLastHeartbeatParams{
-		UserID:    userID,
-		SessionID: sessionID,
+		UserID:     userID,
+		InstanceID: instanceID,
 	})
 	return aErr
 }

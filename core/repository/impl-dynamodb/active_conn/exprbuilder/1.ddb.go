@@ -13,7 +13,7 @@ import (
 // Field name
 const (
 	FieldUserID         = "UserID"
-	FieldSessionID      = "SessionID"
+	FieldInstanceID     = "InstanceID"
 	FieldHolderID       = "HolderID"
 	FieldConnectionType = "ConnectionType"
 	FieldStatus         = "Status"
@@ -23,8 +23,8 @@ const (
 )
 
 type ddbActiveConnection struct {
-	UserID    string // PartitionKey ~ contraint User.ID
-	SessionID string // SortKey
+	UserID     string // PartitionKey ~ contraint User.ID
+	InstanceID string // SortKey
 
 	HolderID       string // Pod name holding this connection (env.PodName)
 	ConnectionType voWs.WsCoreType
@@ -37,7 +37,7 @@ type ddbActiveConnection struct {
 func toDynamoDBItem(e *entities.ActiveConnection) *ddbActiveConnection {
 	return &ddbActiveConnection{
 		UserID:         e.UserID,
-		SessionID:      e.SessionID,
+		InstanceID:     e.InstanceID,
 		HolderID:       e.HolderID,
 		ConnectionType: e.ConnectionType,
 		Status:         e.Status,
@@ -50,7 +50,7 @@ func toDynamoDBItem(e *entities.ActiveConnection) *ddbActiveConnection {
 func (e *ddbActiveConnection) toEntity() *entities.ActiveConnection {
 	return &entities.ActiveConnection{
 		UserID:         e.UserID,
-		SessionID:      e.SessionID,
+		InstanceID:     e.InstanceID,
 		HolderID:       e.HolderID,
 		ConnectionType: e.ConnectionType,
 		Status:         e.Status,

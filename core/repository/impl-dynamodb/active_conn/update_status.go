@@ -3,8 +3,8 @@ package activeConnRepo
 import (
 	"context"
 
-	activeConnExp "github.com/pipewave-dev/go-pkg/core/repository/impl-dynamodb/active_conn/exprbuilder"
 	voWs "github.com/pipewave-dev/go-pkg/core/domain/value-object/ws"
+	activeConnExp "github.com/pipewave-dev/go-pkg/core/repository/impl-dynamodb/active_conn/exprbuilder"
 	"github.com/pipewave-dev/go-pkg/pkg/observer"
 	"github.com/pipewave-dev/go-pkg/shared/aerror"
 )
@@ -18,9 +18,9 @@ func (r *activeConnRepo) UpdateStatus(ctx context.Context, userID string, instan
 
 	updater := activeConnExp.ActiveConnectionUpdater{ConfigStore: r.c}
 	aErr = updater.UpdateStatus(ctx, r.ddbC, activeConnExp.UpdateStatusParams{
-		UserID:    userID,
-		SessionID: instanceID,
-		Status:    status,
+		UserID:     userID,
+		InstanceID: instanceID,
+		Status:     status,
 	})
 	return aErr
 }
