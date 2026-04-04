@@ -1,6 +1,7 @@
 package delivery
 
 import (
+	"context"
 	"log/slog"
 	"net/http"
 
@@ -85,15 +86,25 @@ func New(
 	}
 
 	ins.registerCallback()
-	// Create gobwas WebSocket server with callbacks
+	// Create gobwas WebSocket server with callbacks.
+	// OnReadError and OnWriteError are wrapped lazily because Fns is injected via
+	// SetFns() after NewPipewave() returns, so c.Env().Fns is nil at this point.
 	ins.gobwasServer = gobwas.NewServer(
 		c,
 		wpool,
 		healthy,
 		ins.clientMsgHandler.HandleTextMessage,
 		ins.clientMsgHandler.HandleBinMessage,
-		c.Env().Fns.OnReadError.OnReadError,
-		c.Env().Fns.OnWriteError.OnWriteError,
+		wsSv.OnReadErrorFn(func(ctx context.Context, auth voAuth.WebsocketAuth, err error) {
+			if fns := c.Env().Fns; fns != nil && fns.OnReadError != nil {
+				fns.OnReadError.OnReadError(ctx, auth, err)
+			}
+		}),
+		wsSv.OnWriteErrorFn(func(ctx context.Context, auth voAuth.WebsocketAuth, err error) {
+			if fns := c.Env().Fns; fns != nil && fns.OnWriteError != nil {
+				fns.OnWriteError.OnWriteError(ctx, auth, err)
+			}
+		}),
 		onCloseStuff,
 	)
 
