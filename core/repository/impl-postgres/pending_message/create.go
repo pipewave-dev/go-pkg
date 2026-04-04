@@ -15,7 +15,7 @@ func (r *pendingMessageRepo) Create(ctx context.Context, userID, instanceID stri
 	ctx, op = r.obs.StartOperation(ctx, fnCreate)
 	defer op.Finish(aErr)
 
-	expiresAt := time.Now().Add(r.c.Env().ActConn.PendingMsgTTL)
+	expiresAt := time.Now().Add(r.c.Env().ActiveConnection.PendingMsgTTL)
 
 	query := `
 		INSERT INTO pending_messages (session_key, send_at, message, expires_at)

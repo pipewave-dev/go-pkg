@@ -38,11 +38,6 @@ var (
 	once   sync.Once
 )
 
-const (
-	pingIdleAfter = 15 * time.Second
-	pongTimeout   = 8 * time.Second
-)
-
 func NewServer(
 	c configprovider.ConfigStore,
 	workerPool *workerpool.WorkerPool,
@@ -193,7 +188,7 @@ func (s *NetpollServer) ping(client *GobwasConnection) {
 		if conn == nil {
 			return
 		}
-		switch client.nextPingAction(time.Now(), pingIdleAfter, pongTimeout) {
+		switch client.nextPingAction() {
 		case pingActionSkip:
 			return
 		case pingActionClose:

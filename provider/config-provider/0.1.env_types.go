@@ -7,8 +7,8 @@ type globalEnvT struct {
 	ContainerID string `koanf:"CONTAINER_ID"`
 	Version     string `koanf:"VERSION"`
 
-	ActConn     ActiveConnectionT `koanf:"ACTIVE_CONNECTION"`
-	PingChecker PingCheckerT      `koanf:"PING_CHECKER"`
+	ActiveConnection ActiveConnectionT `koanf:"ACTIVE_CONNECTION"`
+	PingChecker      PingCheckerT      `koanf:"PING_CHECKER"`
 
 	WorkerPool WorkerPoolT `koanf:"WORKER_POOL"`
 

@@ -124,7 +124,7 @@ func (querier *ActiveConnectionQuerier) CountTotalActive(ctx context.Context, dd
 func (querier *ActiveConnectionQuerier) QueryByUserID(ctx context.Context, ddbClient *dynamodb.Client, userID string) ([]entities.ActiveConnection, aerror.AError) {
 	keyEx := expression.Key(FieldUserID).Equal(expression.Value(userID))
 
-	cutoffTime := time.Now().Add(-querier.ConfigStore.Env().ActConn.HeartbeatCutoff)
+	cutoffTime := time.Now().Add(-querier.ConfigStore.Env().ActiveConnection.HeartbeatCutoff)
 	filterEx := expression.Name(FieldLastHeartbeat).GreaterThan(expression.Value(cutoffTime))
 
 	builder := expression.NewBuilder().
@@ -203,7 +203,7 @@ func (querier *ActiveConnectionQuerier) GetByUserAndSession(ctx context.Context,
 	}
 
 	// If the connection's last heartbeat is too old, consider it as not found (stale connection)
-	cutoffTime := time.Now().Add(-querier.ConfigStore.Env().ActConn.HeartbeatCutoff)
+	cutoffTime := time.Now().Add(-querier.ConfigStore.Env().ActiveConnection.HeartbeatCutoff)
 	if entity.LastHeartbeat.Before(cutoffTime) {
 		return nil, aerror.New(ctx, aerror.RecordNotFound, nil)
 	}

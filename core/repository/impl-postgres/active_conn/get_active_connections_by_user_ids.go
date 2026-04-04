@@ -16,7 +16,7 @@ func (r *activeConnRepo) GetActiveConnectionsByUserIDs(ctx context.Context, user
 	ctx, op = r.obs.StartOperation(ctx, fnGetActiveConnectionsByUserIDs)
 	defer op.Finish(aErr)
 
-	cutoff := time.Now().Add(-r.c.Env().ActConn.HeartbeatCutoff)
+	cutoff := time.Now().Add(-r.c.Env().ActiveConnection.HeartbeatCutoff)
 
 	query := `
 		SELECT user_id, instance_id, holder_id, connection_type, status, connected_at, last_heartbeat, ttl

@@ -133,7 +133,11 @@ const (
 	pingActionClose
 )
 
-func (cl *GobwasConnection) nextPingAction(now time.Time, idleAfter, pongTimeout time.Duration) pingAction {
+func (cl *GobwasConnection) nextPingAction() pingAction {
+	pingIdleAfter := cl.c.Env().PingChecker.PingIdleAfter
+	pongTimeout := cl.c.Env().PingChecker.PongTimeout
+	now := time.Now()
+
 	cl.stateMu.Lock()
 	defer cl.stateMu.Unlock()
 
@@ -144,7 +148,7 @@ func (cl *GobwasConnection) nextPingAction(now time.Time, idleAfter, pongTimeout
 		return pingActionSkip
 	}
 
-	if now.Sub(cl.lastReadAt) < idleAfter {
+	if now.Sub(cl.lastReadAt) < pingIdleAfter {
 		return pingActionSkip
 	}
 

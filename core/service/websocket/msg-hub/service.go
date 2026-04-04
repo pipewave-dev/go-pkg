@@ -36,7 +36,7 @@ func New(
 	cleanupTask fncollector.CleanupTask,
 	wp *workerpool.WorkerPool,
 ) MessageHubSvc {
-	cfg := c.Env().ActConn
+	cfg := c.Env().ActiveConnection
 	ins := &msgHubSvc{
 		registry: make(map[string]map[string]entry),
 		repo:     pendingRepo,

@@ -26,8 +26,6 @@ Known limitation:
 type ActiveConnectionT struct {
 	HeartbeatCutoff time.Duration `koanf:"HEARTBEAT_CUTOFF"`
 	PendingMsgTTL   time.Duration `koanf:"PENDING_MSG_TTL"`
-	// DisconnectDelay is the duration to wait before forcefully disconnecting a connection that has exceeded the heartbeat cutoff. This allows some grace period for connections that may have temporarily lost connectivity but can still recover.
-	DisconnectDelay time.Duration `koanf:"DISCONNECT_DELAY"`
 }
 
 type PingCheckerT struct {

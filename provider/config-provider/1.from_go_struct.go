@@ -5,7 +5,8 @@ type EnvType struct {
 	PodName     string
 	ContainerID string
 
-	ActConn ActiveConnectionT
+	ActiveConnection ActiveConnectionT
+	PingChecker      PingCheckerT
 
 	RateLimiter RateLimiterT
 
@@ -24,19 +25,20 @@ type EnvType struct {
 
 func FromGoStruct(input EnvType) ConfigStore {
 	env := globalEnvT{
-		Env:           input.Env,
-		PodName:       input.PodName,
-		ContainerID:   input.ContainerID,
-		ActConn:       input.ActConn,
-		WorkerPool:    input.WorkerPool,
-		TraceIDHeader: input.TraceIDHeader,
-		IpHeader:      input.IpHeader,
-		Cors:          input.Cors,
-		Otel:          input.Otel,
-		RateLimiter:   input.RateLimiter,
-		Valkey:        input.Valkey,
-		DynamoDB:      input.DynamoDB,
-		Postgres:      input.Postgres,
+		Env:              input.Env,
+		PodName:          input.PodName,
+		ContainerID:      input.ContainerID,
+		ActiveConnection: input.ActiveConnection,
+		PingChecker:      input.PingChecker,
+		WorkerPool:       input.WorkerPool,
+		TraceIDHeader:    input.TraceIDHeader,
+		IpHeader:         input.IpHeader,
+		Cors:             input.Cors,
+		Otel:             input.Otel,
+		RateLimiter:      input.RateLimiter,
+		Valkey:           input.Valkey,
+		DynamoDB:         input.DynamoDB,
+		Postgres:         input.Postgres,
 	}
 
 	env.loadDefault()

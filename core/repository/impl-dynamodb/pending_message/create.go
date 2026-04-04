@@ -26,7 +26,7 @@ func (r *pendingMessageRepo) Create(ctx context.Context, userID, instanceID stri
 	ctx, op = r.obs.StartOperation(ctx, fnCreate)
 	defer op.Finish(aErr)
 
-	ttl := time.Now().Add(r.c.Env().ActConn.PendingMsgTTL).Unix()
+	ttl := time.Now().Add(r.c.Env().ActiveConnection.PendingMsgTTL).Unix()
 
 	item := ddbPendingMessage{
 		SessionKey: sessionKey(userID, instanceID),

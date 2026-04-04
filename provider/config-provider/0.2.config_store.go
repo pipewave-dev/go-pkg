@@ -32,7 +32,7 @@ func (e *globalEnvT) validate() {
 
 	// Validate RateLimiter configuration
 	e.RateLimiter.Validate()
-	e.ActConn.Validate()
+	e.ActiveConnection.Validate()
 }
 
 // loadDefault sets default values for configuration fields if they are not provided
