@@ -27,7 +27,4 @@ type MessageHubSvc interface {
 	DeleteAllPendingMessage(ctx context.Context, userID, instanceID string)
 
 	Shutdown() // clean up resources, e.g. stop background goroutines for expired timers
-
-	// TODO:
-	// CleanUpExpiredPendingMessage(ctx context.Context) error
 }

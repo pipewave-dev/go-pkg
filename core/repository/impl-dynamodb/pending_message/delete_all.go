@@ -42,7 +42,7 @@ func (r *pendingMessageRepo) DeleteAll(ctx context.Context, userID, instanceID s
 	}
 
 	var keys []itemKey
-	paginator := dynamodb.NewQueryPaginator(r.ddbC, queryInput)
+	paginator := dynamodb.NewQueryPaginator(r.ddb.Client(), queryInput)
 	for paginator.HasMorePages() {
 		output, err2 := paginator.NextPage(ctx)
 		if err2 != nil {
@@ -65,36 +65,27 @@ func (r *pendingMessageRepo) DeleteAll(ctx context.Context, userID, instanceID s
 
 	// BatchWriteItem in chunks of 25 (DynamoDB limit)
 	tableName := r.c.Env().DynamoDB.Tables.PendingMessage
-	const batchSize = 25
 
-	for i := 0; i < len(keys); i += batchSize {
-		end := i + batchSize
-		if end > len(keys) {
-			end = len(keys)
-		}
-		chunk := keys[i:end]
-
-		var writeReqs []types.WriteRequest
-		for _, k := range chunk {
-			keyAV, err4 := attributevalue.MarshalMap(k)
-			if err4 != nil {
-				panic(fmt.Sprintf("pendingMessageRepo.DeleteAll marshal key error: %v", err4))
-			}
-			writeReqs = append(writeReqs, types.WriteRequest{
-				DeleteRequest: &types.DeleteRequest{Key: keyAV},
-			})
+	writeReqs := make([]types.WriteRequest, 0, len(keys))
+	for _, k := range keys {
+		keyAV, err4 := attributevalue.MarshalMap(k)
+		if err4 != nil {
+			panic(fmt.Sprintf("pendingMessageRepo.DeleteAll marshal key error: %v", err4))
 		}
 
-		//nolint:exhaustruct
-		_, err5 := r.ddbC.BatchWriteItem(ctx, &dynamodb.BatchWriteItemInput{
-			RequestItems: map[string][]types.WriteRequest{
-				tableName: writeReqs,
-			},
+		writeReqs = append(writeReqs, types.WriteRequest{
+			DeleteRequest: &types.DeleteRequest{Key: keyAV},
 		})
-		if err5 != nil {
-			aErr = aerror.New(ctx, aerror.ErrUnexpectedDynamoDB, err5)
-			return aErr
-		}
+	}
+
+	unprocessedItems, err := r.ddb.RecursiveBatchWriteItem(ctx, tableName, writeReqs, 2)
+	if err != nil {
+		aErr = aerror.New(ctx, aerror.ErrUnexpectedDynamoDB, err)
+		return aErr
+	}
+	if len(unprocessedItems) > 0 {
+		aErr = aerror.New(ctx, aerror.ErrUnexpectedDynamoDB, fmt.Errorf("failed to delete %d pending messages", len(unprocessedItems)))
+		return aErr
 	}
 
 	return nil

@@ -11,3 +11,5 @@ persistence/sgcmdqueue.db
 tmp
 playground
 .worktrees/
+
+.gocache

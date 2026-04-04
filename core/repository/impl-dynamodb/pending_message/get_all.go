@@ -34,7 +34,7 @@ func (r *pendingMessageRepo) GetAll(ctx context.Context, userID, instanceID stri
 		ScanIndexForward:          lo.ToPtr(true), // ascending by SendAt
 	}
 
-	paginator := dynamodb.NewQueryPaginator(r.ddbC, input)
+	paginator := dynamodb.NewQueryPaginator(r.ddb.Client(), input)
 
 	for paginator.HasMorePages() {
 		output, err2 := paginator.NextPage(ctx)

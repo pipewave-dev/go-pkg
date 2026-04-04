@@ -17,5 +17,5 @@ func (r *activeConnRepo) GetInstanceConnection(ctx context.Context, userID strin
 	defer op.Finish(aErr)
 
 	querier := activeConnExp.ActiveConnectionQuerier{ConfigStore: r.c}
-	return querier.GetByUserAndSession(ctx, r.ddbC, userID, instanceID)
+	return querier.GetByUserAndSession(ctx, r.ddb.Client(), userID, instanceID)
 }

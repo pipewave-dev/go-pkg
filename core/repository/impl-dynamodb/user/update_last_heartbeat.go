@@ -19,7 +19,7 @@ func (r *userRepo) UpdateLastHeartbeat(ctx context.Context, userID string) (aErr
 	updater := exprbuilder.UserUpdater{
 		ConfigStore: r.cfg,
 	}
-	aErr = updater.UpdateLastHeartbeat(ctx, r.ddbC, exprbuilder.UpdateLastHeartbeatParams{
+	aErr = updater.UpdateLastHeartbeat(ctx, r.ddb.Client(), exprbuilder.UpdateLastHeartbeatParams{
 		ID:              userID,
 		LastHeartbeatAt: time.Now(),
 	})

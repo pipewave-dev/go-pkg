@@ -16,7 +16,7 @@ func (r *activeConnRepo) CountActiveConnections(ctx context.Context, userID stri
 	defer op.Finish(aErr)
 
 	querier := activeConnExp.ActiveConnectionQuerier{ConfigStore: r.c}
-	count, aErr = querier.CountActive(ctx, r.ddbC, activeConnExp.CountActiveParams{
+	count, aErr = querier.CountActive(ctx, r.ddb.Client(), activeConnExp.CountActiveParams{
 		UserID:         userID,
 		CutOffDuration: r.c.Env().ActiveConnection.HeartbeatCutoff,
 	})

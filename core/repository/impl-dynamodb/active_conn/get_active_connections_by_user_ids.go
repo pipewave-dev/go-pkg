@@ -19,7 +19,7 @@ func (r *activeConnRepo) GetActiveConnectionsByUserIDs(ctx context.Context, user
 	querier := activeConnExp.ActiveConnectionQuerier{ConfigStore: r.c}
 
 	for _, userID := range userIDs {
-		items, err := querier.QueryByUserID(ctx, r.ddbC, userID)
+		items, err := querier.QueryByUserID(ctx, r.ddb.Client(), userID)
 		if err != nil {
 			return nil, err
 		}

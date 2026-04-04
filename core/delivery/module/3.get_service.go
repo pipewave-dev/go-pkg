@@ -2,9 +2,11 @@ package moduledelivery
 
 import (
 	"context"
+	"log/slog"
 	"time"
 
 	"github.com/pipewave-dev/go-pkg/core/delivery"
+	"github.com/pipewave-dev/go-pkg/core/repository"
 	business "github.com/pipewave-dev/go-pkg/core/service/business"
 	wsSv "github.com/pipewave-dev/go-pkg/core/service/websocket"
 	"github.com/pipewave-dev/go-pkg/shared/aerror"
@@ -26,6 +28,8 @@ type getServices struct {
 	wsService    wsSv.WsService
 	wsOnNewReg   wsSv.OnNewStuffFn
 	wsOnCloseReg wsSv.OnCloseStuffFn
+
+	repo repository.AllRepository
 }
 
 func (g *getServices) CheckOnline(ctx context.Context, userID string) (isOnline bool, aErr aerror.AError) {
@@ -86,4 +90,20 @@ func (g *getServices) SendToSessionWithAck(ctx context.Context, userID string, i
 
 func (g *getServices) SendToUserWithAck(ctx context.Context, userID string, msgType string, payload []byte, timeout time.Duration) (acked bool, aErr aerror.AError) {
 	return g.wsService.SendToUserWithAck(ctx, userID, msgType, payload, timeout)
+}
+
+func (g *getServices) CleanUp(ctx context.Context) aerror.AError {
+	var multiErr aerror.AMultiError
+
+	err1 := g.repo.ActiveConnStore().CleanUpExpiredConnections(ctx)
+	err2 := g.repo.PendingMessage().CleanUpExpiredPendingMessages(ctx)
+
+	aerror.Append(multiErr, err1, err2)
+
+	slog.ErrorContext(ctx, "Failed to clean up expired websocket resources",
+		slog.Any("activeConnError", err1),
+		slog.Any("pendingMessageError", err2),
+		slog.Any("error", multiErr))
+
+	return nil
 }

@@ -35,16 +35,12 @@ type ModuleDelivery interface {
 }
 
 type ExportedServices interface {
-	// SendToSession broadcasts to all containers to find the specific instanceID.
 	SendToSession(ctx context.Context, userID string, instanceID string, msgType string, payload []byte) aerror.AError
-
-	// SendToUser broadcasts to all containers to find all sessions of the given userID.
 	SendToUser(ctx context.Context, userID string, msgType string, payload []byte) aerror.AError
 
 	OnNewRegister() wsSv.OnNewStuffFn
 	OnCloseRegister() wsSv.OnCloseStuffFn
 
-	// DisconnectSession force disconnects a specific session.
 	DisconnectSession(ctx context.Context, userID string, instanceID string) aerror.AError
 
 	// DisconnectUser force disconnects all sessions of a user.
@@ -71,4 +67,6 @@ type ExportedServices interface {
 	SendToAnonymous(ctx context.Context, msgType string, payload []byte, isSendAll bool, instanceID []string) aerror.AError
 
 	SendToAuthenticated(ctx context.Context, msgType string, payload []byte) aerror.AError
+
+	CleanUp(ctx context.Context) aerror.AError
 }

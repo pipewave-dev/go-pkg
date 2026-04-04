@@ -120,8 +120,7 @@ func (s *NetpollServer) handleBinaryFrame(client *GobwasConnection, payload []by
 
 // handleContinuationFrame processes a continuation frame (part of a fragmented message).
 func (s *NetpollServer) handleContinuationFrame(_ *GobwasConnection, payload []byte, fin bool) error {
-	// TODO: Implement proper fragmentation handling
-	// For now, just log and continue
+	// Note: just log and continue. Pipewave client SDK (such as react) does not fragment messages
 	fmt.Printf("Received continuation frame, fin=%v, payload_len=%d\n", fin, len(payload))
 	return nil
 }

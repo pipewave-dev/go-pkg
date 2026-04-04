@@ -17,7 +17,7 @@ func (r *activeConnRepo) AddConnection(ctx context.Context, userID string, insta
 	defer op.Finish(aErr)
 
 	creator := activeConnExp.ActiveConnectionCreator{ConfigStore: r.c}
-	_, aErr = creator.Create(ctx, r.ddbC, activeConnExp.CreateParams{
+	_, aErr = creator.Create(ctx, r.ddb.Client(), activeConnExp.CreateParams{
 		UserID:         userID,
 		InstanceID:     instanceID,
 		HolderID:       r.c.Env().ContainerID,

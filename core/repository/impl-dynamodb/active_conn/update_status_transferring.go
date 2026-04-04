@@ -16,6 +16,6 @@ func (r *activeConnRepo) UpdateStatusTransferring(ctx context.Context, userID st
 	defer op.Finish(aErr)
 
 	updater := activeConnExp.ActiveConnectionUpdater{ConfigStore: r.c}
-	aErr = updater.UpdateStatusTransferring(ctx, r.ddbC, userID, instanceID)
+	aErr = updater.UpdateStatusTransferring(ctx, r.ddb.Client(), userID, instanceID)
 	return aErr
 }

@@ -37,6 +37,5 @@ type ActiveConnStore interface {
 	// GetInstanceConnection returns an active connections for a session.
 	GetInstanceConnection(ctx context.Context, userID string, instanceID string) (*entities.ActiveConnection, aerror.AError)
 
-	// TODO: CleanUpExpiredConnections removes all connections that have expired (ttl < now).
-	// CleanUpExpiredConnections(ctx context.Context) aerror.AError
+	CleanUpExpiredConnections(ctx context.Context) aerror.AError
 }

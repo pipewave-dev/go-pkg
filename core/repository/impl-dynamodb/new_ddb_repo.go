@@ -16,10 +16,9 @@ func NewDynamoRepo(
 	obs observer.Observability,
 ) repository.AllRepository {
 	ddbP := dynamodb.New(c)
-	ddbC := ddbP.Client()
-	acs := activeConnRepo.New(c, ddbC, obs)
-	u := userRepo.New(c, ddbC, obs)
-	pm := pendingMessageRepo.New(c, ddbC, obs)
+	acs := activeConnRepo.New(c, ddbP, obs)
+	u := userRepo.New(c, ddbP, obs)
+	pm := pendingMessageRepo.New(c, ddbP, obs)
 	return &ddbRepo{
 		acs: acs,
 		u:   u,

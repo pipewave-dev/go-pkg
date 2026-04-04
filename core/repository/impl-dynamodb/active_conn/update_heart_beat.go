@@ -18,7 +18,7 @@ func (r *activeConnRepo) UpdateHeartBeat(ctx context.Context, userID string, ins
 	updater := activeConnExp.ActiveConnectionUpdater{
 		ConfigStore: r.c,
 	}
-	aErr = updater.UpdateLastHeartbeat(ctx, r.ddbC, activeConnExp.UpdateLastHeartbeatParams{
+	aErr = updater.UpdateLastHeartbeat(ctx, r.ddb.Client(), activeConnExp.UpdateLastHeartbeatParams{
 		UserID:     userID,
 		InstanceID: instanceID,
 	})

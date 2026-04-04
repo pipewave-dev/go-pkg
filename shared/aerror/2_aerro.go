@@ -56,11 +56,9 @@ func New(
 	}
 }
 
-func Append(mErr AMultiError, appErrs ...ASingleError) AMultiError {
+func Append(mErr AMultiError, appErrs ...AError) AMultiError {
 	insider := make([]AError, 0, len(appErrs))
-	for _, appErr := range appErrs {
-		insider = append(insider, appErr.AError)
-	}
+	insider = append(insider, appErrs...)
 
 	if mErr == nil {
 		mErr = &aMultiError{sglton.Append(nil, insider...)}

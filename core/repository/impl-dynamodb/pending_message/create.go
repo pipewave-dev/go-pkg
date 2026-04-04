@@ -14,19 +14,12 @@ import (
 
 const fnCreate = "pendingMessageRepo.Create"
 
-type ddbPendingMessage struct {
-	SessionKey string // PK: userID:instanceID
-	SendAt     int64  // SK: Unix nano
-	Message    []byte
-	TTL        int64 // Unix seconds for DynamoDB TTL
-}
-
 func (r *pendingMessageRepo) Create(ctx context.Context, userID, instanceID string, sendAt time.Time, message []byte) (aErr aerror.AError) {
 	var op observer.Operation
 	ctx, op = r.obs.StartOperation(ctx, fnCreate)
 	defer op.Finish(aErr)
 
-	ttl := time.Now().Add(r.c.Env().ActiveConnection.PendingMsgTTL).Unix()
+	ttl := time.Now().Add(r.c.Env().ActiveConnection.PendingMsgTTL).UnixMilli()
 
 	item := ddbPendingMessage{
 		SessionKey: sessionKey(userID, instanceID),
@@ -46,7 +39,7 @@ func (r *pendingMessageRepo) Create(ctx context.Context, userID, instanceID stri
 		Item:      av,
 	}
 
-	_, err2 := r.ddbC.PutItem(ctx, input)
+	_, err2 := r.ddb.Client().PutItem(ctx, input)
 	if err2 != nil {
 		aErr = aerror.New(ctx, aerror.ErrUnexpectedDynamoDB, err2)
 		return aErr

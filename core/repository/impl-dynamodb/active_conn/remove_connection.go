@@ -16,7 +16,7 @@ func (r *activeConnRepo) RemoveConnection(ctx context.Context, userID string, in
 	defer op.Finish(aErr)
 
 	cleaner := activeConnExp.ActiveConnectionDeleter{ConfigStore: r.c}
-	aErr = cleaner.Delete(ctx, r.ddbC, activeConnExp.DeleteParams{
+	aErr = cleaner.Delete(ctx, r.ddb.Client(), activeConnExp.DeleteParams{
 		UserID:     userID,
 		InstanceID: instanceID,
 	})

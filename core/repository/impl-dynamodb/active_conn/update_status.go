@@ -17,7 +17,7 @@ func (r *activeConnRepo) UpdateStatus(ctx context.Context, userID string, instan
 	defer op.Finish(aErr)
 
 	updater := activeConnExp.ActiveConnectionUpdater{ConfigStore: r.c}
-	aErr = updater.UpdateStatus(ctx, r.ddbC, activeConnExp.UpdateStatusParams{
+	aErr = updater.UpdateStatus(ctx, r.ddb.Client(), activeConnExp.UpdateStatusParams{
 		UserID:     userID,
 		InstanceID: instanceID,
 		Status:     status,
