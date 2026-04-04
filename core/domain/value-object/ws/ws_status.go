@@ -9,3 +9,16 @@ const (
 	WsStatusTempDisconnected
 	WsStatusTransferring
 )
+
+func (s WsStatus) String() string {
+	switch s {
+	case WsStatusConnected:
+		return "connected"
+	case WsStatusTempDisconnected:
+		return "temp_disconnected"
+	case WsStatusTransferring:
+		return "transferring"
+	default:
+		return "unknown"
+	}
+}

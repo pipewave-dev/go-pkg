@@ -20,8 +20,8 @@ func (m *mediatorSvc) GetUserSessions(ctx context.Context, userID string) ([]wsS
 			InstanceID:     conn.InstanceID,
 			HolderID:       conn.HolderID,
 			ConnectionType: conn.ConnectionType,
+			Status:         conn.Status,
 			ConnectedAt:    conn.ConnectedAt,
-			IsAnonymous:    conn.UserID == "",
 		})
 	}
 	return sessions, nil

@@ -32,8 +32,8 @@ type SessionInfo struct {
 	InstanceID     string
 	HolderID       string
 	ConnectionType voWs.WsCoreType
+	Status         voWs.WsStatus
 	ConnectedAt    time.Time
-	IsAnonymous    bool
 }
 
 type WsService interface {
