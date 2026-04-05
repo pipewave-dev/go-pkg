@@ -18,7 +18,7 @@ func (r *activeConnRepo) UpdateStatus(ctx context.Context, userID string, instan
 	query := `
 		UPDATE active_connections
 		SET status = $1
-		WHERE user_id = $2 AND session_id = $3
+		WHERE user_id = $2 AND instance_id = $3
 	`
 
 	_, err := r.pool.Exec(ctx, query, status, userID, instanceID)

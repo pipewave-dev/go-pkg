@@ -18,7 +18,7 @@ func (r *activeConnRepo) UpdateStatusTransferring(ctx context.Context, userID st
 	query := `
 		UPDATE active_connections
 		SET status = $1, holder_id = ''
-		WHERE user_id = $2 AND session_id = $3
+		WHERE user_id = $2 AND instance_id = $3
 	`
 
 	_, err := r.pool.Exec(ctx, query, voWs.WsStatusTransferring, userID, instanceID)

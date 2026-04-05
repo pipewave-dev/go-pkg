@@ -11,7 +11,7 @@ import (
 
 const fnUpdateHeartBeat = "activeConnRepo.UpdateHeartBeat"
 
-func (r *activeConnRepo) UpdateHeartBeat(ctx context.Context, userID string, sessionID string) (aErr aerror.AError) {
+func (r *activeConnRepo) UpdateHeartBeat(ctx context.Context, userID string, instanceID string) (aErr aerror.AError) {
 	var op observer.Operation
 	ctx, op = r.obs.StartOperation(ctx, fnUpdateHeartBeat)
 	defer op.Finish(aErr)
@@ -22,10 +22,10 @@ func (r *activeConnRepo) UpdateHeartBeat(ctx context.Context, userID string, ses
 	query := `
 		UPDATE active_connections
 		SET last_heartbeat = $1, ttl = $2
-		WHERE user_id = $3 AND session_id = $4
+		WHERE user_id = $3 AND instance_id = $4
 	`
 
-	_, err := r.pool.Exec(ctx, query, now, ttl, userID, sessionID)
+	_, err := r.pool.Exec(ctx, query, now, ttl, userID, instanceID)
 	if err != nil {
 		aErr = aerror.New(ctx, aerror.ErrUnexpectedDatabase, err)
 		return aErr

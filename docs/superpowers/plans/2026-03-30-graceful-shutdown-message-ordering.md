@@ -12,27 +12,28 @@
 
 ## File Map
 
-| File | Action | Responsibility |
-|------|--------|----------------|
-| `core/repository/active_conn.go` | Modify | Add `UpdateStatusTransferring` to interface |
-| `core/repository/impl-dynamodb/active_conn/exprbuilder/0.3.updater.go` | Modify | Add `UpdateStatusTransferring` DynamoDB expression builder |
-| `core/repository/impl-dynamodb/active_conn/update_status_transferring.go` | Create | DynamoDB repo method |
-| `core/repository/impl-postgres/active_conn/update_status_transferring.go` | Create | Postgres repo method |
-| `core/service/websocket/2.connection_type.go` | Modify | Add `DrainableConn` interface |
-| `core/service/websocket/server/gobwas/1_type.go` | Modify | Add `drainMu`, implement `DrainableConn` on `GobwasConnection` |
-| `core/service/websocket/server/gobwas/drain_test.go` | Create | Unit test: drain ordering |
-| `core/service/websocket/mediator/delivery/3.long_polling.go` | Modify | Implement `DrainableConn` on `LongPollingConn` |
-| `core/service/websocket/mediator/service/99.helper.go` | Modify | Add `transferringAction` to `findSessionConn`, handle empty HolderID |
-| `core/service/websocket/mediator/service/1.send_notification_to_session.go` | Modify | Pass `transferringAction` closure |
-| `core/service/websocket/mediator/service/1.send_with_ack.go` | Modify | Pass `transferringAction` closure |
-| `core/service/websocket/mediator/delivery/0.new.go` | Modify | Fix `onCloseRegister` + `onNewRegister` |
-| `core/service/websocket/mediator/service/3.shutdown.go` | Modify | Rewrite shutdown flow |
+| File                                                                        | Action | Responsibility                                                       |
+| --------------------------------------------------------------------------- | ------ | -------------------------------------------------------------------- |
+| `core/repository/active_conn.go`                                            | Modify | Add `UpdateStatusTransferring` to interface                          |
+| `core/repository/impl-dynamodb/active_conn/exprbuilder/0.3.updater.go`      | Modify | Add `UpdateStatusTransferring` DynamoDB expression builder           |
+| `core/repository/impl-dynamodb/active_conn/update_status_transferring.go`   | Create | DynamoDB repo method                                                 |
+| `core/repository/impl-postgres/active_conn/update_status_transferring.go`   | Create | Postgres repo method                                                 |
+| `core/service/websocket/2.connection_type.go`                               | Modify | Add `DrainableConn` interface                                        |
+| `core/service/websocket/server/gobwas/1_type.go`                            | Modify | Add `drainMu`, implement `DrainableConn` on `GobwasConnection`       |
+| `core/service/websocket/server/gobwas/drain_test.go`                        | Create | Unit test: drain ordering                                            |
+| `core/service/websocket/mediator/delivery/3.long_polling.go`                | Modify | Implement `DrainableConn` on `LongPollingConn`                       |
+| `core/service/websocket/mediator/service/99.helper.go`                      | Modify | Add `transferringAction` to `findSessionConn`, handle empty HolderID |
+| `core/service/websocket/mediator/service/1.send_notification_to_session.go` | Modify | Pass `transferringAction` closure                                    |
+| `core/service/websocket/mediator/service/1.send_with_ack.go`                | Modify | Pass `transferringAction` closure                                    |
+| `core/service/websocket/mediator/delivery/0.new.go`                         | Modify | Fix `onCloseRegister` + `onNewRegister`                              |
+| `core/service/websocket/mediator/service/3.shutdown.go`                     | Modify | Rewrite shutdown flow                                                |
 
 ---
 
 ## Task 1: Add `UpdateStatusTransferring` to Repository Interface
 
 **Files:**
+
 - Modify: `core/repository/active_conn.go`
 
 - [ ] **Step 1: Add method to interface**
@@ -86,6 +87,7 @@ git commit -m "feat(repo): add UpdateStatusTransferring to ActiveConnStore inter
 ## Task 2: DynamoDB — Implement `UpdateStatusTransferring`
 
 **Files:**
+
 - Modify: `core/repository/impl-dynamodb/active_conn/exprbuilder/0.3.updater.go`
 - Create: `core/repository/impl-dynamodb/active_conn/update_status_transferring.go`
 
@@ -180,6 +182,7 @@ git commit -m "feat(repo/ddb): implement UpdateStatusTransferring"
 ## Task 3: Postgres — Implement `UpdateStatusTransferring`
 
 **Files:**
+
 - Create: `core/repository/impl-postgres/active_conn/update_status_transferring.go`
 
 - [ ] **Step 1: Create repo method file**
@@ -207,7 +210,7 @@ func (r *activeConnRepo) UpdateStatusTransferring(ctx context.Context, userID st
 	query := `
 		UPDATE active_connections
 		SET status = $1, holder_id = ''
-		WHERE user_id = $2 AND session_id = $3
+		WHERE user_id = $2 AND instance_id = $3
 	`
 
 	_, err := r.pool.Exec(ctx, query, voWs.WsStatusTransferring, userID, instanceID)
@@ -240,6 +243,7 @@ git commit -m "feat(repo/postgres): implement UpdateStatusTransferring"
 ## Task 4: `DrainableConn` Interface + `GobwasConnection` Implementation
 
 **Files:**
+
 - Modify: `core/service/websocket/2.connection_type.go`
 - Modify: `core/service/websocket/server/gobwas/1_type.go`
 - Create: `core/service/websocket/server/gobwas/drain_test.go`
@@ -378,6 +382,7 @@ type DrainableConn interface {
 In `core/service/websocket/server/gobwas/1_type.go`:
 
 1. Add `sync` to imports (it's already in `1_server.go` but not `1_type.go`):
+
 ```go
 import (
 	"context"
@@ -397,6 +402,7 @@ import (
 ```
 
 2. Add `drainMu` field to `GobwasConnection`:
+
 ```go
 type GobwasConnection struct {
 	c       configprovider.ConfigStore
@@ -410,6 +416,7 @@ type GobwasConnection struct {
 ```
 
 3. Update `Send()` to acquire `RLock`:
+
 ```go
 func (cl *GobwasConnection) Send(payload []byte) error {
 	cl.drainMu.RLock()
@@ -422,6 +429,7 @@ func (cl *GobwasConnection) Send(payload []byte) error {
 ```
 
 4. Add `DrainableConn` methods:
+
 ```go
 // BeginDrain acquires an exclusive lock, blocking all concurrent Send() calls.
 func (cl *GobwasConnection) BeginDrain() { cl.drainMu.Lock() }
@@ -442,6 +450,7 @@ func (cl *GobwasConnection) SendDirect(payload []byte) error {
 5. Add compile-time check after existing `_ wsSv.WebsocketConn = ...` check (in `1_server.go`):
 
 In `core/service/websocket/server/gobwas/1_server.go`, update the compile-time check block:
+
 ```go
 var (
 	_ wsSv.WebsocketServer = (*NetpollServer)(nil)
@@ -474,6 +483,7 @@ git commit -m "feat(ws): add DrainableConn interface and implement on GobwasConn
 ## Task 5: Implement `DrainableConn` on `LongPollingConn`
 
 **Files:**
+
 - Modify: `core/service/websocket/mediator/delivery/3.long_polling.go`
 
 LongPollingConn's `Send()` publishes to a Valkey-backed queue. Drain ordering still matters: pending DB messages must be published to the queue before new messages. The `drainMu` approach works identically here.
@@ -564,6 +574,7 @@ git commit -m "feat(ws/lp): implement DrainableConn on LongPollingConn"
 ## Task 6: Add `transferringAction` to `findSessionConn`
 
 **Files:**
+
 - Modify: `core/service/websocket/mediator/service/99.helper.go`
 
 - [ ] **Step 1: Add `transferringAction` field and handle empty HolderID**
@@ -647,6 +658,7 @@ git commit -m "feat(mediator): add transferringAction to findSessionConn for WsS
 ## Task 7: Pass `transferringAction` in `SendToSession` and `SendToSessionWithAck`
 
 **Files:**
+
 - Modify: `core/service/websocket/mediator/service/1.send_notification_to_session.go`
 - Modify: `core/service/websocket/mediator/service/1.send_with_ack.go`
 
@@ -750,6 +762,7 @@ findThenAction := &findSessionConn{
 ```
 
 Add imports for `wsSv` and `fn` to `1.send_with_ack.go`:
+
 ```go
 import (
     "context"
@@ -785,6 +798,7 @@ git commit -m "feat(mediator): route Transferring sessions to MessageHub in Send
 ## Task 8: Fix `onCloseRegister` — Skip DB Operations During Shutdown
 
 **Files:**
+
 - Modify: `core/service/websocket/mediator/delivery/0.new.go`
 
 **Context:** When `IsShuttingDown()=true`, the `Shutdown()` method (Task 10) has already called `UpdateStatusTransferring` + `msgHubSvc.Register` for every connection BEFORE closing them. If `onClose` then calls `RemoveConnection`, it deletes the Transferring record that the client needs. Fix: when shutting down, skip all DB ops in `onClose`.
@@ -859,9 +873,11 @@ git commit -m "fix(delivery): skip DB operations in onClose during graceful shut
 ## Task 9: Fix `onNewRegister` — Handle `WsStatusTransferring` + Drain Pattern
 
 **Files:**
+
 - Modify: `core/service/websocket/mediator/delivery/0.new.go`
 
 **Context:** Two changes in `onNewRegister`:
+
 1. Handle `WsStatusTransferring` (old container shutting down — no `ResumeSession` needed since HolderID is empty).
 2. Apply `DrainableConn` pattern: `BeginDrain` before `connectionMgr.AddConnection`, send pending via `SendDirect`, then `EndDrain` — ensuring no concurrent send reaches the client before the pending messages.
 
@@ -976,9 +992,11 @@ git commit -m "feat(delivery): handle WsStatusTransferring on reconnect and add 
 ## Task 10: Rewrite `mediatorSvc.Shutdown()`
 
 **Files:**
+
 - Modify: `core/service/websocket/mediator/service/3.shutdown.go`
 
 **Context:** New shutdown sequence:
+
 1. `MarkShuttingDown()` — signals `onClose` to skip DB ops.
 2. `ackManager.Shutdown()` — unblock pending ACK waiters.
 3. For each authenticated connection: `UpdateStatusTransferring` + `msgHubSvc.Register` (with `onExpired` cleanup).
