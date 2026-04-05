@@ -2,10 +2,11 @@ package configprovider
 
 // globalEnvT contains all application configuration loaded from YAML files and environment variables
 type globalEnvT struct {
-	Env         string `koanf:"ENV_NAME"`
-	PodName     string `koanf:"POD_NAME"`
-	ContainerID string `koanf:"CONTAINER_ID"`
-	Version     string `koanf:"VERSION"`
+	Env           string `koanf:"ENV_NAME"`
+	PodName       string `koanf:"POD_NAME"`
+	ContainerID   string `koanf:"CONTAINER_ID"`
+	Version       string `koanf:"VERSION"`
+	AutoMigration bool   `koanf:"AUTO_MIGRATION"`
 
 	ActiveConnection ActiveConnectionT `koanf:"ACTIVE_CONNECTION"`
 	PingChecker      PingCheckerT      `koanf:"PING_CHECKER"`

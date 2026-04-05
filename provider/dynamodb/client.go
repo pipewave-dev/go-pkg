@@ -12,6 +12,9 @@ import (
 
 func New(cfg configprovider.ConfigStore) dynamodb.DynamodbProvider {
 	dynamodbPrv := dynamodb.NewDynamoDBProvider(dynamoDBConfig(cfg))
+	if !cfg.Env().AutoMigration {
+		return dynamodbPrv
+	}
 	if cfg.Env().DynamoDB.CreateTables {
 		createOrVerifyTables(dynamodbPrv, cfg)
 	} else {

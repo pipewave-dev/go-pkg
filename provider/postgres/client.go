@@ -5,8 +5,8 @@ import (
 	_ "embed"
 	"fmt"
 
-	configprovider "github.com/pipewave-dev/go-pkg/provider/config-provider"
 	"github.com/jackc/pgx/v5/pgxpool"
+	configprovider "github.com/pipewave-dev/go-pkg/provider/config-provider"
 )
 
 //go:embed migrations/001_init.sql
@@ -41,7 +41,7 @@ func New(cfg configprovider.ConfigStore) *pgxpool.Pool {
 		panic(fmt.Sprintf("postgres: failed to ping: %v", err))
 	}
 
-	if pgCfg.CreateTables {
+	if cfg.Env().AutoMigration && pgCfg.CreateTables {
 		createTables(pool)
 	}
 
