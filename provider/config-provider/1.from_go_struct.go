@@ -5,6 +5,8 @@ type EnvType struct {
 	PodName     string
 	ContainerID string
 
+	AutoMigration bool
+
 	ActiveConnection ActiveConnectionT
 	PingChecker      PingCheckerT
 
@@ -27,6 +29,7 @@ func FromGoStruct(input EnvType) ConfigStore {
 	env := globalEnvT{
 		Env:              input.Env,
 		PodName:          input.PodName,
+		AutoMigration:    input.AutoMigration,
 		ContainerID:      input.ContainerID,
 		ActiveConnection: input.ActiveConnection,
 		PingChecker:      input.PingChecker,
