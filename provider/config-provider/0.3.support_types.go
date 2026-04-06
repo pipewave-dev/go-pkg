@@ -124,7 +124,9 @@ func (ki KeySetT) GetKeySet() (currentVersion int8, keySet map[int8][]byte) {
 
 // OtelT contains OpenTelemetry configuration
 type OtelT struct {
-	Enabled             bool   `koanf:"ENABLED"`
+	Enabled bool `koanf:"ENABLED"`
+	// Debug = -4, Info = 0, Warn = 4, Error = 8
+	LogLevel            int    `koanf:"LOG_LEVEL"`
 	AutoInstrumentation bool   `koanf:"AUTO_INSTRUMENTATION"`
 	ExporterType        string `koanf:"EXPORTER_TYPE"`
 	FilePath            string `koanf:"FILE_PATH"`

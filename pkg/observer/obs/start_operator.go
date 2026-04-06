@@ -79,7 +79,8 @@ func (o *observability) StartOperation(
 		operationLogger = operationLogger.With(fieldsToSlogAttrs(cf.Fields())...)
 	}
 
-	operationLogger.DebugContext(ctx, fmt.Sprintf("%s: Started", name))
+	operationLogger.Log(ctx, o.cf.SlogLevel, fmt.Sprintf("%s: Started", name))
+
 	return ctx, &operation{
 		ctx:       &ctx,
 		span:      span,

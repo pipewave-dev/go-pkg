@@ -21,7 +21,7 @@ func New(
 	slogIns *slog.Logger,
 ) observer.Observability {
 	env := cfg.Env()
-
+	logLevel := slog.Level(env.Otel.LogLevel)
 	obsIns := obs.NewObservability(&obs.ObservabilityConfig{
 		ServiceName:    constants.AppNameShort,
 		ServiceVersion: env.Version,
@@ -42,7 +42,7 @@ func New(
 		},
 		OtelTrace: otelProvider,
 		Slogger:   slogIns,
-		SlogLevel: slog.LevelInfo,
+		SlogLevel: logLevel,
 	})
 
 	return obsIns
