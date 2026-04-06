@@ -167,7 +167,7 @@ func (d *serverDelivery) registerCallback() {
 				case voWs.WsStatusTransferring:
 					// Container-shutdown reconnect: HolderID is empty, old container is shutting down.
 					// No signal needed — AddConnection below will claim this session.
-					slog.InfoContext(ctx, "onNew: reconnect after container shutdown (WsStatusTransferring)",
+					slog.DebugContext(ctx, "onNew: reconnect after container shutdown (WsStatusTransferring)",
 						slog.String("userID", auth.UserID),
 						slog.String("instanceID", auth.InstanceID))
 				}

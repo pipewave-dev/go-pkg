@@ -8,7 +8,7 @@ import (
 )
 
 func (h *broadcastMsgHandler) ResumeSession(ctx context.Context, payload broadcast.ResumeSessionParams) {
-	slog.InfoContext(ctx, "ResumeSession: cancelling ExpiredTimer for session",
+	slog.DebugContext(ctx, "ResumeSession: cancelling ExpiredTimer for session",
 		slog.String("userID", payload.UserID),
 		slog.String("instanceID", payload.InstanceID))
 	h.msgHubSvc.Deregister(payload.UserID, payload.InstanceID)

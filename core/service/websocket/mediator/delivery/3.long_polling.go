@@ -212,7 +212,7 @@ func (d *serverDelivery) LongPollingEndpoint() http.HandlerFunc {
 				http.Error(w, err.Error(), http.StatusInternalServerError)
 				return
 			}
-			slog.Info("New long polling connection established",
+			slog.Debug("New long polling connection established",
 				slog.Any("auth", wsAuth),
 				slog.String("remote_addr", r.RemoteAddr))
 
