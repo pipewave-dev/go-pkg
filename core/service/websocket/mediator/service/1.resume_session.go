@@ -13,35 +13,27 @@ func (m *mediatorSvc) ResumeSession(ctx context.Context, targetContainerID, user
 		UserID:     userID,
 		InstanceID: instanceID,
 	}
-	localAction := func() {
+
+	if targetContainerID == "" {
+		slog.WarnContext(ctx, "ResumeSession called without target container",
+			slog.String("userID", userID),
+			slog.String("instanceID", instanceID))
+		return nil
+	}
+
+	if targetContainerID == m.c.Env().ContainerID {
 		m.broadcastHandler.ResumeSession(ctx, pl)
-	}
-	targetContainerAction := func(containerIDs []string) {
-		err := m.broadcast.ResumeSession(ctx, containerIDs, pl).Publish()
-		if err != nil {
-			slog.ErrorContext(ctx, "Failed to broadcast ResumeSession",
-				slog.String("userID", userID),
-				slog.String("instanceID", instanceID),
-				slog.Any("containerIDs", containerIDs),
-				slog.Any("error", err))
-		}
+		return nil
 	}
 
-	findThenAction := &findSessionConn{
-		ctx:                   ctx,
-		userID:                userID,
-		instanceID:            instanceID,
-		localAction:           localAction,
-		targetContainerAction: targetContainerAction,
-		callbackNotfound: func() {
-			slog.WarnContext(ctx, "InstanceID not found when ResumeSession",
-				slog.String("userID", userID),
-				slog.String("instanceID", instanceID))
-		},
-		c:              m.c,
-		connections:    m.connections,
-		activeConnRepo: m.activeConnRepo,
+	err := m.broadcast.ResumeSession(ctx, []string{targetContainerID}, pl).Publish()
+	if err != nil {
+		slog.ErrorContext(ctx, "Failed to broadcast ResumeSession",
+			slog.String("userID", userID),
+			slog.String("instanceID", instanceID),
+			slog.String("targetContainerID", targetContainerID),
+			slog.Any("error", err))
 	}
 
-	return findThenAction.findThenAction()
+	return nil
 }
