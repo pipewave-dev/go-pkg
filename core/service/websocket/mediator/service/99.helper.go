@@ -28,22 +28,34 @@ func (f *findUserConn) findThenAction() aerror.AError {
 	if aErr != nil && !errors.Is(aErr, aerror.RecordNotFound) {
 		return aErr
 	}
-	// Check connection in memory first
+
 	userConns := f.connections.GetAllUserConn(f.userID)
-	if len(userConns) > 0 {
-		f.localAction()
-	}
+	shouldHandleLocally := len(userConns) > 0
+	localContainerID := f.c.Env().ContainerID
 
 	containerIDs := make([]string, 0, len(actConns))
 	seen := make(map[string]struct{}, len(actConns))
 	for _, conn := range actConns {
+		// Temp-disconnected sessions keep the current HolderID in the active
+		// connection store, but they no longer exist in ConnectionManager.
+		// We still need to run the local broadcast path so SendToUser can buffer
+		// into MessageHub for this container.
+		if conn.HolderID == localContainerID {
+			shouldHandleLocally = true
+			continue
+		}
+		if conn.HolderID == "" {
+			continue
+		}
 		if _, ok := seen[conn.HolderID]; ok {
 			continue
 		}
 		seen[conn.HolderID] = struct{}{}
-		if conn.HolderID != "" && conn.HolderID != f.c.Env().ContainerID {
-			containerIDs = append(containerIDs, conn.HolderID)
-		}
+		containerIDs = append(containerIDs, conn.HolderID)
+	}
+
+	if shouldHandleLocally {
+		f.localAction()
 	}
 
 	if len(containerIDs) > 0 {
