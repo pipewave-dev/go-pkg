@@ -14,4 +14,6 @@ type AllRepository interface {
 	ActiveConnStore() ActiveConnStore
 	User() User
 	PendingMessage() PendingMessageRepo
+
+	RunMigration() error
 }

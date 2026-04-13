@@ -43,10 +43,6 @@ func init() {
 	}
 
 	sglton.StacktraceEnabled = func(code YourErrorCode) bool {
-		// Only enable stacktrace for 5xx errors
-		if code > start500 && code < end500 {
-			return true
-		}
-		return false
+		return true
 	}
 }

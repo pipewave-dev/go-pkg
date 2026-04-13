@@ -31,6 +31,7 @@ type ModuleDelivery interface {
 	Services() ExportedServices
 	Monitoring() business.Monitoring
 	IsHealthy() bool
+	RunMigration() error
 	Shutdown()
 }
 

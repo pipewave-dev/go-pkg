@@ -28,7 +28,7 @@ func Singleton() wsSv.ConnectionManager {
 
 type connectionMap struct {
 	userConn      map[string]map[string]wsSv.WebsocketConn // userID -> sessionID -> conn
-	anonymousConn map[string]wsSv.WebsocketConn            // sessionID -> conn
+	anonymousConn map[string]wsSv.WebsocketConn            // instanceID -> conn
 	mu            sync.RWMutex
 }
 

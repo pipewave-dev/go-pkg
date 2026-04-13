@@ -2,16 +2,12 @@ package postgres
 
 import (
 	"context"
-	_ "embed"
 	"fmt"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	configprovider "github.com/pipewave-dev/go-pkg/provider/config-provider"
 )
-
-//go:embed migrations/001_init.sql
-var migrationSQL string
 
 func New(cfg configprovider.ConfigStore) *pgxpool.Pool {
 	pgCfg := cfg.Env().Postgres
@@ -43,8 +39,9 @@ func New(cfg configprovider.ConfigStore) *pgxpool.Pool {
 		panic(fmt.Sprintf("postgres: failed to ping: %v", err))
 	}
 
-	if cfg.Env().AutoMigration && pgCfg.CreateTables {
-		createTables(pool)
+	if err := HandleStartupMigration(context.Background(), pool, cfg.Env().AutoMigration); err != nil {
+		pool.Close()
+		panic(err.Error())
 	}
 
 	return pool
@@ -78,12 +75,5 @@ func waitForReady(pool *pgxpool.Pool) error {
 			return fmt.Errorf("waited %s for postgres readiness: %w", timeout, ctx.Err())
 		case <-ticker.C:
 		}
-	}
-}
-
-func createTables(pool *pgxpool.Pool) {
-	_, err := pool.Exec(context.Background(), migrationSQL)
-	if err != nil {
-		panic(fmt.Sprintf("postgres: failed to run migration: %v", err))
 	}
 }

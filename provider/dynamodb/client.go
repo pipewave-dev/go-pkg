@@ -2,7 +2,6 @@ package dynamodb
 
 import (
 	"context"
-	"fmt"
 
 	ddb "github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
@@ -12,13 +11,8 @@ import (
 
 func New(cfg configprovider.ConfigStore) dynamodb.DynamodbProvider {
 	dynamodbPrv := dynamodb.NewDynamoDBProvider(dynamoDBConfig(cfg))
-	if !cfg.Env().AutoMigration {
-		return dynamodbPrv
-	}
-	if cfg.Env().DynamoDB.CreateTables {
-		createOrVerifyTables(dynamodbPrv, cfg)
-	} else {
-		verifyTables(dynamodbPrv, cfg)
+	if err := HandleStartupMigration(context.Background(), cfg, dynamodbPrv, cfg.Env().AutoMigration); err != nil {
+		panic(err.Error())
 	}
 	return dynamodbPrv
 }
@@ -37,28 +31,6 @@ func dynamoDBConfig(cfg configprovider.ConfigStore) *dynamodb.DynamodbConfig {
 		StaticSecretKey: ddbCfg.StaticSecretKey,
 	}
 	return &ddbCfn
-}
-
-func createOrVerifyTables(dnm dynamodb.DynamodbProvider, cfg configprovider.ConfigStore) {
-	ctx := context.Background()
-	for _, table := range tablesSchema(cfg) {
-		err := dnm.CreateOrVerifyTable(ctx, table)
-		if err != nil {
-			msg := fmt.Sprintf("DynamoDB create or verify tables failed: %s", err.Error())
-			panic(msg)
-		}
-	}
-}
-
-func verifyTables(dnm dynamodb.DynamodbProvider, cfg configprovider.ConfigStore) {
-	ctx := context.Background()
-	for _, table := range tablesSchema(cfg) {
-		err := dnm.VerifyTable(ctx, table)
-		if err != nil {
-			msg := fmt.Sprintf("DynamoDB create or verify tables failed: %s", err.Error())
-			panic(msg)
-		}
-	}
 }
 
 func tablesSchema(cfg configprovider.ConfigStore) []dynamodb.CreateTableParams {

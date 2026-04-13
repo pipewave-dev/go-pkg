@@ -11,6 +11,7 @@ import (
 	exchange_token "github.com/pipewave-dev/go-pkg/core/service/websocket/exchange-token"
 	delivery "github.com/pipewave-dev/go-pkg/core/service/websocket/mediator/delivery"
 	service "github.com/pipewave-dev/go-pkg/core/service/websocket/mediator/service"
+	msg_hub "github.com/pipewave-dev/go-pkg/core/service/websocket/msg-hub"
 	rate_limiter "github.com/pipewave-dev/go-pkg/core/service/websocket/rate-limiter"
 	gobwas "github.com/pipewave-dev/go-pkg/core/service/websocket/server/gobwas"
 	ws_event_trigger "github.com/pipewave-dev/go-pkg/core/service/websocket/ws-event-trigger"
@@ -35,6 +36,7 @@ var DefaultWireSet = wire.NewSet(
 	exchange_token.WireSet,
 	delivery.WireSet,
 	service.WireSet,
+	msg_hub.WireSet,
 	rate_limiter.WireSet,
 	gobwas.WireSet,
 	ws_event_trigger.WireSet,

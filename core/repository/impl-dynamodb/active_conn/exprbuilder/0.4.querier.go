@@ -168,7 +168,7 @@ func (querier *ActiveConnectionQuerier) QueryByUserID(ctx context.Context, ddbCl
 	return results, nil
 }
 
-// GetByUserAndSession returns a single active connection by userID and sessionID.
+// GetByUserAndSession returns a single active connection by userID and instanceID.
 func (querier *ActiveConnectionQuerier) GetByUserAndSession(ctx context.Context, ddbClient *dynamodb.Client, userID string, instanceID string) (*entities.ActiveConnection, aerror.AError) {
 	type keySchema struct {
 		UserID     string

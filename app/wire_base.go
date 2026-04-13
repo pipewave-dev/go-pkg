@@ -1,6 +1,7 @@
 package app
 
 import (
+	"github.com/google/wire"
 	"github.com/pipewave-dev/go-pkg/core/delivery"
 	"github.com/pipewave-dev/go-pkg/core/repository"
 	wirecollection "github.com/pipewave-dev/go-pkg/gen/wire"
@@ -11,7 +12,6 @@ import (
 	fncollector "github.com/pipewave-dev/go-pkg/provider/fn-collector"
 	pubsubfactory "github.com/pipewave-dev/go-pkg/provider/pubsub"
 	"github.com/pipewave-dev/go-pkg/provider/queue"
-	"github.com/google/wire"
 )
 
 // Make new type for sumary handler interactor
@@ -49,10 +49,25 @@ func PubsubProvider(
 	return f(c, cleanupTask)
 }
 
+func ActiveConnStoreProvider(allRepository repository.AllRepository) repository.ActiveConnStore {
+	return allRepository.ActiveConnStore()
+}
+
+func UserRepoProvider(allRepository repository.AllRepository) repository.User {
+	return allRepository.User()
+}
+
+func PendingMessageRepoProvider(allRepository repository.AllRepository) repository.PendingMessageRepo {
+	return allRepository.PendingMessage()
+}
+
 var IteractorCollection = wire.NewSet(
 	wirecollection.DefaultWireSet,
 	NewAppDI,
 	RepoProvider,
+	ActiveConnStoreProvider,
+	UserRepoProvider,
+	PendingMessageRepoProvider,
 	QueueProvider,
 	PubsubProvider,
 )

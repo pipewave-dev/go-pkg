@@ -17,7 +17,7 @@ import (
 	clientmsghandler "github.com/pipewave-dev/go-pkg/core/service/websocket/client-msg-handler"
 	connectionmanager "github.com/pipewave-dev/go-pkg/core/service/websocket/connection-manager"
 	exchangetoken "github.com/pipewave-dev/go-pkg/core/service/websocket/exchange-token"
-	delivery "github.com/pipewave-dev/go-pkg/core/service/websocket/mediator/delivery"
+	"github.com/pipewave-dev/go-pkg/core/service/websocket/mediator/delivery"
 	mediatorsvc "github.com/pipewave-dev/go-pkg/core/service/websocket/mediator/service"
 	msghub "github.com/pipewave-dev/go-pkg/core/service/websocket/msg-hub"
 	ratelimiter "github.com/pipewave-dev/go-pkg/core/service/websocket/rate-limiter"
@@ -29,8 +29,8 @@ import (
 	muxmiddleware "github.com/pipewave-dev/go-pkg/provider/mux-middleware"
 	observerprovider "github.com/pipewave-dev/go-pkg/provider/observer-provider"
 	otelprovider "github.com/pipewave-dev/go-pkg/provider/otel-provider"
-	pubsubfactory "github.com/pipewave-dev/go-pkg/provider/pubsub"
-	queuefactory "github.com/pipewave-dev/go-pkg/provider/queue"
+	"github.com/pipewave-dev/go-pkg/provider/pubsub"
+	"github.com/pipewave-dev/go-pkg/provider/queue"
 	workerpoolprovider "github.com/pipewave-dev/go-pkg/provider/worker-pool-provider"
 
 	_ "github.com/pipewave-dev/go-pkg/shared/aerror"
@@ -38,7 +38,7 @@ import (
 
 // Injectors from wire.go:
 
-func NewPipewave(config configprovider.ConfigStore, s *slog.Logger, rf repository.RepoFactory, qf queuefactory.QueueFactory, pf pubsubfactory.PubsubFactory) *AppDI {
+func NewPipewave(config configprovider.ConfigStore, s *slog.Logger, rf repository.RepoFactory, qf queue.QueueFactory, pf pubsub.PubsubFactory) *AppDI {
 	middlewareProvider := muxmiddleware.New(config)
 	v := healthyprovider.New(config)
 	cleanupTask := fncollector.NewCleanupTask()
@@ -47,12 +47,13 @@ func NewPipewave(config configprovider.ConfigStore, s *slog.Logger, rf repositor
 	observability := observerprovider.New(config, otelProvider, s)
 	allRepository := RepoProvider(rf, config, observability)
 	connectionManager := connectionmanager.Singleton()
-	adapter := PubsubProvider(pf, config, cleanupTask)
 	ackManager := ackmanager.New()
-	msgHubSvc := msghub.New(config, allRepository.PendingMessage(), cleanupTask, workerPool)
+	pendingMessageRepo := PendingMessageRepoProvider(allRepository)
+	messageHubSvc := msghub.New(config, pendingMessageRepo, cleanupTask, workerPool)
+	pubsubHandler := broadcastmsghandler.New(allRepository, connectionManager, ackManager, messageHubSvc, workerPool)
+	adapter := PubsubProvider(pf, config, cleanupTask)
 	shutdownSignal := msghub.NewShutdownSignal()
-	pubsubHandler := broadcastmsghandler.New(allRepository, connectionManager, ackManager, msgHubSvc, workerPool)
-	wsService := mediatorsvc.New(config, allRepository, cleanupTask, workerPool, connectionManager, pubsubHandler, adapter, otelProvider, ackManager, msgHubSvc, shutdownSignal)
+	wsService := mediatorsvc.New(config, allRepository, cleanupTask, workerPool, connectionManager, pubsubHandler, adapter, otelProvider, ackManager, messageHubSvc, shutdownSignal)
 	rateLimiter := ratelimiter.New(config)
 	intervalTask := fncollector.NewIntervalTask()
 	clientMsgHandler := clientmsghandler.New(config, cleanupTask, intervalTask, observability, adapter, otelProvider, rateLimiter, allRepository, ackManager)
@@ -61,9 +62,10 @@ func NewPipewave(config configprovider.ConfigStore, s *slog.Logger, rf repositor
 	queueAdapter := QueueProvider(qf, config, cleanupTask)
 	onNewStuffFn := wseventtrigger.NewOnNewStuff(config)
 	onCloseStuffFn := wseventtrigger.NewOnCloseStuff(config)
-	serverDelivery := delivery.New(config, workerPool, v, wsService, connectionManager, rateLimiter, clientMsgHandler, exchangeToken, allRepository, queueAdapter, onNewStuffFn, onCloseStuffFn, msgHubSvc, shutdownSignal)
+	serverDelivery := delivery.New(config, workerPool, v, wsService, connectionManager, rateLimiter, clientMsgHandler, exchangeToken, allRepository, queueAdapter, onNewStuffFn, onCloseStuffFn, messageHubSvc, shutdownSignal)
 	businessMonitoring := monitoring.New(allRepository, connectionManager, workerPool, observability, cacheProvider)
-	moduleDelivery := moduledelivery.New(config, middlewareProvider, serverDelivery, wsService, onNewStuffFn, onCloseStuffFn, v, businessMonitoring, workerPool, cleanupTask, intervalTask)
+	v2 := allRepository.RunMigration
+	moduleDelivery := moduledelivery.New(config, middlewareProvider, serverDelivery, wsService, onNewStuffFn, onCloseStuffFn, v, businessMonitoring, workerPool, cleanupTask, intervalTask, v2)
 	appDI := NewAppDI(moduleDelivery)
 	return appDI
 }

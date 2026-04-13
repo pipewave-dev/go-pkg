@@ -34,6 +34,7 @@ type moduleDelivery struct {
 	workerPool   *workerpool.WorkerPool
 	cleanupTask  fncollector.CleanupTask
 	intervalTask fncollector.IntervalTask
+	runMigration func() error
 }
 
 func New(
@@ -48,6 +49,7 @@ func New(
 	workerPool *workerpool.WorkerPool,
 	cleanupTask fncollector.CleanupTask,
 	intervalTask fncollector.IntervalTask,
+	runMigration func() error,
 ) delivery.ModuleDelivery {
 	ins := &moduleDelivery{
 		c:             c,
@@ -64,6 +66,7 @@ func New(
 		workerPool:   workerPool,
 		cleanupTask:  cleanupTask,
 		intervalTask: intervalTask,
+		runMigration: runMigration,
 	}
 	ins.registerHandlers()
 	stopFn := ins.runIntervalTasks(time.Second * 600)
