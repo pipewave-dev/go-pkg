@@ -1,0 +1,111 @@
+ENV_NAME: "development"
+POD_NAME: "pipewave-pod-1"
+VERSION: "1.0.0"
+
+AUTO_MIGRATION: true
+
+DEBUG:
+  ENABLED: false
+
+WORKER_POOL:
+  BUFFER: 100
+  UPPER_THRESHOLD: 50
+  LOWER_THRESHOLD: 10
+
+# IETF language tag. See: https://en.wikipedia.org/wiki/IETF_language_tag#List_of_common_primary_language_subtags
+DEFAULT_LANG: "en"
+
+# Timezone name. See: https://en.wikipedia.org/wiki/List_of_tz_database_time_zones
+TIME_ZONE: "Asia/Tokyo"
+
+TRACE_ID_HEADER: "X-Trace-Id"
+IP_HEADER: "X-Real-Ip"
+
+CORS:
+  EXACTLY_ORIGINS:
+    - "https://example.com"
+  REGEX_ORIGINS:
+    - "https://.*\\.example\\.com"
+
+OTEL:
+  ENABLED: false
+  AUTO_INSTRUMENTATION: false
+  # One of: discard, stdout, file, otlp-grpc, otlp-http
+  EXPORTER_TYPE: "discard"
+  # Required when EXPORTER_TYPE is "file"
+  FILE_PATH: ""
+  # Required when EXPORTER_TYPE is "otlp-grpc" or "otlp-http"
+  COLLECTOR_ENDPOINT: ""
+  COLLECTOR_INSECURE: false
+
+SLOG:
+  BEAUTIFUL: true
+  # 0=Debug, 4=Info, 8=Warn, 12=Error
+  LEVEL: 4
+  LOG_FILE: ""
+  GOOGLE_CHAT:
+    WEBHOOK_URL: ""
+
+GOOGLECHAT:
+  DEV_TEAM_SPACE_URL: ""
+  URGENT_TEAM_SPACE_URL: ""
+  MAINTAINER_SPACE_URL: ""
+
+VALKEY:
+  PRIMARY_ADDRESS: "localhost:6379"
+  REPLICA_ADDRESS: "localhost:6379"
+  PASSWORD: ""
+  DB_INDEX: 0
+
+DYNAMODB:
+  CREATE_TABLES: false
+  REGION: "ap-northeast-1"
+  # Leave null to use default endpoint
+  ENDPOINT: null
+  # IAM Role ARN to assume (optional)
+  ROLE: null
+  # AWS profile name (optional)
+  PROFILE: null
+  # Static credentials (optional, prefer IAM role)
+  STATIC_ACCESS_KEY: null
+  STATIC_SECRET_KEY: null
+
+DYNAMO_TABLES:
+  ACTIVE_CONNECTION: "active_connection"
+  FCM_DEVICE: "fcm_device"
+  GROUP: "group"
+  USER: "user"
+  USER_GROUP: "user_group"
+  NOTI_CONTENT: "noti_content"
+  G_NOTI: "g_noti"
+  U_NOTI: "u_noti"
+  NOTI_TIME_BUCKET: "noti_time_bucket"
+
+GLOBAL_KEY:
+  G_NOTI_ENTITY: "change-me-g-noti-entity-hmac-key"
+  G_NOTI_AFTER: "change-me-g-noti-after-hmac-key"
+  G_NOTI_BEFORE: "change-me-g-noti-before-hmac-key"
+  U_NOTI_ENTITY: "change-me-u-noti-entity-hmac-key"
+  U_NOTI_AFTER: "change-me-u-noti-after-hmac-key"
+  U_NOTI_BEFORE: "change-me-u-noti-before-hmac-key"
+
+GRAFANA:
+  URL: ""
+  LOKI_SOURCE_ID: ""
+
+SYSTEM_KEYS:
+  some-key: "some-value"
+
+CIPHER:
+  # Must be exactly 64 characters
+  GLOBAL_SEEDING: "change-me-global-seeding-must-be-64-characters-long-xxxxxxxxxxx!"
+  AES:
+    CURRENT_VERSION: 0
+    # Each key must be at least 32 characters; index = version number
+    KEY_SET:
+      - "change-me-aes-key-version-0-xxxxx"
+  JWT:
+    CURRENT_VERSION: 0
+    # Each key must be at least 32 characters; index = version number
+    KEY_SET:
+      - "change-me-jwt-key-version-0-xxxxx"
