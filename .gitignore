@@ -1,7 +1,10 @@
 .DS_Store
 otel.txt
 .idea/
-
+.claude
+.serena
+.vscode
+.mcp.json
 
 *.old
 *.key
@@ -10,3 +13,6 @@ persistence/sgcmdqueue.db
 
 tmp
 playground
+.worktrees/
+
+.gocache

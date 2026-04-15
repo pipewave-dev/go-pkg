@@ -2,7 +2,6 @@ package activeConnRepo
 
 import (
 	"context"
-	"time"
 
 	activeConnExp "github.com/pipewave-dev/go-pkg/core/repository/impl-dynamodb/active_conn/exprbuilder"
 	"github.com/pipewave-dev/go-pkg/pkg/observer"
@@ -17,9 +16,9 @@ func (r *activeConnRepo) CountActiveConnections(ctx context.Context, userID stri
 	defer op.Finish(aErr)
 
 	querier := activeConnExp.ActiveConnectionQuerier{ConfigStore: r.c}
-	count, aErr = querier.CountActive(ctx, r.ddbC, activeConnExp.CountActiveParams{
+	count, aErr = querier.CountActive(ctx, r.ddb.Client(), activeConnExp.CountActiveParams{
 		UserID:         userID,
-		CutOffDuration: -2 * time.Minute,
+		CutOffDuration: r.c.Env().ActiveConnection.HeartbeatCutoff,
 	})
 	return count, aErr
 }

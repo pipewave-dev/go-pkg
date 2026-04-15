@@ -1,11 +1,7 @@
 package configprovider
 
 import (
-	"log"
-	"os"
-	"time"
-
-	"github.com/samber/lo"
+	gonanoid "github.com/matoous/go-nanoid/v2"
 )
 
 // configStore is the concrete implementation of ConfigStore interface
@@ -29,27 +25,24 @@ func (c *configStore) SetFns(fns *Fns) {
 	c.env.Fns = fns
 }
 
-// validate checks if the configuration is valid and panics if any violation is found
 func (e *globalEnvT) validate() {
-	// Validate Otel configuration
 	e.Otel.Validate()
 
-	// Validate RateLimiter configuration
 	e.RateLimiter.Validate()
+	e.ActiveConnection.Validate()
 }
 
-// loadDefault sets default values for configuration fields if they are not provided
 func (e *globalEnvT) loadDefault() {
-	// Set default timezone
 	{
-		if e.TimezoneStr == nil {
-			e.TimezoneStr = lo.ToPtr(os.Getenv("TZ"))
-		}
-		loc, err := time.LoadLocation(*e.TimezoneStr)
-		if err != nil {
-			log.Panicf("Parsing failed for TimezoneStr with value [%s]", *e.TimezoneStr)
-		}
-		e.TimeLocation = loc
-		time.Local = loc // Set the global time.Local to the parsed location
+		e.Version = "v0.1.1"
 	}
+
+	if e.ContainerID == "" {
+		e.ContainerID = generateUniqueID() // Auto generate an unique ID
+	}
+}
+
+func generateUniqueID() string {
+	nid := gonanoid.Must(12)
+	return nid
 }

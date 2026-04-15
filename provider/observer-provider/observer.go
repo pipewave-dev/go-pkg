@@ -2,26 +2,25 @@ package observerprovider
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 
-	voAuth "github.com/pipewave-dev/go-pkg/core/domain/value-object/auth"
 	"github.com/pipewave-dev/go-pkg/global/constants"
 	"github.com/pipewave-dev/go-pkg/pkg/observer"
 	"github.com/pipewave-dev/go-pkg/pkg/observer/obs"
 	otelprv "github.com/pipewave-dev/go-pkg/pkg/otel"
 	configprovider "github.com/pipewave-dev/go-pkg/provider/config-provider"
 	"github.com/pipewave-dev/go-pkg/shared/actx"
+	"github.com/samber/do/v2"
 )
 
-// New creates a new observability provider with injected config and dependencies.
-// This replaces the singleton pattern in singleton/observer with dependency injection.
-func New(
-	cfg configprovider.ConfigStore,
-	otelProvider otelprv.OtelProvider,
-	slogIns *slog.Logger,
-) observer.Observability {
-	env := cfg.Env()
+func NewDI(i do.Injector) (observer.Observability, error) {
+	cfg := do.MustInvoke[configprovider.ConfigStore](i)
+	otelProvider := do.MustInvoke[otelprv.OtelProvider](i)
+	slogIns := do.MustInvoke[*slog.Logger](i)
 
+	env := cfg.Env()
+	logLevel := slog.Level(env.Otel.LogLevel)
 	obsIns := obs.NewObservability(&obs.ObservabilityConfig{
 		ServiceName:    constants.AppNameShort,
 		ServiceVersion: env.Version,
@@ -31,16 +30,19 @@ func New(
 			return traceId
 		},
 		GetAuthStringFn: func(ctx context.Context) string {
-			auth := actx.From(ctx).GetAuth()
-			if auth == voAuth.NoAuth() {
-				return ""
+			auth := actx.From(ctx).GetWebsocketAuth()
+			if auth.InstanceID == "" {
+				return "" // No auth info available
 			}
-			return auth.String()
+			if auth.IsAnonymous() {
+				return fmt.Sprintf("anon[%s]", auth.InstanceID)
+			}
+			return fmt.Sprintf("%s@%s", auth.UserID, auth.InstanceID)
 		},
 		OtelTrace: otelProvider,
 		Slogger:   slogIns,
-		SlogLevel: slog.LevelInfo,
+		SlogLevel: logLevel,
 	})
 
-	return obsIns
+	return obsIns, nil
 }

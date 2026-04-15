@@ -14,21 +14,22 @@ import (
 	"time"
 
 	"github.com/gobwas/ws"
-	"github.com/gobwas/ws/wsutil"
 	"github.com/mailru/easygo/netpoll"
 	voAuth "github.com/pipewave-dev/go-pkg/core/domain/value-object/auth"
 	wsSv "github.com/pipewave-dev/go-pkg/core/service/websocket"
-	dostuffs "github.com/pipewave-dev/go-pkg/global/do-stuffs"
 	workerpool "github.com/pipewave-dev/go-pkg/pkg/worker-pool"
 	configprovider "github.com/pipewave-dev/go-pkg/provider/config-provider"
 	healthyprovider "github.com/pipewave-dev/go-pkg/provider/healthy-provider"
+	"github.com/pipewave-dev/go-pkg/shared/actx"
 	"github.com/pipewave-dev/go-pkg/shared/aerror"
+	"github.com/pipewave-dev/go-pkg/shared/utils/fn"
 )
 
 // Check types
 var (
 	_ wsSv.WebsocketServer = (*NetpollServer)(nil)
-	_ wsSv.WebsocketConn   = (*Connection)(nil)
+	_ wsSv.WebsocketConn   = (*GobwasConnection)(nil)
+	_ wsSv.DrainableConn   = (*GobwasConnection)(nil)
 )
 
 var (
@@ -70,8 +71,6 @@ func NewServer(
 			onWriteError:  onWriteError,
 			onClose:       onClose,
 		}
-
-		dostuffs.DebugFn.RegTask(server.printStats)
 	})
 	return server
 }
@@ -108,11 +107,12 @@ func (s *NetpollServer) NewConnection(
 	atomic.AddInt64(&s.stats.ConnectionsAccepted, 1)
 	atomic.AddInt64(&s.connections, 1)
 
-	client := &Connection{
-		c:      s.c,
-		server: s,
-		conn:   conn,
-		auth:   propAuth,
+	client := &GobwasConnection{
+		c:          s.c,
+		server:     s,
+		conn:       conn,
+		auth:       propAuth,
+		lastReadAt: time.Now(),
 	}
 
 	// Create netpoll descriptor with better error handling
@@ -138,7 +138,7 @@ func (s *NetpollServer) NewConnection(
 	err = s.poller.Start(desc, func(ev netpoll.Event) {
 		if ev&netpoll.EventReadHup != 0 {
 			// Connection closed
-			s.removeClient(client)
+			client.Close()
 			return
 		}
 
@@ -148,7 +148,7 @@ func (s *NetpollServer) NewConnection(
 	if err != nil {
 		slog.Error("Failed to start netpoll monitoring", slog.Any("error", err))
 
-		s.removeClient(client)
+		client.Close()
 		return nil, aerror.New(context.Background(), aerror.ErrUnexpectedSyscall, err)
 	}
 
@@ -156,42 +156,54 @@ func (s *NetpollServer) NewConnection(
 }
 
 // handleClientData processes data from a client (called by the netpoll callback).
-func (s *NetpollServer) handleClientData(client *Connection) {
+func (s *NetpollServer) handleClientData(client *GobwasConnection) {
 	s.workerPool.Submit(func() {
 		s.processClientMessage(client)
 	})
 }
 
 // send writes a binary frame to the client connection.
-func (s *NetpollServer) send(client *Connection, payload []byte) {
+func (s *NetpollServer) send(ctx context.Context, client *GobwasConnection, payload []byte) error {
 	conn := client.conn
 	if conn == nil {
-		return
+		client.Close()
+		return fmt.Errorf("connection is nil")
 	}
 	// Use a binary frame because payload may be MessagePack/binary, not UTF-8.
 	frame := ws.NewBinaryFrame(payload)
-	if err := ws.WriteFrame(conn, frame); err != nil {
-		s.onReadError(client.auth, fmt.Errorf("failed to send message: %w", err))
-		s.removeClient(client)
+	if err := s.writeFrame(client, frame); err != nil {
+		s.onWriteError(ctx, client.auth, fmt.Errorf("failed to send message: %w", err))
+		client.Close()
+		return fmt.Errorf("failed to send message: %w", err)
 	}
+	return nil
 }
 
-func (s *NetpollServer) ping(client *Connection) {
+func (s *NetpollServer) ping(client *GobwasConnection) {
 	s.workerPool.Submit(func() {
 		conn := client.conn
 		if conn == nil {
 			return
 		}
-		err := wsutil.WriteServerMessage(conn, ws.OpPing, nil)
-		if err != nil {
-			s.onWriteError(client.auth, err)
-			s.removeClient(client)
+		switch client.nextPingAction() {
+		case pingActionSkip:
+			return
+		case pingActionClose:
+			client.Close()
+			return
+		}
+		if err := s.writeFrame(client, ws.NewPingFrame(nil)); err != nil {
+			ctx := context.Background()
+			aCtx := actx.From(ctx)
+			aCtx.SetTraceID("pingfail" + fn.NewNanoID(12))
+			s.onWriteError(aCtx, client.auth, err)
+			client.Close()
 			return
 		}
 	})
 }
 
-func (s *NetpollServer) processClientMessage(client *Connection) {
+func (s *NetpollServer) processClientMessage(client *GobwasConnection) {
 	conn := client.conn
 	if conn == nil {
 		return
@@ -200,16 +212,18 @@ func (s *NetpollServer) processClientMessage(client *Connection) {
 	if err != nil {
 		if errors.Is(err, io.EOF) {
 			// Connection closed normally
-			s.removeClient(client)
+			client.Close()
 			return
 		}
 		if errors.Is(err, net.ErrClosed) {
 			// Connection closed unexpectedly
-			s.removeClient(client)
+			client.Close()
 			return
 		}
 		// Read error
-		s.onReadError(client.auth, err)
+		aCtx := actx.New()
+		aCtx.SetTraceID("readheaderfail" + fn.NewNanoID(12))
+		s.onReadError(aCtx, client.auth, err)
 		return
 	}
 
@@ -223,9 +237,11 @@ func (s *NetpollServer) processClientMessage(client *Connection) {
 
 	payload := make([]byte, header.Length)
 	if header.Length > 0 {
-		if _, err := io.ReadFull(conn, payload); err != nil {
-			s.onReadError(client.auth, fmt.Errorf("failed to read frame payload: %w", err))
-			s.removeClient(client)
+		if _, err = io.ReadFull(conn, payload); err != nil {
+			aCtx := actx.New()
+			aCtx.SetTraceID("headertoolarge" + fn.NewNanoID(12))
+			s.onReadError(aCtx, client.auth, fmt.Errorf("failed to read frame payload: %w", err))
+			client.Close()
 			return
 		}
 	}
@@ -241,17 +257,25 @@ func (s *NetpollServer) processClientMessage(client *Connection) {
 		return
 	}
 
+	client.noteRead(time.Now())
+
 	// Process frame based on OpCode
-	err = s.handleFrame(client, frame)
-	if err != nil {
-		s.onReadError(client.auth, err)
-		s.removeClient(client)
-		return
+	s.handleFrame(client, frame)
+}
+
+func (s *NetpollServer) writeFrame(client *GobwasConnection, frame ws.Frame) error {
+	client.writeMu.Lock()
+	defer client.writeMu.Unlock()
+
+	if client.conn == nil {
+		return net.ErrClosed
 	}
+
+	return ws.WriteFrame(client.conn, frame)
 }
 
 // removeClient cleans up a client on disconnect.
-func (s *NetpollServer) removeClient(client *Connection) {
+func (s *NetpollServer) removeClient(client *GobwasConnection) {
 	if !atomic.CompareAndSwapInt32(&client.closed, 0, 1) {
 		return
 	}
@@ -275,7 +299,7 @@ func (s *NetpollServer) removeClient(client *Connection) {
 	s.onClose.Do(client.auth)
 }
 
-func (s *NetpollServer) printStats() {
+func (s *NetpollServer) PrintStats() {
 	var m runtime.MemStats
 	runtime.ReadMemStats(&m)
 

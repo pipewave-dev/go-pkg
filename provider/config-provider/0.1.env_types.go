@@ -1,31 +1,24 @@
 package configprovider
 
-import (
-	"time"
-)
-
 // globalEnvT contains all application configuration loaded from YAML files and environment variables
 type globalEnvT struct {
-	Env     string `koanf:"ENV_NAME"`
-	PodName string `koanf:"POD_NAME"`
-	Version string `koanf:"VERSION"`
+	Env           string `koanf:"ENV_NAME"`
+	PodName       string `koanf:"POD_NAME"`
+	ContainerID   string `koanf:"CONTAINER_ID"`
+	Version       string `koanf:"VERSION"`
+	AutoMigration bool   `koanf:"AUTO_MIGRATION"`
 
-	WorkerPool WorkerPoolT `koanf:"WORKER_POOL"`
-
-	/*
-		See
-		https://en.wikipedia.org/wiki/List_of_tz_database_time_zones
-	*/
-	TimezoneStr  *string `koanf:"TIME_ZONE"`
-	TimeLocation *time.Location
-
-	TraceIDHeader string     `koanf:"TRACE_ID_HEADER"`
-	IpHeader      string     `koanf:"IP_HEADER"`
-	Cors          CorsConfig `koanf:"CORS"`
-
-	Otel OtelT `koanf:"OTEL"`
+	ActiveConnection ActiveConnectionT `koanf:"ACTIVE_CONNECTION"`
+	PingChecker      PingCheckerT      `koanf:"PING_CHECKER"`
 
 	RateLimiter RateLimiterT `koanf:"RATE_LIMITER"`
+	WorkerPool  WorkerPoolT  `koanf:"WORKER_POOL"`
+
+	TraceIDHeader string      `koanf:"TRACE_ID_HEADER"`
+	IpHeader      string      `koanf:"IP_HEADER"`
+	Cors          CorsConfigT `koanf:"CORS"`
+
+	Otel OtelT `koanf:"OTEL"`
 
 	Valkey ValkeyT `koanf:"VALKEY"`
 

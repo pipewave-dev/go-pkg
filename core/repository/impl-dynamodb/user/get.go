@@ -19,7 +19,7 @@ func (r *userRepo) Get(ctx context.Context, userID string) (user entities.User, 
 	querier := exprbuilder.UserQuerier{
 		ConfigStore: r.cfg,
 	}
-	result, aErr := querier.ByID(ctx, r.ddbC, exprbuilder.ByIDParams{
+	result, aErr := querier.ByID(ctx, r.ddb.Client(), exprbuilder.ByIDParams{
 		ID: userID,
 	})
 	if aErr != nil {

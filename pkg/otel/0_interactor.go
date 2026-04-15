@@ -42,7 +42,7 @@ func NewOtelProvider(
 		config: config,
 	}
 
-	shutdown, err := ins.setup(context.TODO())
+	shutdown, err := ins.setup(context.Background())
 	if err != nil {
 		panic(err)
 	}

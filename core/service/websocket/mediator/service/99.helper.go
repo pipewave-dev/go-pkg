@@ -1,0 +1,161 @@
+package mediatorsvc
+
+import (
+	"context"
+	"errors"
+
+	voAuth "github.com/pipewave-dev/go-pkg/core/domain/value-object/auth"
+	repo "github.com/pipewave-dev/go-pkg/core/repository"
+	wsSv "github.com/pipewave-dev/go-pkg/core/service/websocket"
+	configprovider "github.com/pipewave-dev/go-pkg/provider/config-provider"
+	"github.com/pipewave-dev/go-pkg/shared/aerror"
+)
+
+type findUserConn struct {
+	ctx    context.Context
+	userID string
+
+	localAction           func()
+	targetContainerAction func(containerIDs []string)
+
+	c              configprovider.ConfigStore
+	connections    wsSv.ConnectionManager
+	activeConnRepo repo.ActiveConnStore
+}
+
+func (f *findUserConn) findThenAction() aerror.AError {
+	actConns, aErr := f.activeConnRepo.GetActiveConnections(f.ctx, f.userID)
+	if aErr != nil && !errors.Is(aErr, aerror.RecordNotFound) {
+		return aErr
+	}
+
+	userConns := f.connections.GetAllUserConn(f.userID)
+	shouldHandleLocally := len(userConns) > 0
+	localContainerID := f.c.Env().ContainerID
+
+	containerIDs := make([]string, 0, len(actConns))
+	seen := make(map[string]struct{}, len(actConns))
+	for _, conn := range actConns {
+		// Temp-disconnected sessions keep the current HolderID in the active
+		// connection store, but they no longer exist in ConnectionManager.
+		// We still need to run the local broadcast path so SendToUser can buffer
+		// into MessageHub for this container.
+		if conn.HolderID == localContainerID {
+			shouldHandleLocally = true
+			continue
+		}
+		if conn.HolderID == "" {
+			continue
+		}
+		if _, ok := seen[conn.HolderID]; ok {
+			continue
+		}
+		seen[conn.HolderID] = struct{}{}
+		containerIDs = append(containerIDs, conn.HolderID)
+	}
+
+	if shouldHandleLocally {
+		f.localAction()
+	}
+
+	if len(containerIDs) > 0 {
+		f.targetContainerAction(containerIDs)
+	}
+	return nil
+}
+
+type findSessionConn struct {
+	ctx              context.Context
+	userID           string
+	instanceID       string
+	callbackNotfound func() // Only need when find by instanceID
+	// transferringAction is called when the session is found in DB but HolderID is empty
+	// (WsStatusTransferring). Callers should save the message to MessageHub.
+	// If nil, callbackNotfound is called instead.
+	transferringAction func() aerror.AError
+
+	localAction           func()
+	targetContainerAction func(containerIDs []string)
+
+	c              configprovider.ConfigStore
+	connections    wsSv.ConnectionManager
+	activeConnRepo repo.ActiveConnStore
+}
+
+func (f *findSessionConn) findThenAction() aerror.AError {
+	tmpAuth := voAuth.UserWebsocketAuth(f.userID, f.instanceID)
+	// Check connection in memory first
+	_, ok := f.connections.GetConnection(tmpAuth)
+	if ok {
+		f.localAction()
+		return nil
+	}
+
+	// If not found, check in active connection repo
+	actConn, aErr := f.activeConnRepo.GetInstanceConnection(f.ctx, f.userID, f.instanceID)
+	if aErr != nil {
+		if errors.Is(aErr, aerror.RecordNotFound) {
+			f.callbackNotfound()
+			return nil
+		}
+		return aErr
+	}
+
+	// Session is in WsStatusTransferring: HolderID is cleared, container is shutting down.
+	// Route message to MessageHub so client receives it on reconnect.
+	if actConn.HolderID == "" {
+		if f.transferringAction != nil {
+			return f.transferringAction()
+		}
+		f.callbackNotfound()
+		return nil
+	}
+
+	f.targetContainerAction([]string{actConn.HolderID})
+	return nil
+}
+
+type findMultiUserConn struct {
+	ctx     context.Context
+	userIDs []string
+
+	localAction           func()
+	targetContainerAction func(containerIDs []string)
+
+	c              configprovider.ConfigStore
+	connections    wsSv.ConnectionManager
+	activeConnRepo repo.ActiveConnStore
+}
+
+func (f *findMultiUserConn) findThenAction() aerror.AError {
+	actConns, aErr := f.activeConnRepo.GetActiveConnectionsByUserIDs(f.ctx, f.userIDs)
+	if aErr != nil && !errors.Is(aErr, aerror.RecordNotFound) {
+		return aErr
+	}
+
+	// Check connection in memory first
+	for _, userID := range f.userIDs {
+		userConns := f.connections.GetAllUserConn(userID)
+		if len(userConns) > 0 {
+			f.localAction()
+			break
+		}
+	}
+
+	containerIDs := make([]string, 0, len(actConns))
+	seen := make(map[string]struct{}, len(actConns))
+	for _, conn := range actConns {
+		if _, ok := seen[conn.HolderID]; ok {
+			continue
+		}
+		seen[conn.HolderID] = struct{}{}
+		if conn.HolderID != "" && conn.HolderID != f.c.Env().ContainerID {
+			containerIDs = append(containerIDs, conn.HolderID)
+		}
+	}
+
+	if len(containerIDs) > 0 {
+		f.targetContainerAction(containerIDs)
+	}
+	return nil
+}

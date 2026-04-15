@@ -10,15 +10,14 @@ import (
 	configprovider "github.com/pipewave-dev/go-pkg/provider/config-provider"
 	fncollector "github.com/pipewave-dev/go-pkg/provider/fn-collector"
 	healthyprovider "github.com/pipewave-dev/go-pkg/provider/healthy-provider"
+	"github.com/samber/do/v2"
 )
 
-// New creates a new worker pool provider with injected config and dependencies.
-// This replaces the singleton pattern in singleton/worker-pool with dependency injection.
-func New(
-	cfg configprovider.ConfigStore,
-	healthy healthyprovider.Healthy,
-	cleanupTask fncollector.CleanupTask,
-) *workerpool.WorkerPool {
+func NewDI(i do.Injector) (*workerpool.WorkerPool, error) {
+	cfg := do.MustInvoke[configprovider.ConfigStore](i)
+	healthy := do.MustInvoke[healthyprovider.Healthy](i)
+	cleanupTask := do.MustInvoke[fncollector.CleanupTask](i)
+
 	env := cfg.Env()
 
 	poolCfg := &workerpool.WorkerPoolCfn{
@@ -57,5 +56,5 @@ func New(
 	// Shutdown worker pool before other dependencies
 	cleanupTask.RegTask(ins.Close, fncollector.FnPriorityEarly)
 
-	return ins
+	return ins, nil
 }

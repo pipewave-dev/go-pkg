@@ -18,8 +18,8 @@ type ActiveConnectionDeleter struct {
 
 // DeleteParams contains the parameters needed to delete an active connection
 type DeleteParams struct {
-	UserID    string
-	SessionID string
+	UserID     string
+	InstanceID string
 }
 
 func (deleter *ActiveConnectionDeleter) buildDeleteQuery(params *DeleteParams) *dynamodb.DeleteItemInput {

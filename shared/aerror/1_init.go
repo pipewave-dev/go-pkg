@@ -34,7 +34,7 @@ func init() {
 			if aer.Origin() != nil {
 				fields = append(fields, slog.Any("origin", aer.Origin().Error()))
 			}
-			if aer.Stacktrace() != nil {
+			if aer.Stacktrace() != nil && aer.Stacktrace().String() != "" {
 				fields = append(fields, slog.Any("stacktrace", aer.Stacktrace()))
 			}
 

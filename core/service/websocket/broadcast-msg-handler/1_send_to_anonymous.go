@@ -18,7 +18,7 @@ func (h *broadcastMsgHandler) SendToAnonymous(ctx context.Context, payload broad
 	if payload.IsSendAll {
 		connections := h.connections.GetAllAnonymousConn()
 		for _, conn := range connections {
-			conn.Send(wsRes)
+			conn.Send(ctx, wsRes)
 		}
 		return
 	} else {
@@ -32,7 +32,7 @@ func (h *broadcastMsgHandler) SendToAnonymous(ctx context.Context, payload broad
 
 			conn, ok := h.connections.GetConnection(auth)
 			if ok {
-				conn.Send(wsRes)
+				conn.Send(ctx, wsRes)
 			}
 		}
 	}

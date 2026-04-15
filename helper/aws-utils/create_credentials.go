@@ -27,7 +27,6 @@ https://aws.github.io/aws-sdk-go-v2/docs/configuring-sdk/endpoints/
 		s3Client := s3.NewFromConfig(cfg)
 */
 func CreateCredentials(region, profile, staticAccessKey, staticSecretKey, assumeRole string) aws.Config {
-
 	awsCfnOptFns := []func(*config.LoadOptions) error{
 		config.WithRegion(region),
 	}
@@ -66,7 +65,7 @@ func CreateCredentials(region, profile, staticAccessKey, staticSecretKey, assume
 	}
 
 	cfg, err := config.LoadDefaultConfig(
-		context.TODO(),
+		context.Background(),
 		awsCfnOptFns...,
 	)
 	if err != nil {

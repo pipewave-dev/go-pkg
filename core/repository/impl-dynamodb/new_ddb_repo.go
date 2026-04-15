@@ -1,33 +1,42 @@
 package impldynamodb
 
 import (
+	"context"
+
 	"github.com/pipewave-dev/go-pkg/core/repository"
 	activeConnRepo "github.com/pipewave-dev/go-pkg/core/repository/impl-dynamodb/active_conn"
+	pendingMessageRepo "github.com/pipewave-dev/go-pkg/core/repository/impl-dynamodb/pending_message"
 	userRepo "github.com/pipewave-dev/go-pkg/core/repository/impl-dynamodb/user"
+	pkgdynamodb "github.com/pipewave-dev/go-pkg/pkg/dynamodb"
 	"github.com/pipewave-dev/go-pkg/pkg/observer"
-	_ "github.com/pipewave-dev/go-pkg/shared/aerror"
+	"github.com/samber/do/v2"
 
 	configprovider "github.com/pipewave-dev/go-pkg/provider/config-provider"
-	"github.com/pipewave-dev/go-pkg/provider/dynamodb"
+	dynamodbprovider "github.com/pipewave-dev/go-pkg/provider/dynamodb"
 )
 
-func NewDynamoRepo(
-	c configprovider.ConfigStore,
-	obs observer.Observability,
-) repository.AllRepository {
-	ddbP := dynamodb.New(c)
-	ddbC := ddbP.Client()
-	acs := activeConnRepo.New(c, ddbC, obs)
-	u := userRepo.New(c, ddbC, obs)
+func NewDIDynamoDBRepo(i do.Injector) (repository.AllRepository, error) {
+	c := do.MustInvoke[configprovider.ConfigStore](i)
+	obs := do.MustInvoke[observer.Observability](i)
+	ddbP := dynamodbprovider.New(c)
+	acs := activeConnRepo.New(c, ddbP, obs)
+	u := userRepo.New(c, ddbP, obs)
+	pm := pendingMessageRepo.New(c, ddbP, obs)
 	return &ddbRepo{
-		acs: acs,
-		u:   u,
-	}
+		cfg:  c,
+		ddbP: ddbP,
+		acs:  acs,
+		u:    u,
+		pm:   pm,
+	}, nil
 }
 
 type ddbRepo struct {
-	acs repository.ActiveConnStore
-	u   repository.User
+	cfg  configprovider.ConfigStore
+	ddbP pkgdynamodb.DynamodbProvider
+	acs  repository.ActiveConnStore
+	u    repository.User
+	pm   repository.PendingMessageRepo
 }
 
 func (r *ddbRepo) ActiveConnStore() repository.ActiveConnStore {
@@ -36,4 +45,12 @@ func (r *ddbRepo) ActiveConnStore() repository.ActiveConnStore {
 
 func (r *ddbRepo) User() repository.User {
 	return r.u
+}
+
+func (r *ddbRepo) PendingMessage() repository.PendingMessageRepo {
+	return r.pm
+}
+
+func (r *ddbRepo) RunMigration() error {
+	return dynamodbprovider.RunMigration(context.Background(), r.cfg, r.ddbP)
 }

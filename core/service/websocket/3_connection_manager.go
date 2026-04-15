@@ -11,5 +11,6 @@ type ConnectionManager interface {
 	GetConnection(auth voAuth.WebsocketAuth) (conn WebsocketConn, ok bool)
 	GetAllUserConn(userID string) []WebsocketConn
 	GetAllAnonymousConn() []WebsocketConn
+	GetAllAuthenticatedConn() []WebsocketConn
 	GetAllConnections() []WebsocketConn
 }

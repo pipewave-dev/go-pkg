@@ -21,8 +21,6 @@ type CacheProvider interface {
 	Set(ctx context.Context, key string, value any, ttl time.Duration) (setable bool)
 	Get(ctx context.Context, key string, unmarshalTo any) (found bool)
 	Del(ctx context.Context, key string) (deleted bool)
-	Keys(ctx context.Context, pattern string) []string
-	Unlink(ctx context.Context, keys ...string) bool
 	Incr(ctx context.Context, key string) bool
 	Decr(ctx context.Context, key string) bool
 
@@ -334,14 +332,6 @@ func (r *cacheProvider) Del(ctx context.Context, key string) (cleared bool) {
 	return r.store.Del(ctx, key)
 }
 
-func (r *cacheProvider) Unlink(ctx context.Context, keys ...string) bool {
-	return r.store.Unlink(ctx, keys...)
-}
-
 func (r *cacheProvider) Flush() error {
 	return r.store.Flush()
-}
-
-func (r *cacheProvider) Keys(ctx context.Context, pattern string) []string {
-	return r.store.Keys(ctx, pattern)
 }

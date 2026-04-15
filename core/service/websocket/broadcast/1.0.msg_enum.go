@@ -1,11 +1,38 @@
 package broadcast
 
-// Channel list with payload type (in comment)
+// Targeted
 const (
 	// SendToUserParams
-	channelSendToUser pubsubChannel = "SendToUser"
+	msgTSendToUser msgType = "SendToUser"
 	// SendToSessionParams
-	channelSendToSession pubsubChannel = "SendToSession"
+	msgTSendToSession msgType = "SendToSession"
+	// DisconnectSessionParams
+	msgTDisconnectSession msgType = "DisconnectSession"
+	// DisconnectUserParams
+	msgTDisconnectUser msgType = "DisconnectUser"
+	// SendToUsersParams
+	msgTSendToUsers msgType = "SendToUsers"
+	// SendToSessionWithAckParams
+	msgTSendToSessionWithAck msgType = "SendToSessionWithAck"
+	// SendToUserWithAckParams
+	msgTSendToUserWithAck msgType = "SendToUserWithAck"
+	// AckResolvedParams
+	msgTAckResolved msgType = "AckResolved"
+	// ResumeSessionParams
+	msgTResumeSession msgType = "ResumeSession"
+)
+
+// All
+const (
 	// SendToAnonymousParams
-	channelSendToAnonymous pubsubChannel = "SendToAnonymous"
+	msgTSendToAnonymous msgType = "SendToAnonymous"
+	// SendToAuthenticatedParams
+	msgTSendToAuthenticated msgType = "SendToAuthenticated"
+	// SendToAllParams
+	msgTSendToAll msgType = "SendToAll"
+)
+
+const (
+	channelPrefix    = "wb"
+	broadcastChannel = "wbbc"
 )

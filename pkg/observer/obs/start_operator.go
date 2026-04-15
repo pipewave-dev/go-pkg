@@ -42,7 +42,7 @@ func (o *observability) StartOperation(
 	// Start span if tracing enabled
 	var span trace.Span
 	if o.cf.OtelTrace != nil {
-		var attrs = []attribute.KeyValue{
+		attrs := []attribute.KeyValue{
 			// attribute.String("operation.name", name),
 			// attribute.String("service.name", o.cf.ServiceName),
 			attribute.String("service.version", o.cf.ServiceVersion),
@@ -79,7 +79,8 @@ func (o *observability) StartOperation(
 		operationLogger = operationLogger.With(fieldsToSlogAttrs(cf.Fields())...)
 	}
 
-	operationLogger.InfoContext(ctx, fmt.Sprintf("%s: Started", name))
+	operationLogger.Log(ctx, o.cf.SlogLevel, fmt.Sprintf("%s: Started", name))
+
 	return ctx, &operation{
 		ctx:       &ctx,
 		span:      span,

@@ -1,7 +1,6 @@
 package delivery
 
 import (
-	"fmt"
 	"log/slog"
 	"net/http"
 
@@ -20,7 +19,6 @@ func (d *serverDelivery) GobwasEndpoint() http.HandlerFunc {
 
 		// 1. Get connection token from query parameter
 		connToken := r.URL.Query().Get("tk")
-		fmt.Println("ConnToken: ", connToken)
 		switch connToken {
 		case "":
 			http.Error(w, "Missing connection token", http.StatusUnauthorized)
@@ -58,7 +56,7 @@ func (d *serverDelivery) GobwasEndpoint() http.HandlerFunc {
 		}
 
 		// Connection is now active and will be handled by gobwas server
-		slog.Info("New WebSocket connection established",
+		slog.Debug("New WebSocket connection established",
 			slog.Any("auth", auth),
 			slog.String("remote_addr", r.RemoteAddr))
 	})

@@ -6,29 +6,20 @@ import (
 
 	voAuth "github.com/pipewave-dev/go-pkg/core/domain/value-object/auth"
 	wsSv "github.com/pipewave-dev/go-pkg/core/service/websocket"
-	dostuffs "github.com/pipewave-dev/go-pkg/global/do-stuffs"
+	"github.com/samber/do/v2"
 )
 
-var (
-	once     sync.Once
-	instance *connectionMap
-)
-
-func Singleton() wsSv.ConnectionManager {
-	once.Do(func() {
-		instance = &connectionMap{
-			userConn:      make(map[string]map[string]wsSv.WebsocketConn),
-			anonymousConn: make(map[string]wsSv.WebsocketConn),
-		}
-
-		dostuffs.DebugFn.RegTask(instance.printStats)
-	})
-	return instance
+func NewDI(i do.Injector) (wsSv.ConnectionManager, error) {
+	ins := &connectionMap{
+		userConn:      make(map[string]map[string]wsSv.WebsocketConn),
+		anonymousConn: make(map[string]wsSv.WebsocketConn),
+	}
+	return ins, nil
 }
 
 type connectionMap struct {
 	userConn      map[string]map[string]wsSv.WebsocketConn // userID -> sessionID -> conn
-	anonymousConn map[string]wsSv.WebsocketConn            // sessionID -> conn
+	anonymousConn map[string]wsSv.WebsocketConn            // instanceID -> conn
 	mu            sync.RWMutex
 }
 
@@ -106,6 +97,19 @@ func (m *connectionMap) GetAllAnonymousConn() []wsSv.WebsocketConn {
 	return connections
 }
 
+func (m *connectionMap) GetAllAuthenticatedConn() []wsSv.WebsocketConn {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	var connections []wsSv.WebsocketConn
+	for _, userClients := range m.userConn {
+		for _, conn := range userClients {
+			connections = append(connections, conn)
+		}
+	}
+	return connections
+}
+
 func (m *connectionMap) GetAllConnections() []wsSv.WebsocketConn {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
@@ -127,7 +131,7 @@ func (m *connectionMap) GetAllConnections() []wsSv.WebsocketConn {
 	return allConnections
 }
 
-func (m *connectionMap) printStats() {
+func (m *connectionMap) PrintStats() {
 	fmt.Println("=== ConnectionManager Stats ===")
 	fmt.Printf("\tUser: %d\n", len(m.userConn))
 	for userID, conns := range m.userConn {

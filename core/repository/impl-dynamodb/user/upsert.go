@@ -18,7 +18,7 @@ func (r *userRepo) Upsert(ctx context.Context, userID string) (aErr aerror.AErro
 	creator := exprbuilder.UserCreator{
 		ConfigStore: r.cfg,
 	}
-	_, aErr = creator.Upsert(ctx, r.ddbC, exprbuilder.UpsertParams{
+	_, aErr = creator.Upsert(ctx, r.ddb.Client(), exprbuilder.UpsertParams{
 		ID: userID,
 	})
 	return aErr

@@ -8,12 +8,13 @@ import (
 	configprovider "github.com/pipewave-dev/go-pkg/provider/config-provider"
 	fncollector "github.com/pipewave-dev/go-pkg/provider/fn-collector"
 	"github.com/pipewave-dev/go-pkg/shared/actx"
+	"github.com/samber/do/v2"
 	"github.com/samber/lo"
 )
 
-// New creates a new OpenTelemetry provider with injected config.
-// This replaces the singleton pattern in singleton/otel with dependency injection.
-func New(cfg configprovider.ConfigStore, cleanupTask fncollector.CleanupTask) otelprv.OtelProvider {
+func NewDI(i do.Injector) (otelprv.OtelProvider, error) {
+	cfg := do.MustInvoke[configprovider.ConfigStore](i)
+	cleanupTask := do.MustInvoke[fncollector.CleanupTask](i)
 	env := cfg.Env()
 
 	otelIns := otelprv.NewOtelProvider(&otelprv.OtelConfig{
@@ -35,5 +36,5 @@ func New(cfg configprovider.ConfigStore, cleanupTask fncollector.CleanupTask) ot
 		_ = otelIns.Shutdown(context.Background())
 	}, fncollector.FnPriorityNormal)
 
-	return otelIns
+	return otelIns, nil
 }

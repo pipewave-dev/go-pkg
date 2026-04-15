@@ -5,15 +5,17 @@ import (
 
 	wsSv "github.com/pipewave-dev/go-pkg/core/service/websocket"
 	configprovider "github.com/pipewave-dev/go-pkg/provider/config-provider"
+	"github.com/samber/do/v2"
 )
 
-func NewOnNewStuff(c configprovider.ConfigStore) wsSv.OnNewStuffFn {
+func NewDIOnNewStuff(i do.Injector) (wsSv.OnNewStuffFn, error) {
+	c := do.MustInvoke[configprovider.ConfigStore](i)
 	instance := &onNewStuffFn{
 		c:      c,
 		fnsMap: make(map[wsSv.OnNewWsKeyName]func(conn wsSv.WebsocketConn) error),
 	}
 
-	return instance
+	return instance, nil
 }
 
 type onNewStuffFn struct {

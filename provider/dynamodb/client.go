@@ -2,7 +2,6 @@ package dynamodb
 
 import (
 	"context"
-	"fmt"
 
 	ddb "github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
@@ -12,10 +11,8 @@ import (
 
 func New(cfg configprovider.ConfigStore) dynamodb.DynamodbProvider {
 	dynamodbPrv := dynamodb.NewDynamoDBProvider(dynamoDBConfig(cfg))
-	if cfg.Env().DynamoDB.CreateTables {
-		createOrVerifyTables(dynamodbPrv, cfg)
-	} else {
-		verifyTables(dynamodbPrv, cfg)
+	if err := HandleStartupMigration(context.Background(), cfg, dynamodbPrv, cfg.Env().AutoMigration); err != nil {
+		panic(err.Error())
 	}
 	return dynamodbPrv
 }
@@ -36,33 +33,11 @@ func dynamoDBConfig(cfg configprovider.ConfigStore) *dynamodb.DynamodbConfig {
 	return &ddbCfn
 }
 
-func createOrVerifyTables(dnm dynamodb.DynamodbProvider, cfg configprovider.ConfigStore) {
-	ctx := context.Background()
-	for _, table := range tablesSchema(cfg) {
-		err := dnm.CreateOrVerifyTable(ctx, table)
-		if err != nil {
-			msg := fmt.Sprintf("DynamoDB create or verify tables failed: %s", err.Error())
-			panic(msg)
-		}
-	}
-}
-
-func verifyTables(dnm dynamodb.DynamodbProvider, cfg configprovider.ConfigStore) {
-	ctx := context.Background()
-	for _, table := range tablesSchema(cfg) {
-		err := dnm.VerifyTable(ctx, table)
-		if err != nil {
-			msg := fmt.Sprintf("DynamoDB create or verify tables failed: %s", err.Error())
-			panic(msg)
-		}
-	}
-}
-
 func tablesSchema(cfg configprovider.ConfigStore) []dynamodb.CreateTableParams {
 	tables := cfg.Env().DynamoDB.Tables
 	return []dynamodb.CreateTableParams{
 		// active_connection
-		// PK: UserID (S), SK: SessionID (S)
+		// PK: UserID (S), SK: InstanceID (S)
 		// Queries: CountActive by UserID + filter on LastHeartbeat (no GSI needed)
 		{
 			TableName: tables.ActiveConnection,
@@ -71,16 +46,16 @@ func tablesSchema(cfg configprovider.ConfigStore) []dynamodb.CreateTableParams {
 				AttributeType: types.ScalarAttributeTypeS,
 			},
 			SortKey: &dynamodb.KeySchema{
-				AttributeName: "SessionID",
+				AttributeName: "InstanceID",
 				AttributeType: types.ScalarAttributeTypeS,
 			},
 		},
 		// fcm_device
-		// PK: UserID (S), SK: SessionID (S)
+		// PK: UserID (S), SK: InstanceID (S)
 		// Queries:
 		//   - ByUser: query main table by UserID (PK)
 		//   - ByToken: query GSI FcmDeviceTokenIndex by FcmDeviceToken
-		//   - ByUserSession: query main table by UserID + SessionID (PK+SK)
+		//   - ByUserSession: query main table by UserID + InstanceID (PK+SK)
 		{
 			TableName: tables.FcmDevice,
 			PartitionKey: dynamodb.KeySchema{
@@ -88,7 +63,7 @@ func tablesSchema(cfg configprovider.ConfigStore) []dynamodb.CreateTableParams {
 				AttributeType: types.ScalarAttributeTypeS,
 			},
 			SortKey: &dynamodb.KeySchema{
-				AttributeName: "SessionID",
+				AttributeName: "InstanceID",
 				AttributeType: types.ScalarAttributeTypeS,
 			},
 			GSIs: []dynamodb.IndexSchema{
@@ -212,6 +187,21 @@ func tablesSchema(cfg configprovider.ConfigStore) []dynamodb.CreateTableParams {
 			SortKey: &dynamodb.KeySchema{
 				AttributeName: "SortKey",
 				AttributeType: types.ScalarAttributeTypeS,
+			},
+		},
+		// pending_message
+		// PK: SessionKey (S) — composite: "{userID}:{instanceID}"
+		// SK: SendAt (N)     — Unix nano int64, ascending order for GetAll
+		// TTL: TTL           — same duration as MessageHub.TTL (temp-disconnect window)
+		{
+			TableName: tables.PendingMessage,
+			PartitionKey: dynamodb.KeySchema{
+				AttributeName: "SessionKey",
+				AttributeType: types.ScalarAttributeTypeS,
+			},
+			SortKey: &dynamodb.KeySchema{
+				AttributeName: "SendAt",
+				AttributeType: types.ScalarAttributeTypeN,
 			},
 		},
 	}

@@ -7,6 +7,7 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/pipewave-dev/go-pkg/core/domain/entities"
+	voWs "github.com/pipewave-dev/go-pkg/core/domain/value-object/ws"
 	"github.com/pipewave-dev/go-pkg/global/constants"
 	configprovider "github.com/pipewave-dev/go-pkg/provider/config-provider"
 	"github.com/pipewave-dev/go-pkg/shared/aerror"
@@ -18,21 +19,25 @@ type ActiveConnectionCreator struct {
 }
 
 type CreateParams struct {
-	UserID    string
-	SessionID string
+	UserID     string
+	InstanceID string
 
-	HolderID string
+	HolderID       string
+	ConnectionType voWs.WsCoreType
 }
 
 func (creator *ActiveConnectionCreator) Create(ctx context.Context, ddbClient *dynamodb.Client, params CreateParams) (*entities.ActiveConnection, aerror.AError) {
 	now := time.Now()
 	result := &entities.ActiveConnection{
-		UserID:    params.UserID,
-		SessionID: params.SessionID,
-		HolderID:  params.HolderID,
+		UserID:     params.UserID,
+		InstanceID: params.InstanceID,
+		HolderID:   params.HolderID,
 
-		LastHeartbeat: now,
-		TTL:           now.Add(2*constants.GlobalHeartbeatRateDuration + time.Second),
+		ConnectionType: params.ConnectionType,
+		Status:         voWs.WsStatusConnected,
+		ConnectedAt:    now,
+		LastHeartbeat:  now,
+		TTL:            now.Add(2*constants.GlobalHeartbeatRateDuration + time.Second),
 	}
 
 	activeConnectionDataAV, err := toDynamoMap(result)

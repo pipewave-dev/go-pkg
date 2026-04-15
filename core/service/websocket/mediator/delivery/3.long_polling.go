@@ -12,6 +12,7 @@ import (
 	msgpack "github.com/vmihailenco/msgpack/v5"
 
 	voAuth "github.com/pipewave-dev/go-pkg/core/domain/value-object/auth"
+	voWs "github.com/pipewave-dev/go-pkg/core/domain/value-object/ws"
 	wsSv "github.com/pipewave-dev/go-pkg/core/service/websocket"
 	"github.com/pipewave-dev/go-pkg/pkg/queue"
 )
@@ -39,12 +40,16 @@ type LongPollingConn struct {
 	done      chan struct{}
 	closed    int32 // atomic: 0=open, 1=closed
 	mu        sync.Mutex
+	drainMu   sync.RWMutex
 	idleTimer *time.Timer
 	onCloseFn wsSv.OnCloseStuffFn
 }
 
 // Compile-time check: LongPollingConn must implement WebsocketConn.
-var _ wsSv.WebsocketConn = (*LongPollingConn)(nil)
+var (
+	_ wsSv.WebsocketConn = (*LongPollingConn)(nil)
+	_ wsSv.DrainableConn = (*LongPollingConn)(nil)
+)
 
 func lpChannelName(auth voAuth.WebsocketAuth) string {
 	if auth.IsAnonymous() {
@@ -63,13 +68,37 @@ func newLongPollingConn(auth voAuth.WebsocketAuth, qa queue.Adapter, onCloseFn w
 	}
 }
 
+func (c *LongPollingConn) CoreType() voWs.WsCoreType {
+	return voWs.WsCoreLongPolling
+}
+
 func (c *LongPollingConn) Auth() voAuth.WebsocketAuth { return c.auth }
 
 // Send publishes payload to the Valkey-backed queue.
-func (c *LongPollingConn) Send(payload []byte) {
-	if err := c.queue.Publish(context.Background(), c.channel, payload); err != nil {
+func (c *LongPollingConn) Send(ctx context.Context, payload []byte) error {
+	c.drainMu.RLock()
+	defer c.drainMu.RUnlock()
+	if err := c.queue.Publish(ctx, c.channel, payload); err != nil {
 		slog.Error("LP conn: failed to publish message", slog.Any("error", err), slog.Any("auth", c.auth))
+		return err
 	}
+	return nil
+}
+
+// BeginDrain acquires an exclusive lock, blocking all concurrent Send() calls.
+func (c *LongPollingConn) BeginDrain() { c.drainMu.Lock() }
+
+// EndDrain releases the exclusive lock, allowing blocked Send() calls to proceed.
+func (c *LongPollingConn) EndDrain() { c.drainMu.Unlock() }
+
+// SendDirect publishes directly to the Valkey queue without acquiring drainMu.
+// Must only be called between BeginDrain/EndDrain.
+func (c *LongPollingConn) SendDirect(ctx context.Context, payload []byte) error {
+	if err := c.queue.Publish(ctx, c.channel, payload); err != nil {
+		slog.Error("LP conn: SendDirect failed", slog.Any("error", err), slog.Any("auth", c.auth))
+		return err
+	}
+	return nil
 }
 
 // Close terminates the connection and triggers the onClose callback exactly once.
@@ -159,7 +188,7 @@ func (d *serverDelivery) LongPollingEndpoint() http.HandlerFunc {
 		if fns == nil || fns.InspectToken == nil {
 			panic("InspectToken function is not implemented")
 		}
-		username, isAnonymous, err := fns.InspectToken(r.Context(), authHeader)
+		username, isAnonymous, metadata, err := fns.InspectToken(r.Context(), authHeader, r.Header)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusUnauthorized)
 			return
@@ -167,9 +196,9 @@ func (d *serverDelivery) LongPollingEndpoint() http.HandlerFunc {
 
 		var wsAuth voAuth.WebsocketAuth
 		if isAnonymous {
-			wsAuth = voAuth.AnonymousUserWebsocketAuth(instanceHeader)
+			wsAuth = voAuth.AnonymousUserWebsocketAuthWithMetadata(instanceHeader, metadata)
 		} else {
-			wsAuth = voAuth.UserWebsocketAuth(username, instanceHeader)
+			wsAuth = voAuth.UserWebsocketAuthWithMetadata(username, instanceHeader, metadata)
 		}
 
 		// 2. Detect first poll vs. reconnect using ConnectionManager.
@@ -183,7 +212,7 @@ func (d *serverDelivery) LongPollingEndpoint() http.HandlerFunc {
 				http.Error(w, err.Error(), http.StatusInternalServerError)
 				return
 			}
-			slog.Info("New long polling connection established",
+			slog.Debug("New long polling connection established",
 				slog.Any("auth", wsAuth),
 				slog.String("remote_addr", r.RemoteAddr))
 

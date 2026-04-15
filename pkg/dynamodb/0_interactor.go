@@ -69,7 +69,7 @@ func NewDynamoDBProvider(
 		config: config,
 	}
 
-	err := dynamodbIns.connect(context.TODO())
+	err := dynamodbIns.connect(context.Background())
 	if err != nil {
 		panic(err)
 	}

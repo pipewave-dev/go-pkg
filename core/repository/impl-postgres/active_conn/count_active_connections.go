@@ -15,7 +15,7 @@ func (r *activeConnRepo) CountActiveConnections(ctx context.Context, userID stri
 	ctx, op = r.obs.StartOperation(ctx, fnCountActiveConnections)
 	defer op.Finish(aErr)
 
-	cutoff := time.Now().Add(-2 * time.Minute)
+	cutoff := time.Now().Add(-r.c.Env().ActiveConnection.HeartbeatCutoff)
 
 	query := `
 		SELECT COUNT(*) FROM active_connections

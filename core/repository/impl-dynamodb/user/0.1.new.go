@@ -2,26 +2,26 @@ package userRepo
 
 import (
 	"github.com/pipewave-dev/go-pkg/core/repository"
+	"github.com/pipewave-dev/go-pkg/pkg/dynamodb"
 	"github.com/pipewave-dev/go-pkg/pkg/observer"
 	configprovider "github.com/pipewave-dev/go-pkg/provider/config-provider"
-	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 )
 
 type userRepo struct {
-	cfg  configprovider.ConfigStore
-	ddbC *dynamodb.Client
-	obs  observer.Observability
+	cfg configprovider.ConfigStore
+	ddb dynamodb.DynamodbProvider
+	obs observer.Observability
 }
 
 func New(
 	cfg configprovider.ConfigStore,
-	ddbC *dynamodb.Client,
+	ddb dynamodb.DynamodbProvider,
 	obs observer.Observability,
 ) repository.User {
 	ins := &userRepo{
-		cfg:  cfg,
-		ddbC: ddbC,
-		obs:  obs,
+		cfg: cfg,
+		ddb: ddb,
+		obs: obs,
 	}
 	return ins
 }

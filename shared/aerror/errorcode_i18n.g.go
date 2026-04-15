@@ -52,44 +52,6 @@ var (
 
 		ErrValidateUUID: "Invalid UUID format",
 
-		ErrInvalidVerifyCode: "Invalid verify code.",
-
-		ErrProvideInvalidIdentityType: "Invalid identity type. Must be email or phone number.",
-
-		ErrProvideNotExistedIdentity: "Email or phone number does not exist.",
-
-		ErrProvideNotYetConfirmedIdentity: "Email or phone number has not been confirmed.",
-
-		ErrProvideExistedEmail: "Email has already been registered.",
-
-		ErrProvideConfirmedEmail: "Email has been confirmed.",
-
-		ErrProvideExpiredConfirmCode: "Confirm code has been expired.",
-
-		LogicErrOauth2ClientIDNotMatch: "Oauth2 authorization code is not found.",
-
-		LogicErrOauth2RedirectHostNotAllow: "Oauth2 redirect uri is not allowed.",
-
-		LogicErrOauth2AuthorizationCodeNotFound: "Oauth2 authorization code is not found.",
-
-		LogicErrOauth2AuthorizationCodeExpired: "Oauth2 authorization code is expired.",
-
-		LogicErrVerifyConfirmCodFail: "Verify confirm code fail",
-
-		NewPasswordSameWithOldPassword: "New password cannot be the same as the old password",
-
-		ExceedUserInvitationLimit: "Exceed user invitation limit for this user, must waiting before resend invitation.",
-
-		SessionHasBeenRevokedBefore: "Session has been revoked before.",
-
-		ErrEmailAlreadyConfirmed: "Email has been confirmed.",
-
-		ErrPhoneAlreadyConfirmed: "Phone has been confirmed.",
-
-		ErrEmailAlreadyExisted: "Email has already been registered.",
-
-		ErrPhoneAlreadyExisted: "Phone has already been registered.",
-
 		end400: "end400",
 
 		start401: "start400",
@@ -154,15 +116,9 @@ var (
 
 		start404: "start400",
 
-		UserNotFound: "User not found.",
-
-		YourAccountNotFound: "Your account not found.",
-
-		RecordNotFound: "Resource not found.",
+		RecordNotFound: "Record not found.",
 
 		ErrDdbDuplicatedItem: "Duplicated id.",
-
-		ErrRecordNotFound: "Record not found",
 
 		end404: "end404",
 
@@ -205,8 +161,6 @@ var (
 		LogicErrOauth2PkceCodeVerifierNotMatch: "Oauth2 PKCE code verifier is not match.",
 
 		ErrUnexpectedPubsub: "Can not send request to pubsub",
-
-		ErrHandlerNotFoundForCommandName: "Can not found handler for command name {{.Name}}",
 
 		ErrServerIsShuttingDown: "Server is shutting down.",
 

@@ -8,7 +8,20 @@ import (
 	"time"
 
 	configprovider "github.com/pipewave-dev/go-pkg/provider/config-provider"
+	"github.com/samber/do/v2"
 )
+
+func NewDI(i do.Injector) (Healthy, error) {
+	cfg := do.MustInvoke[configprovider.ConfigStore](i)
+	// Default is unhealthy
+	initHealthy := &atomic.Bool{} // Default is false
+
+	return &healthy{
+		history:   make([]*healthyHistory, 0),
+		isHealthy: initHealthy,
+		cfg:       cfg,
+	}, nil
+}
 
 type Healthy = *healthy
 
@@ -22,21 +35,6 @@ type healthyHistory struct {
 	Timestamp int64
 	IsHealthy bool
 	Reason    string
-}
-
-// New creates a new healthy provider with injected config and dependencies.
-// This replaces the singleton pattern in singleton/healthy with dependency injection.
-func New(
-	cfg configprovider.ConfigStore,
-) Healthy {
-	// Default is unhealthy
-	initHealthy := &atomic.Bool{} // Default is false
-
-	return &healthy{
-		history:   make([]*healthyHistory, 0),
-		isHealthy: initHealthy,
-		cfg:       cfg,
-	}
 }
 
 // IsHealthy returns the current health status
@@ -72,7 +70,7 @@ func (h *healthy) SetUnhealthy(reason string) {
 		})
 
 		env := h.cfg.Env()
-		msg := fmt.Sprintf("Pod[%s] is unhealthy. Reason: %s", env.PodName, reason)
+		msg := fmt.Sprintf("Pod[%s] container-id[%s] is unhealthy. Reason: %s", env.PodName, env.ContainerID, reason)
 		slog.WarnContext(context.Background(), msg)
 	}
 }

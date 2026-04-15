@@ -6,9 +6,20 @@ import (
 	"github.com/pipewave-dev/go-pkg/pkg/queue/adapters/valkey"
 	configprovider "github.com/pipewave-dev/go-pkg/provider/config-provider"
 	fncollector "github.com/pipewave-dev/go-pkg/provider/fn-collector"
+	"github.com/samber/do/v2"
 )
 
-type QueueFactory = func(c configprovider.ConfigStore, cleanupTask fncollector.CleanupTask) queue.Adapter
+type (
+	QueueFactory   = func(c configprovider.ConfigStore, cleanupTask fncollector.CleanupTask) queue.Adapter
+	QueueDIFactory = func(i do.Injector) (queue.Adapter, error)
+)
+
+func QueueValkeyDI(i do.Injector) (queue.Adapter, error) {
+	c := do.MustInvoke[configprovider.ConfigStore](i)
+	cleanupTask := do.MustInvoke[fncollector.CleanupTask](i)
+
+	return QueueValkey(c, cleanupTask), nil
+}
 
 func QueueValkey(c configprovider.ConfigStore, cleanupTask fncollector.CleanupTask) queue.Adapter {
 	env := c.Env()

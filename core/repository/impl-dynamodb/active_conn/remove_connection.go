@@ -10,15 +10,15 @@ import (
 
 const fnRemoveConnection = "activeConnRepo.RemoveConnection"
 
-func (r *activeConnRepo) RemoveConnection(ctx context.Context, userID string, sessionID string) (aErr aerror.AError) {
+func (r *activeConnRepo) RemoveConnection(ctx context.Context, userID string, instanceID string) (aErr aerror.AError) {
 	var op observer.Operation
 	ctx, op = r.obs.StartOperation(ctx, fnRemoveConnection)
 	defer op.Finish(aErr)
 
 	cleaner := activeConnExp.ActiveConnectionDeleter{ConfigStore: r.c}
-	aErr = cleaner.Delete(ctx, r.ddbC, activeConnExp.DeleteParams{
-		UserID:    userID,
-		SessionID: sessionID,
+	aErr = cleaner.Delete(ctx, r.ddb.Client(), activeConnExp.DeleteParams{
+		UserID:     userID,
+		InstanceID: instanceID,
 	})
 	return aErr
 }

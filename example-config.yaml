@@ -2,6 +2,8 @@ ENV_NAME: "development"
 POD_NAME: "pipewave-pod-1"
 VERSION: "1.0.0"
 
+AUTO_MIGRATION: true
+
 DEBUG:
   ENABLED: false
 
