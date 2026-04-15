@@ -6,9 +6,33 @@ import (
 	"github.com/pipewave-dev/go-pkg/pkg/pubsub/adapters/valkey"
 	configprovider "github.com/pipewave-dev/go-pkg/provider/config-provider"
 	fncollector "github.com/pipewave-dev/go-pkg/provider/fn-collector"
+	"github.com/samber/do/v2"
 )
 
-type PubsubFactory = func(c configprovider.ConfigStore, cleanupTask fncollector.CleanupTask) pubsub.Adapter
+type (
+	PubsubFactory   = func(c configprovider.ConfigStore, cleanupTask fncollector.CleanupTask) pubsub.Adapter
+	PubsubDIFactory = func(i do.Injector) (pubsub.Adapter, error)
+)
+
+func PubsubValkeyDI(i do.Injector) (pubsub.Adapter, error) {
+	c := do.MustInvoke[configprovider.ConfigStore](i)
+	cleanupTask := do.MustInvoke[fncollector.CleanupTask](i)
+
+	env := c.Env()
+	ins := valkey.New(&valkey.Config{
+		ValkeyEndpoint: env.Valkey.PrimaryAddress,
+		Password:       env.Valkey.Password,
+		DB:             env.Valkey.DatabaseIdx,
+		Prefix:         constants.AppNameShort + env.Env,
+	})
+
+	// Register cleanup task
+	cleanupTask.RegTask(func() {
+		ins.Flush()
+	}, fncollector.FnPriorityNormal)
+
+	return ins, nil
+}
 
 func PubsubValkey(c configprovider.ConfigStore, cleanupTask fncollector.CleanupTask) pubsub.Adapter {
 	env := c.Env()

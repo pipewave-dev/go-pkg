@@ -11,7 +11,26 @@ import (
 	workerpool "github.com/pipewave-dev/go-pkg/pkg/worker-pool"
 	configprovider "github.com/pipewave-dev/go-pkg/provider/config-provider"
 	fncollector "github.com/pipewave-dev/go-pkg/provider/fn-collector"
+	"github.com/samber/do/v2"
 )
+
+func NewDI(i do.Injector) (MessageHubSvc, error) {
+	c := do.MustInvoke[configprovider.ConfigStore](i)
+	allRepo := do.MustInvoke[repo.AllRepository](i)
+	cleanupTask := do.MustInvoke[fncollector.CleanupTask](i)
+	wp := do.MustInvoke[*workerpool.WorkerPool](i)
+
+	cfg := c.Env().ActiveConnection
+	ins := &msgHubSvc{
+		registry: make(map[string]map[string]entry),
+		repo:     allRepo.PendingMessage(),
+		ttl:      cfg.HeartbeatCutoff + time.Minute, // ensure pending messages live at least until the next expected heartbeat
+		wp:       wp,
+	}
+
+	cleanupTask.RegTask(ins.Shutdown, fncollector.FnPriorityNormal)
+	return ins, nil
+}
 
 type entry struct {
 	cancel context.CancelFunc

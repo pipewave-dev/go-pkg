@@ -11,6 +11,7 @@ import (
 	fncollector "github.com/pipewave-dev/go-pkg/provider/fn-collector"
 	"github.com/pipewave-dev/go-pkg/shared/aerror"
 	"github.com/pipewave-dev/go-pkg/shared/utils/fn"
+	"github.com/samber/do/v2"
 
 	voAuth "github.com/pipewave-dev/go-pkg/core/domain/value-object/auth"
 	repo "github.com/pipewave-dev/go-pkg/core/repository"
@@ -19,10 +20,31 @@ import (
 	otelP "github.com/pipewave-dev/go-pkg/pkg/otel"
 )
 
+func NewDI(i do.Injector) (wsSv.ClientMsgHandler, error) {
+	allRepo := do.MustInvoke[repo.AllRepository](i)
+	obs := do.MustInvoke[observer.Observability](i)
+	pubsubAdapter := do.MustInvoke[pubsub.Adapter](i)
+	otelProvider := do.MustInvoke[otelP.OtelProvider](i)
+	rateLimiter := do.MustInvoke[wsSv.RateLimiter](i)
+	ackMgr := do.MustInvoke[*ackmanager.AckManager](i)
+
+	return &clientMsgHandler{
+		c:             do.MustInvoke[configprovider.ConfigStore](i),
+		obs:           obs,
+		pubsubAdapter: pubsubAdapter,
+		otelProvider:  otelProvider,
+		broadcast:     broadcast.NewMsgCreator(do.MustInvoke[configprovider.ConfigStore](i), pubsubAdapter, otelProvider, do.MustInvoke[fncollector.CleanupTask](i)),
+		rateLimiter:   rateLimiter,
+		activeConn:    allRepo.ActiveConnStore(),
+		user:          allRepo.User(),
+		hbThrottle:    newHeartbeatThrottle(do.MustInvoke[fncollector.IntervalTask](i)),
+		deduplicator:  newMsgDeduplicator(do.MustInvoke[fncollector.IntervalTask](i)),
+		ackManager:    ackMgr,
+	}, nil
+}
+
 type clientMsgHandler struct {
 	c             configprovider.ConfigStore
-	cleanupTask   fncollector.CleanupTask
-	intervalTask  fncollector.IntervalTask
 	obs           observer.Observability
 	pubsubAdapter pubsub.Adapter
 	otelProvider  otelP.OtelProvider

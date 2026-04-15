@@ -8,7 +8,20 @@ import (
 	"time"
 
 	configprovider "github.com/pipewave-dev/go-pkg/provider/config-provider"
+	"github.com/samber/do/v2"
 )
+
+func NewDI(i do.Injector) (Healthy, error) {
+	cfg := do.MustInvoke[configprovider.ConfigStore](i)
+	// Default is unhealthy
+	initHealthy := &atomic.Bool{} // Default is false
+
+	return &healthy{
+		history:   make([]*healthyHistory, 0),
+		isHealthy: initHealthy,
+		cfg:       cfg,
+	}, nil
+}
 
 type Healthy = *healthy
 

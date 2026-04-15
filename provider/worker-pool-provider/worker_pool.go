@@ -10,7 +10,54 @@ import (
 	configprovider "github.com/pipewave-dev/go-pkg/provider/config-provider"
 	fncollector "github.com/pipewave-dev/go-pkg/provider/fn-collector"
 	healthyprovider "github.com/pipewave-dev/go-pkg/provider/healthy-provider"
+	"github.com/samber/do/v2"
 )
+
+func NewDI(i do.Injector) (*workerpool.WorkerPool, error) {
+	cfg := do.MustInvoke[configprovider.ConfigStore](i)
+	healthy := do.MustInvoke[healthyprovider.Healthy](i)
+	cleanupTask := do.MustInvoke[fncollector.CleanupTask](i)
+
+	env := cfg.Env()
+
+	poolCfg := &workerpool.WorkerPoolCfn{
+		Workers: runtime.NumCPU(),
+		Buffer:  env.WorkerPool.Buffer,
+		UpperThreshold: workerpool.Threshold{
+			Value: env.WorkerPool.UpperThreshold,
+			Action: func() {
+				healthy.SetUnhealthy("Worker pool is over upper threshold")
+			},
+		},
+		LowerThreshold: workerpool.Threshold{
+			Value: env.WorkerPool.LowerThreshold,
+			Action: func() {
+				healthy.SetHealthy("Worker pool is below lower threshold")
+			},
+		},
+		PanicHandler: func(recover any) {
+			dbTrace := fmt.Sprintf("%s\n", debug.Stack())
+			var reportBug string
+			switch recoverT := recover.(type) {
+			case string:
+				reportBug = fmt.Sprintf("<< PANIC >> %s \n %s", recoverT, dbTrace)
+			case error:
+				reportBug = fmt.Sprintf("<< PANIC >> %s \n %s", recoverT.Error(), dbTrace)
+			default:
+				reportBug = fmt.Sprintf("<< unexpected PANIC >> %s \n %s", recoverT, dbTrace)
+			}
+			slog.Error(reportBug)
+		},
+	}
+
+	ins := workerpool.New(poolCfg)
+	ins.Start()
+
+	// Shutdown worker pool before other dependencies
+	cleanupTask.RegTask(ins.Close, fncollector.FnPriorityEarly)
+
+	return ins, nil
+}
 
 // New creates a new worker pool provider with injected config and dependencies.
 // This replaces the singleton pattern in singleton/worker-pool with dependency injection.

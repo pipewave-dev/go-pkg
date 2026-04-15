@@ -5,10 +5,24 @@ import (
 
 	wsSv "github.com/pipewave-dev/go-pkg/core/service/websocket"
 	configprovider "github.com/pipewave-dev/go-pkg/provider/config-provider"
+	"github.com/samber/do/v2"
 
 	voAuth "github.com/pipewave-dev/go-pkg/core/domain/value-object/auth"
 	"golang.org/x/time/rate"
 )
+
+func NewDI(i do.Injector) (wsSv.RateLimiter, error) {
+	c := do.MustInvoke[configprovider.ConfigStore](i)
+	instance := &rateLimiter{
+		c: c,
+
+		userLimiter:      make(map[string]*rate.Limiter),
+		userSessionCount: make(map[string]int),
+		anonymousLimiter: make(map[string]*rate.Limiter),
+	}
+
+	return instance, nil
+}
 
 func New(c configprovider.ConfigStore) wsSv.RateLimiter {
 	instance := &rateLimiter{

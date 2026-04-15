@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/pipewave-dev/go-pkg/core/delivery"
+	"github.com/pipewave-dev/go-pkg/core/repository"
 	business "github.com/pipewave-dev/go-pkg/core/service/business"
 	wsSv "github.com/pipewave-dev/go-pkg/core/service/websocket"
 	"github.com/pipewave-dev/go-pkg/pkg/metrics"
@@ -13,7 +14,33 @@ import (
 	configprovider "github.com/pipewave-dev/go-pkg/provider/config-provider"
 	fncollector "github.com/pipewave-dev/go-pkg/provider/fn-collector"
 	healthyprovider "github.com/pipewave-dev/go-pkg/provider/healthy-provider"
+	"github.com/samber/do/v2"
 )
+
+func NewDI(i do.Injector) (delivery.ModuleDelivery, error) {
+	ins := &moduleDelivery{
+		c:             do.MustInvoke[configprovider.ConfigStore](i),
+		mux:           http.NewServeMux(),
+		mw:            do.MustInvoke[mm.MiddlewareProvider](i),
+		wsDeli:        do.MustInvoke[wsSv.ServerDelivery](i),
+		wsService:     do.MustInvoke[wsSv.WsService](i),
+		wsOnNewReg:    do.MustInvoke[wsSv.OnNewStuffFn](i),
+		wsOnCloseReg:  do.MustInvoke[wsSv.OnCloseStuffFn](i),
+		healthy:       do.MustInvoke[healthyprovider.Healthy](i),
+		monitoringSvc: do.MustInvoke[business.Monitoring](i),
+		metrics:       metrics.New(),
+
+		workerPool:   do.MustInvoke[*workerpool.WorkerPool](i),
+		cleanupTask:  do.MustInvoke[fncollector.CleanupTask](i),
+		intervalTask: do.MustInvoke[fncollector.IntervalTask](i),
+		repo:         do.MustInvoke[repository.AllRepository](i),
+	}
+	ins.registerHandlers()
+	stopFn := ins.runIntervalTasks(time.Second * 600)
+	cleanupTask := do.MustInvoke[fncollector.CleanupTask](i)
+	cleanupTask.RegTask(stopFn, fncollector.FnPriorityEarlyest) // Stop to prevent push new tasks
+	return ins, nil
+}
 
 type moduleDelivery struct {
 	c configprovider.ConfigStore
@@ -34,7 +61,7 @@ type moduleDelivery struct {
 	workerPool   *workerpool.WorkerPool
 	cleanupTask  fncollector.CleanupTask
 	intervalTask fncollector.IntervalTask
-	runMigration func() error
+	repo         repository.AllRepository
 }
 
 func New(
@@ -49,7 +76,6 @@ func New(
 	workerPool *workerpool.WorkerPool,
 	cleanupTask fncollector.CleanupTask,
 	intervalTask fncollector.IntervalTask,
-	runMigration func() error,
 ) delivery.ModuleDelivery {
 	ins := &moduleDelivery{
 		c:             c,
@@ -66,7 +92,6 @@ func New(
 		workerPool:   workerPool,
 		cleanupTask:  cleanupTask,
 		intervalTask: intervalTask,
-		runMigration: runMigration,
 	}
 	ins.registerHandlers()
 	stopFn := ins.runIntervalTasks(time.Second * 600)

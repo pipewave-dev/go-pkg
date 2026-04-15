@@ -7,7 +7,17 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 	"github.com/pipewave-dev/go-pkg/pkg/dynamodb"
 	configprovider "github.com/pipewave-dev/go-pkg/provider/config-provider"
+	"github.com/samber/do/v2"
 )
+
+func NewDI(i do.Injector) (dynamodb.DynamodbProvider, error) {
+	c := do.MustInvoke[configprovider.ConfigStore](i)
+	dynamodbPrv := dynamodb.NewDynamoDBProvider(dynamoDBConfig(c))
+	if err := HandleStartupMigration(context.Background(), c, dynamodbPrv, c.Env().AutoMigration); err != nil {
+		return nil, err
+	}
+	return dynamodbPrv, nil
+}
 
 func New(cfg configprovider.ConfigStore) dynamodb.DynamodbProvider {
 	dynamodbPrv := dynamodb.NewDynamoDBProvider(dynamoDBConfig(cfg))

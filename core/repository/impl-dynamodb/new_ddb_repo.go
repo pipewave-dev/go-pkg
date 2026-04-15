@@ -9,10 +9,27 @@ import (
 	userRepo "github.com/pipewave-dev/go-pkg/core/repository/impl-dynamodb/user"
 	pkgdynamodb "github.com/pipewave-dev/go-pkg/pkg/dynamodb"
 	"github.com/pipewave-dev/go-pkg/pkg/observer"
+	"github.com/samber/do/v2"
 
 	configprovider "github.com/pipewave-dev/go-pkg/provider/config-provider"
 	dynamodbprovider "github.com/pipewave-dev/go-pkg/provider/dynamodb"
 )
+
+func NewDIDynamoDBRepo(i do.Injector) (repository.AllRepository, error) {
+	c := do.MustInvoke[configprovider.ConfigStore](i)
+	obs := do.MustInvoke[observer.Observability](i)
+	ddbP := dynamodbprovider.New(c)
+	acs := activeConnRepo.New(c, ddbP, obs)
+	u := userRepo.New(c, ddbP, obs)
+	pm := pendingMessageRepo.New(c, ddbP, obs)
+	return &ddbRepo{
+		cfg:  c,
+		ddbP: ddbP,
+		acs:  acs,
+		u:    u,
+		pm:   pm,
+	}, nil
+}
 
 func NewDynamoRepo(
 	c configprovider.ConfigStore,

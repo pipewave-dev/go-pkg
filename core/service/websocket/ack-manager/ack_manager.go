@@ -5,7 +5,15 @@ import (
 	"time"
 
 	"github.com/pipewave-dev/go-pkg/shared/utils/fn"
+	"github.com/samber/do/v2"
 )
+
+func NewDI(i do.Injector) (*AckManager, error) {
+	return &AckManager{
+		pending:    make(map[string]chan struct{}),
+		remoteAcks: make(map[string]string),
+	}, nil
+}
 
 // AckManager manages pending message acknowledgments.
 type AckManager struct {

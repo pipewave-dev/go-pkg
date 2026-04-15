@@ -6,24 +6,15 @@ import (
 
 	voAuth "github.com/pipewave-dev/go-pkg/core/domain/value-object/auth"
 	wsSv "github.com/pipewave-dev/go-pkg/core/service/websocket"
-	dostuffs "github.com/pipewave-dev/go-pkg/global/do-stuffs"
+	"github.com/samber/do/v2"
 )
 
-var (
-	once     sync.Once
-	instance *connectionMap
-)
-
-func Singleton() wsSv.ConnectionManager {
-	once.Do(func() {
-		instance = &connectionMap{
-			userConn:      make(map[string]map[string]wsSv.WebsocketConn),
-			anonymousConn: make(map[string]wsSv.WebsocketConn),
-		}
-
-		dostuffs.DebugFn.RegTask(instance.printStats)
-	})
-	return instance
+func NewDI(i do.Injector) (wsSv.ConnectionManager, error) {
+	ins := &connectionMap{
+		userConn:      make(map[string]map[string]wsSv.WebsocketConn),
+		anonymousConn: make(map[string]wsSv.WebsocketConn),
+	}
+	return ins, nil
 }
 
 type connectionMap struct {
@@ -140,7 +131,7 @@ func (m *connectionMap) GetAllConnections() []wsSv.WebsocketConn {
 	return allConnections
 }
 
-func (m *connectionMap) printStats() {
+func (m *connectionMap) PrintStats() {
 	fmt.Println("=== ConnectionManager Stats ===")
 	fmt.Printf("\tUser: %d\n", len(m.userConn))
 	for userID, conns := range m.userConn {

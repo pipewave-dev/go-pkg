@@ -6,7 +6,19 @@ import (
 	voAuth "github.com/pipewave-dev/go-pkg/core/domain/value-object/auth"
 	wsSv "github.com/pipewave-dev/go-pkg/core/service/websocket"
 	configprovider "github.com/pipewave-dev/go-pkg/provider/config-provider"
+	"github.com/samber/do/v2"
 )
+
+func NewDIOnCloseStuff(i do.Injector) (wsSv.OnCloseStuffFn, error) {
+	c := do.MustInvoke[configprovider.ConfigStore](i)
+	instance := &onCloseStuffFn{
+		c:        c,
+		fnsMap:   make(map[string]func(auth voAuth.WebsocketAuth)),
+		authsMap: make(map[string]voAuth.WebsocketAuth),
+	}
+
+	return instance, nil
+}
 
 func NewOnCloseStuff(c configprovider.ConfigStore) wsSv.OnCloseStuffFn {
 	instance := &onCloseStuffFn{

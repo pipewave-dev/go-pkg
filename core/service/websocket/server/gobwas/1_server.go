@@ -17,7 +17,6 @@ import (
 	"github.com/mailru/easygo/netpoll"
 	voAuth "github.com/pipewave-dev/go-pkg/core/domain/value-object/auth"
 	wsSv "github.com/pipewave-dev/go-pkg/core/service/websocket"
-	dostuffs "github.com/pipewave-dev/go-pkg/global/do-stuffs"
 	workerpool "github.com/pipewave-dev/go-pkg/pkg/worker-pool"
 	configprovider "github.com/pipewave-dev/go-pkg/provider/config-provider"
 	healthyprovider "github.com/pipewave-dev/go-pkg/provider/healthy-provider"
@@ -72,8 +71,6 @@ func NewServer(
 			onWriteError:  onWriteError,
 			onClose:       onClose,
 		}
-
-		dostuffs.DebugFn.RegTask(server.printStats)
 	})
 	return server
 }
@@ -302,7 +299,7 @@ func (s *NetpollServer) removeClient(client *GobwasConnection) {
 	s.onClose.Do(client.auth)
 }
 
-func (s *NetpollServer) printStats() {
+func (s *NetpollServer) PrintStats() {
 	var m runtime.MemStats
 	runtime.ReadMemStats(&m)
 

@@ -8,11 +8,28 @@ import (
 	pendingMessageRepo "github.com/pipewave-dev/go-pkg/core/repository/impl-postgres/pending_message"
 	userRepo "github.com/pipewave-dev/go-pkg/core/repository/impl-postgres/user"
 	"github.com/pipewave-dev/go-pkg/pkg/observer"
+	"github.com/samber/do/v2"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	configprovider "github.com/pipewave-dev/go-pkg/provider/config-provider"
 	"github.com/pipewave-dev/go-pkg/provider/postgres"
 )
+
+func NewDIPostgresRepo(i do.Injector) (repository.AllRepository, error) {
+	c := do.MustInvoke[configprovider.ConfigStore](i)
+	obs := do.MustInvoke[observer.Observability](i)
+	pool := postgres.New(c)
+	acs := activeConnRepo.New(c, pool, obs)
+	u := userRepo.New(c, pool, obs)
+	pm := pendingMessageRepo.New(c, pool, obs)
+	return &pgRepo{
+		cfg:  c,
+		pool: pool,
+		acs:  acs,
+		u:    u,
+		pm:   pm,
+	}, nil
+}
 
 func NewPostgresRepo(
 	c configprovider.ConfigStore,

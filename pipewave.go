@@ -3,48 +3,49 @@ package pipewave
 import (
 	"log/slog"
 
-	"github.com/pipewave-dev/go-pkg/app"
 	"github.com/pipewave-dev/go-pkg/core/delivery"
 	"github.com/pipewave-dev/go-pkg/core/repository"
 	implpostgres "github.com/pipewave-dev/go-pkg/core/repository/impl-postgres"
 	configprovider "github.com/pipewave-dev/go-pkg/provider/config-provider"
 	pubsubprovider "github.com/pipewave-dev/go-pkg/provider/pubsub"
 	queueprovider "github.com/pipewave-dev/go-pkg/provider/queue"
+	"github.com/samber/do/v2"
 )
 
 type FunctionStore = configprovider.Fns
 
-type PipewaveConfig struct {
+type PipewaveConfigDI struct {
 	ConfigStore       configprovider.ConfigStore
-	RepositoryFactory repository.RepoFactory
-	QueueFactory      queueprovider.QueueFactory
-	PubsubFactory     pubsubprovider.PubsubFactory
+	RepositoryFactory repository.RepositoryDIFactory
+	QueueFactory      queueprovider.QueueDIFactory
+	PubsubFactory     pubsubprovider.PubsubDIFactory
 	SlogIns           *slog.Logger
 }
 
-func NewPipewave(config PipewaveConfig) delivery.ModuleDelivery {
+func NewPipewave(config PipewaveConfigDI) delivery.ModuleDelivery {
 	if config.SlogIns == nil {
 		config.SlogIns = slog.Default()
 	}
 	rf := config.RepositoryFactory
 	if rf == nil {
-		rf = implpostgres.NewPostgresRepo
+		rf = implpostgres.NewDIPostgresRepo
 	}
 	qf := config.QueueFactory
 	if qf == nil {
-		qf = queueprovider.QueueValkey
+		qf = queueprovider.QueueValkeyDI
 	}
 	pf := config.PubsubFactory
 	if pf == nil {
-		pf = pubsubprovider.PubsubValkey
+		pf = pubsubprovider.PubsubValkeyDI
 	}
-	x := app.NewPipewave(
+	x := do.New(injectionPackage(
 		config.ConfigStore,
 		config.SlogIns,
 		rf,
 		qf,
-		pf)
-	return x.Delivery
+		pf,
+	))
+	return do.MustInvoke[delivery.ModuleDelivery](x)
 }
 
 func ConfigFromYaml(yamlFiles []string, fnStore FunctionStore) configprovider.ConfigStore {

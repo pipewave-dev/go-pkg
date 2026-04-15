@@ -16,7 +16,71 @@ import (
 	configprovider "github.com/pipewave-dev/go-pkg/provider/config-provider"
 	healthyprovider "github.com/pipewave-dev/go-pkg/provider/healthy-provider"
 	"github.com/pipewave-dev/go-pkg/shared/actx"
+	"github.com/samber/do/v2"
 )
+
+func NewDI(i do.Injector) (wsSv.ServerDelivery, error) {
+	c := do.MustInvoke[configprovider.ConfigStore](i)
+	wpool := do.MustInvoke[*workerpool.WorkerPool](i)
+	healthy := do.MustInvoke[healthyprovider.Healthy](i)
+	wsService := do.MustInvoke[wsSv.WsService](i)
+	connectionMgr := do.MustInvoke[wsSv.ConnectionManager](i)
+	rateLimiter := do.MustInvoke[wsSv.RateLimiter](i)
+	clientMsgHandler := do.MustInvoke[wsSv.ClientMsgHandler](i)
+	exchangeToken := do.MustInvoke[wsSv.ExchangeToken](i)
+	repo := do.MustInvoke[repo.AllRepository](i)
+	queueAdapter := do.MustInvoke[queue.Adapter](i)
+	onNewStuff := do.MustInvoke[wsSv.OnNewStuffFn](i)
+	onCloseStuff := do.MustInvoke[wsSv.OnCloseStuffFn](i)
+	msgHubSvc := do.MustInvoke[msghub.MessageHubSvc](i)
+	shutdownSignal := do.MustInvoke[*msghub.ShutdownSignal](i)
+
+	ins := &serverDelivery{
+		c:                c,
+		mux:              http.NewServeMux(),
+		workerPool:       wpool,
+		wsService:        wsService,
+		connectionMgr:    connectionMgr,
+		rateLimiter:      rateLimiter,
+		clientMsgHandler: clientMsgHandler,
+		exchangeToken:    exchangeToken,
+		activeConnRepo:   repo.ActiveConnStore(),
+		queueAdapter:     queueAdapter,
+		onNewStuff:       onNewStuff,
+		onCloseStuff:     onCloseStuff,
+		msgHubSvc:        msgHubSvc,
+		shutdownSignal:   shutdownSignal,
+		gobwasServer:     nil,
+	}
+
+	ins.registerCallback()
+	// Create gobwas WebSocket server with callbacks.
+	// OnReadError and OnWriteError are wrapped lazily because Fns is injected via
+	// SetFns() after NewPipewave() returns, so c.Env().Fns is nil at this point.
+	ins.gobwasServer = gobwas.NewServer(
+		c,
+		wpool,
+		healthy,
+		ins.clientMsgHandler.HandleTextMessage,
+		ins.clientMsgHandler.HandleBinMessage,
+		wsSv.OnReadErrorFn(func(ctx context.Context, auth voAuth.WebsocketAuth, err error) {
+			if fns := c.Env().Fns; fns != nil && fns.OnReadError != nil {
+				fns.OnReadError.OnReadError(ctx, auth, err)
+			}
+		}),
+		wsSv.OnWriteErrorFn(func(ctx context.Context, auth voAuth.WebsocketAuth, err error) {
+			if fns := c.Env().Fns; fns != nil && fns.OnWriteError != nil {
+				fns.OnWriteError.OnWriteError(ctx, auth, err)
+			}
+		}),
+		onCloseStuff,
+	)
+
+	// Register HTTP handlers
+	ins.registerHandlers()
+
+	return ins, nil
+}
 
 type serverDelivery struct {
 	c configprovider.ConfigStore
