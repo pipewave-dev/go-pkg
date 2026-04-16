@@ -4,10 +4,7 @@ import (
 	"log/slog"
 
 	"github.com/pipewave-dev/go-pkg/core/delivery"
-	implpostgres "github.com/pipewave-dev/go-pkg/core/repository/impl-postgres"
 	configprovider "github.com/pipewave-dev/go-pkg/provider/config-provider"
-	pubsubprovider "github.com/pipewave-dev/go-pkg/provider/pubsub"
-	queueprovider "github.com/pipewave-dev/go-pkg/provider/queue"
 	"github.com/pipewave-dev/go-pkg/sdk/adapters"
 	"github.com/pipewave-dev/go-pkg/sdk/types"
 	"github.com/samber/do/v2"
@@ -15,6 +12,8 @@ import (
 
 type (
 	ConfigStore    = configprovider.ConfigStore
+	ModuleDelivery = delivery.ModuleDelivery
+
 	PipewaveConfig struct {
 		SlogIns           *slog.Logger
 		ConfigStore       ConfigStore
@@ -24,21 +23,21 @@ type (
 	}
 )
 
-func NewPipewave(config PipewaveConfig) delivery.ModuleDelivery {
+func NewPipewave(config PipewaveConfig) ModuleDelivery {
 	if config.SlogIns == nil {
 		config.SlogIns = slog.Default()
 	}
 	rf := config.RepositoryFactory
 	if rf == nil {
-		rf = implpostgres.NewDIPostgresRepo
+		rf = adapters.PostgresRepo
 	}
 	qf := config.QueueFactory
 	if qf == nil {
-		qf = queueprovider.QueueValkeyDI
+		qf = adapters.QueueValkey
 	}
 	pf := config.PubsubFactory
 	if pf == nil {
-		pf = pubsubprovider.PubsubValkeyDI
+		pf = adapters.PubsubValkey
 	}
 	x := do.New(injectionPackage(
 		config.ConfigStore,
