@@ -20,7 +20,7 @@ func NewDI(i do.Injector) (cache.CacheProvider, error) {
 		ReplicaAddress: env.Valkey.ReplicaAddress,
 		Password:       env.Valkey.Password,
 		DatabaseIndex:  env.Valkey.DatabaseIdx,
-		KeyPrefix:      lo.ToPtr(constants.AppNameShort + env.Env),
+		KeyPrefix:      lo.ToPtr(constants.AppNameShort + env.Info.Env),
 	}))
 
 	// Register cleanup task

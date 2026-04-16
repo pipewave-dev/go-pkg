@@ -20,7 +20,7 @@ func (r *activeConnRepo) AddConnection(ctx context.Context, userID string, insta
 	_, aErr = creator.Create(ctx, r.ddb.Client(), activeConnExp.CreateParams{
 		UserID:         userID,
 		InstanceID:     instanceID,
-		HolderID:       r.c.Env().ContainerID,
+		HolderID:       r.c.Env().Info.ContainerID,
 		ConnectionType: connectionType,
 	})
 	return aErr

@@ -24,7 +24,7 @@ func NewDI(i do.Injector) (observer.Observability, error) {
 	obsIns := obs.NewObservability(&obs.ObservabilityConfig{
 		ServiceName:    constants.AppNameShort,
 		ServiceVersion: env.Version,
-		Environment:    env.Env,
+		Environment:    env.Info.Env,
 		GetTraceIdFn: func(ctx context.Context) string {
 			traceId := actx.From(ctx).GetTraceID()
 			return traceId

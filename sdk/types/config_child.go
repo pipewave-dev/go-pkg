@@ -1,4 +1,4 @@
-package configprovider
+package types
 
 import (
 	"time"
@@ -6,10 +6,44 @@ import (
 	"github.com/samber/lo"
 )
 
-type CorsConfigT struct {
+type InfoT struct {
+	Env         string `koanf:"ENV"`
+	PodName     string `koanf:"POD_NAME"`
+	ContainerID string `koanf:"CONTAINER_ID"`
+}
+
+func (r *InfoT) validate() {
+	if r.Env == "" {
+		panic("info env must not be empty")
+	}
+	if r.ContainerID == "" {
+		panic("info container id must not be empty")
+	}
+}
+
+func (r *InfoT) loadDefault() {
+	if r.ContainerID == "" {
+		r.ContainerID = generateContainerID()
+	}
+}
+
+type ExtractHeaderT struct {
+	TraceIDHeader string `koanf:"TRACE_ID_HEADER"`
+	IpHeader      string `koanf:"IP_HEADER"`
+}
+
+type CorsT struct {
 	Enabled        bool     `koanf:"ENABLED"`
 	ExactlyOrigins []string `koanf:"EXACTLY_ORIGINS"`
 	RegexOrigins   []string `koanf:"REGEX_ORIGINS"`
+}
+
+func (c *CorsT) validate() {
+	if c.Enabled {
+		if len(c.ExactlyOrigins) == 0 && len(c.RegexOrigins) == 0 {
+			panic("cors config: either exactly origins or regex origins must be provided when cors is enabled")
+		}
+	}
 }
 
 /*
@@ -28,12 +62,7 @@ type ActiveConnectionT struct {
 	PendingMsgTTL   time.Duration `koanf:"PENDING_MSG_TTL"`
 }
 
-type PingCheckerT struct {
-	PingIdleAfter time.Duration `koanf:"HEARTBEAT_CUTOFF"`
-	PongTimeout   time.Duration `koanf:"PENDING_MSG_TTL"`
-}
-
-func (m ActiveConnectionT) Validate() {
+func (m *ActiveConnectionT) validate() {
 	if m.HeartbeatCutoff <= 0 {
 		panic("active connection heartbeat cutoff must be greater than 0")
 	}
@@ -42,10 +71,69 @@ func (m ActiveConnectionT) Validate() {
 	}
 }
 
+func (m *ActiveConnectionT) loadDefault() {
+	if m.HeartbeatCutoff == 0 {
+		m.HeartbeatCutoff = 60 * time.Second
+	}
+	if m.PendingMsgTTL == 0 {
+		m.PendingMsgTTL = m.HeartbeatCutoff * 2
+	}
+}
+
+type PingCheckerT struct {
+	PingIdleAfter time.Duration `koanf:"HEARTBEAT_CUTOFF"`
+	PongTimeout   time.Duration `koanf:"PENDING_MSG_TTL"`
+}
+
+func (p *PingCheckerT) validate() {
+	if p.PingIdleAfter <= 0 {
+		panic("ping checker ping idle after must be greater than 0")
+	}
+	if p.PongTimeout <= 0 {
+		panic("ping checker pong timeout must be greater than 0")
+	}
+}
+
+func (p *PingCheckerT) loadDefault() {
+	if p.PingIdleAfter == 0 {
+		p.PingIdleAfter = 20 * time.Second
+	}
+	if p.PongTimeout == 0 {
+		p.PongTimeout = 3 * time.Second
+	}
+}
+
 type WorkerPoolT struct {
 	Buffer         int `koanf:"BUFFER"`
 	UpperThreshold int `koanf:"UPPER_THRESHOLD"`
 	LowerThreshold int `koanf:"LOWER_THRESHOLD"`
+}
+
+func (w *WorkerPoolT) validate() {
+	if w.Buffer <= 0 {
+		panic("worker pool buffer must be greater than 0")
+	}
+	if w.UpperThreshold <= 0 {
+		panic("worker pool upper threshold must be greater than 0")
+	}
+	if w.LowerThreshold < 0 {
+		panic("worker pool lower threshold must be greater than or equal to 0")
+	}
+	if w.UpperThreshold <= w.LowerThreshold {
+		panic("worker pool upper threshold must be greater than lower threshold")
+	}
+}
+
+func (w *WorkerPoolT) loadDefault() {
+	if w.Buffer == 0 {
+		w.Buffer = 64
+	}
+	if w.UpperThreshold == 0 {
+		w.UpperThreshold = 48
+	}
+	if w.LowerThreshold == 0 {
+		w.LowerThreshold = 16
+	}
 }
 
 type RateLimiterT struct {
@@ -56,7 +144,7 @@ type RateLimiterT struct {
 	AnonymousBurst int `koanf:"ANONYMOUS_BURST"`
 }
 
-func (r RateLimiterT) Validate() {
+func (r *RateLimiterT) validate() {
 	if r.UserRate <= 0 {
 		panic("rate limiter user rate must be greater than 0")
 	}
@@ -68,6 +156,21 @@ func (r RateLimiterT) Validate() {
 	}
 	if r.AnonymousBurst < r.AnonymousRate {
 		panic("rate limiter anonymous burst must be greater than or equal to anonymous rate")
+	}
+}
+
+func (r *RateLimiterT) loadDefault() {
+	if r.UserRate == 0 {
+		r.UserRate = 30
+	}
+	if r.UserBurst == 0 {
+		r.UserBurst = 60
+	}
+	if r.AnonymousRate == 0 {
+		r.AnonymousRate = 5
+	}
+	if r.AnonymousBurst == 0 {
+		r.AnonymousBurst = 10
 	}
 }
 
@@ -102,26 +205,6 @@ type PostgresT struct {
 	MinConns     int32  `koanf:"MIN_CONNS"`
 }
 
-// KeySetT contains versioned key set configuration
-type KeySetT struct {
-	CurrentVersion int8     `koanf:"CURRENT_VERSION"`
-	KeySetStr      []string `koanf:"KEY_SET"`
-}
-
-// GetKeySet returns the current version and key set as a map
-func (ki KeySetT) GetKeySet() (currentVersion int8, keySet map[int8][]byte) {
-	result := make(map[int8][]byte, len(ki.KeySetStr))
-	for ver, keyStr := range ki.KeySetStr {
-		if len(keyStr) < 32 {
-			panic("cipher key must be 32 characters")
-		}
-		var b [32]byte
-		copy(b[:], keyStr)
-		result[(int8(ver))] = b[:]
-	}
-	return ki.CurrentVersion, result
-}
-
 // OtelT contains OpenTelemetry configuration
 type OtelT struct {
 	Enabled bool `koanf:"ENABLED"`
@@ -135,7 +218,7 @@ type OtelT struct {
 }
 
 // Validate checks if the OtelT configuration is valid
-func (o *OtelT) Validate() {
+func (o *OtelT) validate() {
 	if o.Enabled {
 		allowExporterType := []string{"discard", "stdout", "file", "otlp-grpc", "otlp-http"}
 		if !lo.Contains(allowExporterType, o.ExporterType) {
@@ -151,47 +234,6 @@ func (o *OtelT) Validate() {
 			panic("OTEL.COLLECTOR_ENDPOINT is required when OTEL.EXPORTER_TYPE is otlp-http")
 		}
 	}
-}
-
-// ExternalT contains external service configurations
-type ExternalT struct {
-	Userbox struct {
-		BaseUrl   string `koanf:"BASE_URL"`
-		TimeoutMs int    `koanf:"TIMEOUT_MS"`
-		WrapLog   bool   `koanf:"WRAP_LOG"`
-		WrapOtel  bool   `koanf:"WRAP_OTEL"`
-
-		AuthorizationToken string `koanf:"AUTHORIZATION_TOKEN"`
-	} `koanf:"USERBOX"`
-
-	GoogleOAuth2 struct {
-		TimeoutSeconds int `koanf:"TIMEOUT_SECONDS"`
-	} `koanf:"GOOGLE_OAUTH2"`
-
-	GoogleRecaptcha struct {
-		SecretKeyV2    string `koanf:"SECRET_KEY_V2"`
-		SecretKeyV3    string `koanf:"SECRET_KEY_V3"`
-		VerifyURL      string `koanf:"VERIFY_URL"`
-		TimeoutSeconds int    `koanf:"TIMEOUT_SECONDS"`
-	} `koanf:"GOOGLE_RECAPTCHA"`
-
-	HCaptcha struct {
-		SecretKey      string `koanf:"SECRET_KEY"`
-		SiteKey        string `koanf:"SITE_KEY"`
-		VerifyURL      string `koanf:"VERIFY_URL"`
-		TimeoutSeconds int    `koanf:"TIMEOUT_SECONDS"`
-		RemapDisabled  bool   `koanf:"REMAP_DISABLED"`
-	} `koanf:"HCAPTCHA"`
-
-	Turnstile struct {
-		SecretKey      string `koanf:"SECRET_KEY"`
-		VerifyURL      string `koanf:"VERIFY_URL"`
-		TimeoutSeconds int    `koanf:"TIMEOUT_SECONDS"`
-		Mock           struct {
-			Enabled bool `koanf:"ENABLED"`
-			Result  int  `koanf:"RESULT"`
-		} `koanf:"MOCK"`
-	} `koanf:"TURNSTILE"`
 }
 
 // DynamoTables contains DynamoDB table name configurations

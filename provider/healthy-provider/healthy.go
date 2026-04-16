@@ -70,7 +70,7 @@ func (h *healthy) SetUnhealthy(reason string) {
 		})
 
 		env := h.cfg.Env()
-		msg := fmt.Sprintf("Pod[%s] container-id[%s] is unhealthy. Reason: %s", env.PodName, env.ContainerID, reason)
+		msg := fmt.Sprintf("Pod[%s] container-id[%s] is unhealthy. Reason: %s", env.Info.PodName, env.Info.ContainerID, reason)
 		slog.WarnContext(context.Background(), msg)
 	}
 }

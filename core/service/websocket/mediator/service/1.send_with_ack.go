@@ -20,7 +20,7 @@ func (m *mediatorSvc) SendToSessionWithAck(ctx context.Context, userID string, i
 		MsgType:           msgType,
 		Payload:           payload,
 		AckID:             ackID,
-		SourceContainerID: m.c.Env().ContainerID,
+		SourceContainerID: m.c.Env().Info.ContainerID,
 	}
 
 	found := false
@@ -90,7 +90,7 @@ func (m *mediatorSvc) SendToUserWithAck(ctx context.Context, userID string, msgT
 		MsgType:           msgType,
 		Payload:           payload,
 		AckID:             ackID,
-		SourceContainerID: m.c.Env().ContainerID,
+		SourceContainerID: m.c.Env().Info.ContainerID,
 	}
 
 	found := false

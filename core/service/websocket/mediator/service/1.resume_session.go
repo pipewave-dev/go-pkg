@@ -21,7 +21,7 @@ func (m *mediatorSvc) ResumeSession(ctx context.Context, targetContainerID, user
 		return nil
 	}
 
-	if targetContainerID == m.c.Env().ContainerID {
+	if targetContainerID == m.c.Env().Info.ContainerID {
 		m.broadcastHandler.ResumeSession(ctx, pl)
 		return nil
 	}

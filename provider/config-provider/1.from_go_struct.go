@@ -1,51 +1,14 @@
 package configprovider
 
-type EnvType struct {
-	Env         string
-	PodName     string
-	ContainerID string
+import types "github.com/pipewave-dev/go-pkg/sdk/types"
 
-	AutoMigration bool
-
-	ActiveConnection ActiveConnectionT
-	PingChecker      PingCheckerT
-
-	RateLimiter RateLimiterT
-
-	WorkerPool WorkerPoolT
-
-	TraceIDHeader string
-	IpHeader      string
-	Cors          CorsConfigT
-
-	Otel     OtelT
-	Valkey   ValkeyT
-	DynamoDB DynamoConfigT
-
-	Postgres PostgresT
-}
-
-func FromGoStruct(input EnvType) ConfigStore {
+func FromGoStruct(input types.EnvType) ConfigStore {
 	env := globalEnvT{
-		Env:              input.Env,
-		PodName:          input.PodName,
-		AutoMigration:    input.AutoMigration,
-		ContainerID:      input.ContainerID,
-		ActiveConnection: input.ActiveConnection,
-		PingChecker:      input.PingChecker,
-		WorkerPool:       input.WorkerPool,
-		TraceIDHeader:    input.TraceIDHeader,
-		IpHeader:         input.IpHeader,
-		Cors:             input.Cors,
-		Otel:             input.Otel,
-		RateLimiter:      input.RateLimiter,
-		Valkey:           input.Valkey,
-		DynamoDB:         input.DynamoDB,
-		Postgres:         input.Postgres,
+		EnvType: input,
+		Fns:     nil,
 	}
-
-	env.loadDefault()
-	env.validate()
+	env.LoadDefault()
+	env.Validate()
 
 	return &configStore{
 		env: &env,

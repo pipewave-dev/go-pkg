@@ -79,7 +79,7 @@ func (m *mediatorSvc) closeAllAuthenticatedConnections() {
 func (m *mediatorSvc) checkTransferingConns() {
 	ctx := actx.New()
 	ctx.SetTraceID(
-		fmt.Sprintf("shutdown%s", m.c.Env().ContainerID))
+		fmt.Sprintf("shutdown%s", m.c.Env().Info.ContainerID))
 	notTransferedConns := make([]connectionInfo, 0, len(m.transferingConns))
 	for _, connInfo := range m.transferingConns {
 		ac, err := m.activeConnRepo.GetInstanceConnection(ctx, connInfo.userID, connInfo.instanceID)

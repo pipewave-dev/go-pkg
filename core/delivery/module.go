@@ -7,7 +7,7 @@ import (
 
 	business "github.com/pipewave-dev/go-pkg/core/service/business"
 	wsSv "github.com/pipewave-dev/go-pkg/core/service/websocket"
-	configprovider "github.com/pipewave-dev/go-pkg/provider/config-provider"
+	"github.com/pipewave-dev/go-pkg/sdk/types"
 	"github.com/pipewave-dev/go-pkg/shared/aerror"
 )
 
@@ -25,7 +25,7 @@ type SessionInfo = wsSv.SessionInfo
 
 // ModuleDelivery is the main interface exposed by pipewave. External Go services embed it as a module.
 type ModuleDelivery interface {
-	SetFns(fns *configprovider.Fns)
+	SetFns(fns *types.Fns)
 
 	Mux() *http.ServeMux
 	Services() ExportedServices

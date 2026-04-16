@@ -35,9 +35,9 @@ import (
 func injectionPackage(
 	configStore configprovider.ConfigStore,
 	logger *slog.Logger,
-	repositoryFactory repository.RepositoryDIFactory,
-	queueFactory queueprovider.QueueDIFactory,
-	pubsubFactory pubsubprovider.PubsubDIFactory,
+	repositoryFactory repository.RepositoryAdapter,
+	queueFactory queueprovider.QueueAdapter,
+	pubsubFactory pubsubprovider.PubsubAdapter,
 ) func(do.Injector) {
 	return do.Package(
 		// Inject from parameters

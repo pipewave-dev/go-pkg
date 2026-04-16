@@ -37,7 +37,7 @@ func (p *pubsubMessage) Publish() aerror.AError {
 		return nil
 	} else {
 		for _, c := range p.targetContainers {
-			if c == p.di.c.Env().ContainerID {
+			if c == p.di.c.Env().Info.ContainerID {
 				slog.WarnContext(p.context, "Publishing to the same container, consider using local broadcast instead")
 			}
 			channel := channelName(c)

@@ -31,7 +31,7 @@ func (f *findUserConn) findThenAction() aerror.AError {
 
 	userConns := f.connections.GetAllUserConn(f.userID)
 	shouldHandleLocally := len(userConns) > 0
-	localContainerID := f.c.Env().ContainerID
+	localContainerID := f.c.Env().Info.ContainerID
 
 	containerIDs := make([]string, 0, len(actConns))
 	seen := make(map[string]struct{}, len(actConns))
@@ -149,7 +149,7 @@ func (f *findMultiUserConn) findThenAction() aerror.AError {
 			continue
 		}
 		seen[conn.HolderID] = struct{}{}
-		if conn.HolderID != "" && conn.HolderID != f.c.Env().ContainerID {
+		if conn.HolderID != "" && conn.HolderID != f.c.Env().Info.ContainerID {
 			containerIDs = append(containerIDs, conn.HolderID)
 		}
 	}

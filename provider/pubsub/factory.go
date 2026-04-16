@@ -10,8 +10,7 @@ import (
 )
 
 type (
-	PubsubFactory   = func(c configprovider.ConfigStore, cleanupTask fncollector.CleanupTask) pubsub.Adapter
-	PubsubDIFactory = func(i do.Injector) (pubsub.Adapter, error)
+	PubsubAdapter = func(i do.Injector) (pubsub.Adapter, error)
 )
 
 func PubsubValkeyDI(i do.Injector) (pubsub.Adapter, error) {
@@ -27,7 +26,7 @@ func PubsubValkey(c configprovider.ConfigStore, cleanupTask fncollector.CleanupT
 		ValkeyEndpoint: env.Valkey.PrimaryAddress,
 		Password:       env.Valkey.Password,
 		DB:             env.Valkey.DatabaseIdx,
-		Prefix:         constants.AppNameShort + env.Env,
+		Prefix:         constants.AppNameShort + env.Info.Env,
 	})
 
 	// Register cleanup task

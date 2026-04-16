@@ -12,7 +12,7 @@ func NewDI(i do.Injector) (mm.MiddlewareProvider, error) {
 	ins := mm.NewMiddlewareProvider(
 		&mm.MWConfig{
 			IgnoreAccessLogPath: nil,
-			TraceIDHeader:       config.TraceIDHeader,
+			TraceIDHeader:       config.ExtractHeader.TraceIDHeader,
 		},
 	)
 

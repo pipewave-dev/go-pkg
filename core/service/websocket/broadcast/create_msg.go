@@ -220,7 +220,7 @@ func (f *_f) SendToAll(ctx context.Context, payload SendToAllParams) *pubsubMess
 }
 
 func startSubscriber(hdl PubsubHandler, di *broadcastDI) {
-	containerChannel := channelName(di.c.Env().ContainerID)
+	containerChannel := channelName(di.c.Env().Info.ContainerID)
 	broadcastChannel := channelName(broadcastChannel)
 	t := &diTmp{
 		hdl: hdl,

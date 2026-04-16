@@ -10,8 +10,7 @@ import (
 )
 
 type (
-	QueueFactory   = func(c configprovider.ConfigStore, cleanupTask fncollector.CleanupTask) queue.Adapter
-	QueueDIFactory = func(i do.Injector) (queue.Adapter, error)
+	QueueAdapter = func(i do.Injector) (queue.Adapter, error)
 )
 
 func QueueValkeyDI(i do.Injector) (queue.Adapter, error) {
@@ -27,7 +26,7 @@ func QueueValkey(c configprovider.ConfigStore, cleanupTask fncollector.CleanupTa
 		ValkeyEndpoint: env.Valkey.PrimaryAddress,
 		Password:       env.Valkey.Password,
 		DB:             env.Valkey.DatabaseIdx,
-		Prefix:         constants.AppNameShort + env.Env,
+		Prefix:         constants.AppNameShort + env.Info.Env,
 	})
 
 	// Register cleanup task
