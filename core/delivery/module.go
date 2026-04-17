@@ -7,7 +7,7 @@ import (
 
 	business "github.com/pipewave-dev/go-pkg/core/service/business"
 	wsSv "github.com/pipewave-dev/go-pkg/core/service/websocket"
-	"github.com/pipewave-dev/go-pkg/sdk/types"
+	"github.com/pipewave-dev/go-pkg/export/types"
 	"github.com/pipewave-dev/go-pkg/shared/aerror"
 )
 

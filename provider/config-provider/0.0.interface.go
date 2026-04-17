@@ -1,6 +1,9 @@
 package configprovider
 
-import types "github.com/pipewave-dev/go-pkg/sdk/types"
+import (
+	types "github.com/pipewave-dev/go-pkg/export/types"
+	"github.com/pipewave-dev/go-pkg/global/constants"
+)
 
 type globalEnvT struct {
 	types.EnvType
@@ -10,7 +13,11 @@ type globalEnvT struct {
 
 func (g *globalEnvT) LoadDefault() {
 	g.EnvType.LoadDefault()
-	g.Version = "v0.1.0"
+	g.Version = constants.Version
+}
+
+func (g *globalEnvT) Validate() {
+	g.EnvType.Validate()
 }
 
 // ConfigStore provides access to application configuration

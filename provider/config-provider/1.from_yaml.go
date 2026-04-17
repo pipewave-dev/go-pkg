@@ -1,8 +1,8 @@
 package configprovider
 
 import (
+	types "github.com/pipewave-dev/go-pkg/export/types"
 	koanfpvd "github.com/pipewave-dev/go-pkg/pkg/koanf"
-	types "github.com/pipewave-dev/go-pkg/sdk/types"
 )
 
 // FromYaml creates a new ConfigStore instance by loading configuration from YAML files
@@ -47,8 +47,6 @@ func FromYaml(yamlFiles []string) ConfigStore {
 	k.Unmarshall(&input)
 
 	// Load default values and validate
-	input.LoadDefault()
-	input.Validate()
 
 	env := globalEnvT{
 		EnvType: input,

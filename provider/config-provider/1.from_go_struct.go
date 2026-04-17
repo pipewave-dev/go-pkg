@@ -1,6 +1,6 @@
 package configprovider
 
-import types "github.com/pipewave-dev/go-pkg/sdk/types"
+import types "github.com/pipewave-dev/go-pkg/export/types"
 
 func FromGoStruct(input types.EnvType) ConfigStore {
 	env := globalEnvT{

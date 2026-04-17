@@ -6,8 +6,10 @@ import (
 
 type MessageType string
 
-var MessageTypeHeartbeat = MessageType([]byte{202}) // heartbeat
-var MessageTypeAck = MessageType("__ack__")
+var (
+	MessageTypeHeartbeat = MessageType([]byte{202}) // heartbeat
+	MessageTypeAck       = MessageType([]byte{203})
+)
 
 type WebsocketResponse struct {
 	Id           string      `msgpack:"i,omitempty"`
