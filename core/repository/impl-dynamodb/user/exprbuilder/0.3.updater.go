@@ -10,6 +10,7 @@ import (
 	voUnixTime "github.com/pipewave-dev/go-pkg/core/domain/value-object/unixtime"
 	configprovider "github.com/pipewave-dev/go-pkg/provider/config-provider"
 	"github.com/pipewave-dev/go-pkg/shared/aerror"
+	repohelper "github.com/pipewave-dev/go-pkg/shared/utils/repo-helper"
 	"github.com/samber/lo"
 )
 
@@ -35,8 +36,9 @@ func (updater *UserUpdater) UpdateLastHeartbeat(ctx context.Context, ddbClient *
 		Set(
 			expression.Name(FieldLastHeartbeat),
 			expression.Value(voUnixTime.UnixMilliTime(params.LastHeartbeatAt)))
+	cond := expression.Name(FieldID).AttributeExists()
 
-	expr, err := expression.NewBuilder().WithUpdate(update).Build()
+	expr, err := expression.NewBuilder().WithUpdate(update).WithCondition(cond).Build()
 	if err != nil {
 		return aerror.New(ctx, aerror.ErrUnexpectedDynamoDB, err)
 	}
@@ -47,12 +49,16 @@ func (updater *UserUpdater) UpdateLastHeartbeat(ctx context.Context, ddbClient *
 		TableName:                 lo.ToPtr(updater.ConfigStore.Env().DynamoDB.Tables.User),
 		Key:                       key,
 		UpdateExpression:          expr.Update(),
+		ConditionExpression:       expr.Condition(),
 		ExpressionAttributeNames:  expr.Names(),
 		ExpressionAttributeValues: expr.Values(),
 	}
 
 	_, err = ddbClient.UpdateItem(ctx, updateItemParams)
 	if err != nil {
+		if repohelper.IsConditionalCheckFailedException(err) {
+			return nil
+		}
 		return aerror.New(ctx, aerror.ErrUnexpectedDynamoDB, err)
 	}
 

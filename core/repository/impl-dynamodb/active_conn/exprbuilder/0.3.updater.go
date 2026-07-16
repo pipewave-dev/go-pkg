@@ -13,6 +13,7 @@ import (
 	"github.com/pipewave-dev/go-pkg/global/constants"
 	configprovider "github.com/pipewave-dev/go-pkg/provider/config-provider"
 	"github.com/pipewave-dev/go-pkg/shared/aerror"
+	repohelper "github.com/pipewave-dev/go-pkg/shared/utils/repo-helper"
 	"github.com/samber/lo"
 )
 
@@ -39,7 +40,9 @@ func (updater *ActiveConnectionUpdater) buildUpdateHeartbeatQuery(params UpdateL
 		Set(expression.Name(FieldLastHeartbeat), expression.Value(voUnixTime.UnixMilliTime(now))).
 		Set(expression.Name(FieldTTL), expression.Value(voUnixTime.UnixMilliTime(ttl)))
 
-	expr, err := expression.NewBuilder().WithUpdate(update).Build()
+	cond := expression.Name(FieldUserID).AttributeExists()
+
+	expr, err := expression.NewBuilder().WithUpdate(update).WithCondition(cond).Build()
 	if err != nil {
 		msg := fmt.Sprintf("*ActiveConnectionUpdater build expression error: %v", err)
 		panic(msg)
@@ -50,6 +53,7 @@ func (updater *ActiveConnectionUpdater) buildUpdateHeartbeatQuery(params UpdateL
 		TableName:                 lo.ToPtr(updater.ConfigStore.Env().DynamoDB.Tables.ActiveConnection),
 		Key:                       key,
 		UpdateExpression:          expr.Update(),
+		ConditionExpression:       expr.Condition(),
 		ExpressionAttributeNames:  expr.Names(),
 		ExpressionAttributeValues: expr.Values(),
 	}
@@ -74,8 +78,9 @@ func (updater *ActiveConnectionUpdater) UpdateStatus(ctx context.Context, ddbCli
 	}
 
 	update := expression.Set(expression.Name(FieldStatus), expression.Value(params.Status))
+	cond := expression.Name(FieldUserID).AttributeExists()
 
-	expr, err := expression.NewBuilder().WithUpdate(update).Build()
+	expr, err := expression.NewBuilder().WithUpdate(update).WithCondition(cond).Build()
 	if err != nil {
 		msg := fmt.Sprintf("*ActiveConnectionUpdater.UpdateStatus build expression error: %v", err)
 		panic(msg)
@@ -86,12 +91,16 @@ func (updater *ActiveConnectionUpdater) UpdateStatus(ctx context.Context, ddbCli
 		TableName:                 lo.ToPtr(updater.ConfigStore.Env().DynamoDB.Tables.ActiveConnection),
 		Key:                       key,
 		UpdateExpression:          expr.Update(),
+		ConditionExpression:       expr.Condition(),
 		ExpressionAttributeNames:  expr.Names(),
 		ExpressionAttributeValues: expr.Values(),
 	}
 
 	_, err2 := ddbClient.UpdateItem(ctx, input)
 	if err2 != nil {
+		if repohelper.IsConditionalCheckFailedException(err2) {
+			return nil
+		}
 		return aerror.New(ctx, aerror.ErrUnexpectedDynamoDB, err2)
 	}
 
@@ -105,6 +114,9 @@ func (updater *ActiveConnectionUpdater) UpdateLastHeartbeat(ctx context.Context,
 
 	_, err := ddbClient.UpdateItem(ctx, updateInput)
 	if err != nil {
+		if repohelper.IsConditionalCheckFailedException(err) {
+			return nil
+		}
 		return aerror.New(ctx, aerror.ErrUnexpectedDynamoDB, err)
 	}
 
@@ -125,8 +137,9 @@ func (updater *ActiveConnectionUpdater) UpdateStatusTransferring(ctx context.Con
 	update := expression.
 		Set(expression.Name(FieldStatus), expression.Value(voWs.WsStatusTransferring)).
 		Set(expression.Name(FieldHolderID), expression.Value(""))
+	cond := expression.Name(FieldUserID).AttributeExists()
 
-	expr, err := expression.NewBuilder().WithUpdate(update).Build()
+	expr, err := expression.NewBuilder().WithUpdate(update).WithCondition(cond).Build()
 	if err != nil {
 		panic(fmt.Sprintf("*ActiveConnectionUpdater.UpdateStatusTransferring build expression error: %v", err))
 	}
@@ -136,12 +149,16 @@ func (updater *ActiveConnectionUpdater) UpdateStatusTransferring(ctx context.Con
 		TableName:                 lo.ToPtr(updater.ConfigStore.Env().DynamoDB.Tables.ActiveConnection),
 		Key:                       key,
 		UpdateExpression:          expr.Update(),
+		ConditionExpression:       expr.Condition(),
 		ExpressionAttributeNames:  expr.Names(),
 		ExpressionAttributeValues: expr.Values(),
 	}
 
 	_, err2 := ddbClient.UpdateItem(ctx, input)
 	if err2 != nil {
+		if repohelper.IsConditionalCheckFailedException(err2) {
+			return nil
+		}
 		return aerror.New(ctx, aerror.ErrUnexpectedDynamoDB, err2)
 	}
 	return nil
