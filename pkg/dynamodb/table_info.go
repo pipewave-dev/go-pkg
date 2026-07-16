@@ -3,7 +3,6 @@ package dynamodb
 import (
 	"bytes"
 	"context"
-	"fmt"
 	"log/slog"
 
 	"github.com/goccy/go-json"
@@ -25,17 +24,17 @@ func (ddb *dynamodbClient) TableInfo(
 			slog.Any("err", err))
 	}
 	detail := output.Table
-	fmt.Printf("TableInfo: %s", tableName)
-	prettyJSON(detail)
+	slog.InfoContext(ctx, "(*dynamodbClient).TableInfo",
+		slog.String("tableName", tableName),
+		slog.String("detail", prettyJSON(detail)))
 	return nil
 }
 
-func prettyJSON(body any) {
+func prettyJSON(body any) string {
 	var prettyJSON bytes.Buffer
 	b, _ := json.Marshal(body)
-	err := json.Indent(&prettyJSON, b, "", "\t")
-	if err != nil {
-		return
+	if err := json.Indent(&prettyJSON, b, "", "\t"); err != nil {
+		return ""
 	}
-	fmt.Println(prettyJSON.String())
+	return prettyJSON.String()
 }

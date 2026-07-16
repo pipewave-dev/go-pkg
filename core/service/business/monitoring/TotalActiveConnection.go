@@ -21,7 +21,7 @@ func (m *monitoringService) TotalActiveConnection(ctx context.Context) (total in
 		return 0, aErr
 	}
 
-	cacheprovider.CacheThis(ctx, m.cache, 2*time.Minute,
+	cacheprovider.CacheThis(ctx, m.cache, 5*time.Second,
 		"total_active_connection",
 		func(ctx context.Context) (int, aerror.AError) {
 			total64, aErr := m.activeConnRepo.CountTotalActiveConnections(ctx)

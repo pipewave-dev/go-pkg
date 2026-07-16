@@ -2,7 +2,7 @@
 
 - **Mức độ:** 🔴 Critical
 - **Vùng:** Concurrency / WebSocket
-- **Trạng thái:** ⬜ Đã xử lý
+- **Trạng thái:** ✅ Đã xử lý
 - **File liên quan:**
     - [core/service/websocket/rate-limiter/rate_limiter.go](../core/service/websocket/rate-limiter/rate_limiter.go) (`Get`, `New`)
     - [core/service/websocket/client-msg-handler/0_main_handler.go](../core/service/websocket/client-msg-handler/0_main_handler.go) (call site `rateLimiter.Get`)

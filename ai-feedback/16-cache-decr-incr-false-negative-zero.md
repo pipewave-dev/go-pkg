@@ -2,11 +2,11 @@
 
 - **Mức độ:** 🟡 Medium
 - **Vùng:** Cache / Valkey
-- **Trạng thái:** ⬜ Chưa xử lý
+- **Trạng thái:** ✅ Đã xử lý
 - **File liên quan:**
-  - [pkg/cache/adapters/valkey/decr.go](../pkg/cache/adapters/valkey/decr.go) (dòng ~11)
-  - [pkg/cache/adapters/valkey/incr.go](../pkg/cache/adapters/valkey/incr.go)
-  - [pkg/cache/cache_interface.go](../pkg/cache/cache_interface.go) (`Incr`/`Decr`)
+    - [pkg/cache/adapters/valkey/decr.go](../pkg/cache/adapters/valkey/decr.go) (dòng ~11)
+    - [pkg/cache/adapters/valkey/incr.go](../pkg/cache/adapters/valkey/incr.go)
+    - [pkg/cache/cache_interface.go](../pkg/cache/cache_interface.go) (`Incr`/`Decr`)
 
 ## Mô tả
 
@@ -21,6 +21,7 @@ Với reply số của Redis/Valkey, `valkey-go`'s `AsBool()` cài đặt `val =
 ## Đề xuất sửa
 
 Dùng `.AsInt64()` và kiểm `err`:
+
 ```go
 n, err := c.Do(ctx, c.B().Decr().Key(key).Build()).AsInt64()
 if err != nil {
@@ -30,6 +31,3 @@ return n, true // trả về giá trị count, không đánh đồng 0 với l�
 ```
 
 Điều chỉnh chữ ký `Incr`/`Decr` để trả về `(int64, error)` hoặc `(int64, bool)` thay vì chỉ `bool`.
-
-## Ghi chú review
-> _(chỗ trống để bạn ghi quyết định)_

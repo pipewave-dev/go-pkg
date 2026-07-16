@@ -2,10 +2,10 @@
 
 - **Mức độ:** 🟠 High
 - **Vùng:** Shared / context
-- **Trạng thái:** ⬜ Chưa xử lý
+- **Trạng thái:** ✅ Đã sửa
 - **File liên quan:**
-  - [shared/actx/actx.go](../shared/actx/actx.go) (field `m sync.Mutex` trong `alterData`)
-  - [shared/actx/auth.go](../shared/actx/auth.go), [shared/actx/trace-id.go](../shared/actx/trace-id.go), [shared/actx/user-ip.go](../shared/actx/user-ip.go), [shared/actx/user-agent.go](../shared/actx/user-agent.go), [shared/actx/broadcast.go](../shared/actx/broadcast.go)
+    - [shared/actx/actx.go](../shared/actx/actx.go) (field `m sync.Mutex` trong `alterData`)
+    - [shared/actx/auth.go](../shared/actx/auth.go), [shared/actx/trace-id.go](../shared/actx/trace-id.go), [shared/actx/user-ip.go](../shared/actx/user-ip.go), [shared/actx/user-agent.go](../shared/actx/user-agent.go), [shared/actx/broadcast.go](../shared/actx/broadcast.go)
 
 ## Mô tả
 
@@ -31,6 +31,3 @@ func (a *aContext) GetWebsocketAuth() voAuth.WebsocketAuth {
 ```
 
 Áp dụng nhất quán cho toàn bộ setter/getter trong package. Cân nhắc `sync.RWMutex` nếu đọc nhiều hơn ghi.
-
-## Ghi chú review
-> _(chỗ trống để bạn ghi quyết định)_

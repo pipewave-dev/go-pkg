@@ -2,10 +2,10 @@
 
 - **Mức độ:** 🟡 Medium
 - **Vùng:** Messaging / pending-message
-- **Trạng thái:** ⬜ Chưa xử lý
+- **Trạng thái:** ✅ Đã xử lý
 - **File liên quan:**
-  - [core/service/websocket/msg-hub/service.go](../core/service/websocket/msg-hub/service.go) (`Consume`, dòng 142-157; `DeleteAllPendingMessage`)
-  - [core/service/websocket/mediator/delivery/0.new.go](../core/service/websocket/mediator/delivery/0.new.go) (gọi `Consume` lúc `onNew`, dòng ~195)
+    - [core/service/websocket/msg-hub/service.go](../core/service/websocket/msg-hub/service.go) (`Consume`, dòng 142-157; `DeleteAllPendingMessage`)
+    - [core/service/websocket/mediator/delivery/0.new.go](../core/service/websocket/mediator/delivery/0.new.go) (gọi `Consume` lúc `onNew`, dòng ~195)
 
 ## Mô tả
 
@@ -29,4 +29,6 @@ Cửa sổ hẹp nhưng có thật trong luồng reconnect nhiều container.
 - Hoặc chấp nhận at-least-once và để client dedup theo message ID (đã có `deduplicator`), nhưng cần đảm bảo không **mất** (hiện là mất, không phải trùng).
 
 ## Ghi chú review
-> _(chỗ trống để bạn ghi quyết định)_
+
+- msgHub là nơi lưu các message vào buffer khi 1 websocket connection có header `X-Pipewave-InstanceID` bị vấn đề. Khi Websocket reconnect thì message từ msgHub sẽ được gửi về lại websocket connection
+    - do đó `instanceID` trong các method trên là unique, và getAll rồi deleteAll có thể đảm bảo atomic (nếu code không chạy song song)

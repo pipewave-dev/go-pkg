@@ -2,10 +2,10 @@
 
 - **Mức độ:** 🟡 Medium
 - **Vùng:** Otel / observability
-- **Trạng thái:** ⬜ Chưa xử lý
+- **Trạng thái:** ✅ Đã xử lý
 - **File liên quan:**
-  - [provider/otel-provider/otel.go](../provider/otel-provider/otel.go) (`NewDI`, dòng 15-40)
-  - [pkg/otel/connect.go](../pkg/otel/connect.go) (`newTraceProvider`, switch exporter 76-131)
+    - [provider/otel-provider/otel.go](../provider/otel-provider/otel.go) (`NewDI`, dòng 15-40)
+    - [pkg/otel/connect.go](../pkg/otel/connect.go) (`newTraceProvider`, switch exporter 76-131)
 
 ## Mô tả
 
@@ -20,6 +20,3 @@
 - Kiểm `env.Otel.Enabled` trong `NewDI`: nếu tắt → trả no-op tracer provider.
 - Thêm `default:` trong switch exporter: fallback `"discard"` hoặc trả lỗi rõ ràng.
 - Bổ sung `loadDefault()` cho `OtelT` (mặc định `ExporterType: "discard"`).
-
-## Ghi chú review
-> _(chỗ trống để bạn ghi quyết định)_

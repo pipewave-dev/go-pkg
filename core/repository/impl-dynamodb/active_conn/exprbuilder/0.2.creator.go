@@ -33,7 +33,8 @@ type CreateParams struct {
 func (creator *ActiveConnectionCreator) Create(ctx context.Context, ddbClient *dynamodb.Client, params CreateParams) (*entities.ActiveConnection, aerror.AError) {
 	now := time.Now()
 	nowMilli := voUnixTime.UnixMilliTime(now)
-	ttlMilli := voUnixTime.UnixMilliTime(now.Add(2*constants.GlobalHeartbeatRateDuration + time.Second))
+	ttlAt := now.Add(2*constants.GlobalHeartbeatRateDuration + time.Second)
+	ttlMilli := voUnixTime.UnixMilliTime(ttlAt)
 
 	key, err := attributevalue.MarshalMap(struct {
 		UserID     string
@@ -53,7 +54,8 @@ func (creator *ActiveConnectionCreator) Create(ctx context.Context, ddbClient *d
 		Set(expression.Name(FieldStatus), expression.Value(voWs.WsStatusConnected)).
 		Set(expression.Name(FieldConnectedAt), expression.IfNotExists(expression.Name(FieldConnectedAt), expression.Value(nowMilli))).
 		Set(expression.Name(FieldLastHeartbeat), expression.Value(nowMilli)).
-		Set(expression.Name(FieldTTL), expression.Value(ttlMilli))
+		Set(expression.Name(FieldTTL), expression.Value(ttlMilli)).
+		Set(expression.Name(FieldTTLSeconds), expression.Value(ttlAt.Unix()))
 
 	expr, errB := expression.NewBuilder().WithUpdate(update).Build()
 	if errB != nil {

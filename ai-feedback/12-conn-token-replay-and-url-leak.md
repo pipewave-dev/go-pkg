@@ -2,12 +2,12 @@
 
 - **Mức độ:** 🟡 Medium
 - **Vùng:** Security / token
-- **Trạng thái:** ⬜ Chưa xử lý
+- **Trạng thái:** ✅ Đã xử lý
 - **File liên quan:**
-  - [core/service/websocket/mediator/delivery/2.gobwas_endpoint.go](../core/service/websocket/mediator/delivery/2.gobwas_endpoint.go) (đọc `?tk=`)
-  - [core/service/websocket/exchange-token/exchange-token.go](../core/service/websocket/exchange-token/exchange-token.go) (`ScanConnToken`)
-  - [core/service/websocket/exchange-token/0.0.new.go](../core/service/websocket/exchange-token/0.0.new.go) (`tokenTTL = 10`)
-  - [pkg/mux-middleware/log_formater.go](../pkg/mux-middleware/log_formater.go) (log `RequestURI`)
+    - [core/service/websocket/mediator/delivery/2.gobwas_endpoint.go](../core/service/websocket/mediator/delivery/2.gobwas_endpoint.go) (đọc `?tk=`)
+    - [core/service/websocket/exchange-token/exchange-token.go](../core/service/websocket/exchange-token/exchange-token.go) (`ScanConnToken`)
+    - [core/service/websocket/exchange-token/0.0.new.go](../core/service/websocket/exchange-token/0.0.new.go) (`tokenTTL = 10`)
+    - [pkg/mux-middleware/log_formater.go](../pkg/mux-middleware/log_formater.go) (log `RequestURI`)
 
 ## Mô tả
 
@@ -25,4 +25,5 @@ TTL 10s đã giảm nhẹ, nhưng single-use là chuẩn.
 Liên quan [#06](06-anonymous-ratelimit-session-bypass.md).
 
 ## Ghi chú review
-> _(chỗ trống để bạn ghi quyết định)_
+
+- chọn phương án `Single-use`

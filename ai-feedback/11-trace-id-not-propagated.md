@@ -2,15 +2,16 @@
 
 - **Mức độ:** 🟡 Medium
 - **Vùng:** Observability / middleware
-- **Trạng thái:** ⬜ Chưa xử lý
+- **Trạng thái:** ✅ Đã xử lý
 - **File liên quan:**
-  - [pkg/mux-middleware/request_id.go](../pkg/mux-middleware/request_id.go) (`RequestID`)
-  - [core/delivery/module/2.2.middleware.go](../core/delivery/module/2.2.middleware.go) (callback dòng 15-19, 34-38)
-  - [shared/actx/actx.go](../shared/actx/actx.go) (`From`)
+    - [pkg/mux-middleware/request_id.go](../pkg/mux-middleware/request_id.go) (`RequestID`)
+    - [core/delivery/module/2.2.middleware.go](../core/delivery/module/2.2.middleware.go) (callback dòng 15-19, 34-38)
+    - [shared/actx/actx.go](../shared/actx/actx.go) (`From`)
 
 ## Mô tả
 
 Middleware dùng ctx trả về từ callback:
+
 ```go
 ctx := r.Context()
 if callbackFn != nil { ctx = callbackFn(ctx, rid) }
@@ -18,6 +19,7 @@ next.ServeHTTP(w, r.WithContext(ctx))
 ```
 
 Nhưng callback lại trả về `ctx` **gốc**:
+
 ```go
 m.mw.RequestID(func(ctx context.Context, rId string) context.Context {
     aCtx := actx.From(ctx)   // nếu ctx chưa có alterData: tạo alterData mới + ctx MỚI mang value
@@ -31,6 +33,7 @@ Khi `alterData` chưa tồn tại, `actx.From` tạo alterData mới và gắn v
 ## Đề xuất sửa
 
 Trả về context mang alterData (`aCtx` là `context.Context` nhờ embedding):
+
 ```go
 m.mw.RequestID(func(ctx context.Context, rId string) context.Context {
     aCtx := actx.From(ctx)
@@ -40,6 +43,3 @@ m.mw.RequestID(func(ctx context.Context, rId string) context.Context {
 ```
 
 Áp dụng cho cả `AllMiddilewares` và `WsMiddlewares`.
-
-## Ghi chú review
-> _(chỗ trống để bạn ghi quyết định)_

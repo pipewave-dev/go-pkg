@@ -2,10 +2,10 @@
 
 - **Mức độ:** 🟠 High
 - **Vùng:** Pubsub / messaging
-- **Trạng thái:** ⬜ Chưa xử lý
+- **Trạng thái:** ✅ Đã xử lý
 - **File liên quan:**
-  - [pkg/pubsub/adapters/valkey/instance.go](../pkg/pubsub/adapters/valkey/instance.go) (`Subscribe`, ~dòng 50-78)
-  - [pkg/pubsub/adapters/redis/instance.go](../pkg/pubsub/adapters/redis/instance.go) (bản redis tương tự)
+    - [pkg/pubsub/adapters/valkey/instance.go](../pkg/pubsub/adapters/valkey/instance.go) (`Subscribe`, ~dòng 50-78)
+    - [pkg/pubsub/adapters/redis/instance.go](../pkg/pubsub/adapters/redis/instance.go) (bản redis tương tự)
 
 ## Mô tả
 
@@ -26,6 +26,7 @@ Nếu `Receive` trả lỗi vì lý do khác context-cancel (blip mạng, server
 ## Đề xuất sửa
 
 - Bọc `Receive` trong vòng retry/backoff cho tới khi `subCtx` bị hủy:
+
 ```go
 go func() {
     for subCtx.Err() == nil {
@@ -36,8 +37,11 @@ go func() {
     }
 }()
 ```
+
 - Hoặc phát tín hiệu "subscription chết" (callback/health) để caller chủ động resubscribe.
 - Cân nhắc cảnh báo/metric khi retry để không im lặng.
 
 ## Ghi chú review
-> _(chỗ trống để bạn ghi quyết định)_
+
+- chọn phương án hybrid, cố gắng retry 3 lần có backoff, sau đó sẽ `phát tín hiệu "subscription chết" (callback/health) để caller chủ động resubscribe.`, nhận config CallbackFn để trigger function khác.
+    - Function được call khi `subscription chết` sẽ là gửi SIGTERM đến server để restart lại từ đầu

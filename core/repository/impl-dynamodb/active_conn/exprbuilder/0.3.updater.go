@@ -38,7 +38,8 @@ func (updater *ActiveConnectionUpdater) buildUpdateHeartbeatQuery(params UpdateL
 
 	update := expression.
 		Set(expression.Name(FieldLastHeartbeat), expression.Value(voUnixTime.UnixMilliTime(now))).
-		Set(expression.Name(FieldTTL), expression.Value(voUnixTime.UnixMilliTime(ttl)))
+		Set(expression.Name(FieldTTL), expression.Value(voUnixTime.UnixMilliTime(ttl))).
+		Set(expression.Name(FieldTTLSeconds), expression.Value(ttl.Unix()))
 
 	cond := expression.Name(FieldUserID).AttributeExists()
 

@@ -1,7 +1,8 @@
 package connectionmanager
 
 import (
-	"fmt"
+	"context"
+	"log/slog"
 	"sync"
 
 	voAuth "github.com/pipewave-dev/go-pkg/core/domain/value-object/auth"
@@ -132,10 +133,17 @@ func (m *connectionMap) GetAllConnections() []wsSv.WebsocketConn {
 }
 
 func (m *connectionMap) PrintStats() {
-	fmt.Println("=== ConnectionManager Stats ===")
-	fmt.Printf("\tUser: %d\n", len(m.userConn))
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	perUser := make([]slog.Attr, 0, len(m.userConn))
 	for userID, conns := range m.userConn {
-		fmt.Printf("\tUserID: %s, Connections: %d\n", userID, len(conns))
+		perUser = append(perUser, slog.Int(userID, len(conns)))
 	}
-	fmt.Printf("\tTotal Anonymous Connections: %d\n", len(m.anonymousConn))
+
+	slog.LogAttrs(context.Background(), slog.LevelInfo, "connection manager stats",
+		slog.Int("user_count", len(m.userConn)),
+		slog.Int("anonymous_connection_count", len(m.anonymousConn)),
+		slog.Attr{Key: "connections_per_user", Value: slog.GroupValue(perUser...)},
+	)
 }

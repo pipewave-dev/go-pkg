@@ -2,7 +2,7 @@
 
 - **Mức độ:** 🟠 High
 - **Vùng:** Concurrency / worker-pool
-- **Trạng thái:** ⬜ Chưa xử lý
+- **Trạng thái:** ✅ Đã sửa
 - **File liên quan:**
     - [pkg/worker-pool/1_worker_pool.go](../pkg/worker-pool/1_worker_pool.go) (`Submit`, `Close`)
     - [provider/worker-pool-provider/worker_pool.go](../provider/worker-pool-provider/worker_pool.go) (đăng ký shutdown priority)
@@ -45,3 +45,9 @@ func (p *WorkerPool) Close() {
 
 - Chốt phương án: chuyển `WorkerPool.Close()` xuống priority muộn hơn bước đóng connection
     - Đảm bảo những nơi Submit task vào WorkerPool phải ngừng Submit, sau đó mới `WorkerPool.Close()`, worker pool sẽ chờ khi nào hết task
+
+## Đã sửa
+
+- `pkg/worker-pool/1_worker_pool.go` + `type.go`: `Submit` giờ non-blocking (`select` + `default`), đếm `dropped` (expose qua `Stat().DroppedTasks` → `WorkerPoolSummary.Dropped`), và dùng `sync.RWMutex` (`closeMu`) + cờ `closed` để loại bỏ hoàn toàn race giữa `Submit` và `Close`: `Close()` chỉ `close(taskQueue)` sau khi mọi lời gọi `Submit` đang chạy đã trả về (giữ `RLock`), nên không bao giờ còn gửi vào channel đã đóng → hết panic dù thứ tự shutdown có bị vi phạm. Có test `pkg/worker-pool/1_worker_pool_test.go` (bao gồm test đua concurrent Submit + Close dưới `-race`).
+- `provider/worker-pool-provider/worker_pool.go`: priority đăng ký `Close` đổi từ `FnPriorityEarly` (-100) sang `FnPriorityLate` (100), chạy sau `mediatorSvc.Shutdown`/`msgHubSvc.Shutdown` (`FnPriorityNormal`) — giảm số task bị drop không cần thiết từ các connection đang đóng dở, đúng phương án đã chốt ở trên.
+- `core/service/websocket/server/gobwas/1_server.go` (`handleClientData`): dùng giá trị trả về của `Submit` — nếu bị drop thì log warning và tự `resumeRead` (trong goroutine riêng, tránh deadlock Resume-trong-callback của netpoll) để không làm connection bị treo vĩnh viễn.

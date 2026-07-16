@@ -51,6 +51,10 @@ func (d *serverDelivery) GobwasEndpoint() http.HandlerFunc {
 
 		// 4. Handle new connection (register, persist to DynamoDB)
 		if err := d.onNewStuff.Do(wsConn); err != nil {
+			// wsConn was already registered with netpoll by NewConnection above;
+			// close it here so the fd isn't leaked (it never reaches
+			// ConnectionManager, so nothing else will clean it up).
+			wsConn.Close()
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}

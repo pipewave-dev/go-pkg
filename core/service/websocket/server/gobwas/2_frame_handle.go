@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/binary"
 	"fmt"
+	"log/slog"
 	"time"
 
 	"github.com/gobwas/ws"
@@ -77,52 +78,47 @@ func (s *NetpollServer) handleFrame(client *GobwasConnection, frame ws.Frame) {
 
 // handleTextFrame processes a text message frame.
 func (s *NetpollServer) handleTextFrame(client *GobwasConnection, payload []byte, fin bool) error {
+	if !fin {
+		// Fragmentation is not supported: the Pipewave client SDKs never split
+		// messages across frames, so a fragmented frame means a non-standard
+		// client. Reject explicitly instead of silently treating the fragment
+		// as a complete message, which would corrupt or drop data.
+		return fmt.Errorf("fragmented text messages are not supported")
+	}
+
 	aCtx := actx.New()
 	aCtx.SetWebsocketAuth(client.Auth())
 	aCtx.SetTraceID("textmsg" + fn.NewNanoID(18))
 
-	if fin {
-		// Complete text message
-		s.onTextMessage(aCtx, string(payload), client.auth, func(ctx context.Context, responsePayload []byte) error {
-			return s.send(ctx, client, responsePayload)
-		})
-	} else {
-		// Fragmented message - store fragment
-		// Future: Implement message fragmentation handling if needed
-		// For now, treat as complete message
-		s.onTextMessage(aCtx, string(payload), client.auth, func(ctx context.Context, responsePayload []byte) error {
-			return s.send(ctx, client, responsePayload)
-		})
-	}
+	s.onTextMessage(aCtx, string(payload), client.auth, func(ctx context.Context, responsePayload []byte) error {
+		return s.send(ctx, client, responsePayload)
+	})
 	return nil
 }
 
 // handleBinaryFrame processes a binary message frame.
 func (s *NetpollServer) handleBinaryFrame(client *GobwasConnection, payload []byte, fin bool) error {
+	if !fin {
+		// See handleTextFrame: fragmentation is not supported.
+		return fmt.Errorf("fragmented binary messages are not supported")
+	}
+
 	aCtx := actx.New()
 	aCtx.SetWebsocketAuth(client.Auth())
 	aCtx.SetTraceID("binmsg" + fn.NewNanoID(18))
 
-	if fin {
-		// Complete binary message
-		s.onBinMessage(aCtx, payload, client.auth, func(ctx context.Context, responsePayload []byte) error {
-			return s.send(ctx, client, responsePayload)
-		})
-	} else {
-		// Fragmented message - store fragment
-		// Future: Implement message fragmentation handling if needed
-		s.onBinMessage(aCtx, payload, client.auth, func(ctx context.Context, responsePayload []byte) error {
-			return s.send(ctx, client, responsePayload)
-		})
-	}
+	s.onBinMessage(aCtx, payload, client.auth, func(ctx context.Context, responsePayload []byte) error {
+		return s.send(ctx, client, responsePayload)
+	})
 	return nil
 }
 
 // handleContinuationFrame processes a continuation frame (part of a fragmented message).
-func (s *NetpollServer) handleContinuationFrame(_ *GobwasConnection, payload []byte, fin bool) error {
-	// Note: just log and continue. Pipewave client SDK (such as react) does not fragment messages
-	fmt.Printf("Received continuation frame, fin=%v, payload_len=%d\n", fin, len(payload))
-	return nil
+// Pipewave client SDKs (e.g. react) never fragment messages, so a continuation
+// frame means a non-standard client; reject it as a protocol error rather than
+// silently discarding it.
+func (s *NetpollServer) handleContinuationFrame(_ *GobwasConnection, _ []byte, _ bool) error {
+	return fmt.Errorf("fragmented messages are not supported")
 }
 
 // handleCloseFrame processes a close frame.
@@ -178,7 +174,7 @@ func (s *NetpollServer) handlePongFrame(client *GobwasConnection, payload []byte
 
 // handleProtocolError sends a close frame with an error code and removes the client.
 func (s *NetpollServer) handleProtocolError(client *GobwasConnection, err error) {
-	fmt.Printf("Protocol error: %v\n", err)
+	slog.Warn("WebSocket protocol error", slog.Any("error", err))
 	if errWrite := s.writeCloseOnce(client, ws.StatusProtocolError, err.Error()); errWrite != nil {
 		_ = errWrite
 	}

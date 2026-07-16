@@ -2,14 +2,15 @@
 
 - **Mức độ:** 🟡 Medium (hiện chưa được gọi — latent)
 - **Vùng:** Repository / pkg dynamodb
-- **Trạng thái:** ⬜ Chưa xử lý
+- **Trạng thái:** ✅ Đã xử lý
 - **File liên quan:**
-  - [pkg/dynamodb/recursive_batch_get_item.go](../pkg/dynamodb/recursive_batch_get_item.go) (dòng 28-47)
-  - So sánh bản đúng: [pkg/dynamodb/recursive_batch_write_item.go](../pkg/dynamodb/recursive_batch_write_item.go) (dòng 25-32)
+    - [pkg/dynamodb/recursive_batch_get_item.go](../pkg/dynamodb/recursive_batch_get_item.go) (dòng 28-47)
+    - So sánh bản đúng: [pkg/dynamodb/recursive_batch_write_item.go](../pkg/dynamodb/recursive_batch_write_item.go) (dòng 25-32)
 
 ## Mô tả
 
 Khác với `RecursiveBatchWriteItem` (có `counter++` ngay sau check depth), `RecursiveBatchGetItem`:
+
 1. **Không** tăng `counter` → `if counter > depth { break }` không bao giờ đúng → tham số `depth` là dead code.
 2. Khi `output.Responses[tableName]` vắng (cả chunk bị throttle, không có gì trả về), code `continue` **trước** dòng `unprocessed = output.UnprocessedKeys` → `unprocessed` không được cập nhật → **retry y hệt request mãi mãi**, không backoff, không kiểm `ctx.Done()`.
 
@@ -22,4 +23,5 @@ Khác với `RecursiveBatchWriteItem` (có `counter++` ngay sau check depth), `R
 - Thêm kiểm `ctx.Done()` mỗi vòng + backoff, cho đồng bộ với bản write.
 
 ## Ghi chú review
-> _(chỗ trống để bạn ghi quyết định)_
+
+- Vì chưa dùng nên không chưa rõ usecase, đặt 1 biến const (cùng package) để cho phép max depth default là 3.

@@ -2,10 +2,10 @@
 
 - **Mức độ:** 🟠 High
 - **Vùng:** Security / middleware
-- **Trạng thái:** ⬜ Chưa xử lý
+- **Trạng thái:** ✅ Đã sửa
 - **File liên quan:**
-  - [core/delivery/module/2.1.mux.go](../core/delivery/module/2.1.mux.go) (`isAllowedOrigin`, `corsMiddleware`)
-  - [config.yaml](../config.yaml), [example-config.yaml](../example-config.yaml) (`REGEX_ORIGINS`)
+    - [core/delivery/module/2.1.mux.go](../core/delivery/module/2.1.mux.go) (`isAllowedOrigin`, `corsMiddleware`)
+    - [config.yaml](../config.yaml), [example-config.yaml](../example-config.yaml) (`REGEX_ORIGINS`)
 
 ## Mô tả
 
@@ -19,6 +19,7 @@ for _, pattern := range regexOrigins {
 `regexp.MatchString` khớp khi pattern xuất hiện ở **bất kỳ vị trí** trong chuỗi (không neo `^`/`$`). Ví dụ với pattern `https://.*\.example\.com` (như trong example-config), origin của attacker `https://x.example.com.attacker.com` vẫn **khớp** (chứa chuỗi con `https://x.example.com`) → middleware phản chiếu `Access-Control-Allow-Origin` cho origin attacker.
 
 ## Mức độ thực tế
+
 - Hiện **không** set `Access-Control-Allow-Credentials: true` → cookie không gửi kèm cross-origin, và `/gw` upgrade WebSocket không đi qua CORS. Nên đây thiên về **nới lỏng allowlist / defense-in-depth bị suy yếu** hơn là chiếm quyền trực tiếp.
 - Vẫn cần sửa: allowlist nên đúng như ý định cấu hình.
 
@@ -38,6 +39,3 @@ for _, re := range compiled {
     if re.MatchString(origin) { return true }
 }
 ```
-
-## Ghi chú review
-> _(chỗ trống để bạn ghi quyết định)_

@@ -9,7 +9,6 @@ import (
 	"log/slog"
 	"net"
 	"runtime"
-	"sync"
 	"time"
 
 	"github.com/gobwas/ws"
@@ -32,11 +31,8 @@ var (
 	_ wsSv.DrainableConn   = (*GobwasConnection)(nil)
 )
 
-var (
-	server *NetpollServer
-	once   sync.Once
-)
-
+// NewServer constructs a new NetpollServer. Lifecycle (single instance per
+// process) is managed by the DI container, not by this constructor.
 func NewServer(
 	c configprovider.ConfigStore,
 	workerPool *workerpool.WorkerPool,
@@ -47,32 +43,29 @@ func NewServer(
 	onWriteError wsSv.OnWriteErrorFn,
 	onClose wsSv.OnCloseStuffFn,
 ) *NetpollServer {
-	once.Do(func() {
-		// Create netpoll poller
-		poller, err := netpoll.New(&netpoll.Config{
-			OnWaitError: func(err error) {
-				log.Printf("Netpoll error: %v", err)
-			},
-		})
-		if err != nil {
-			panic(fmt.Errorf("failed to create netpoll: %w", err))
-		}
-
-		server = &NetpollServer{
-			c:          c,
-			poller:     poller,
-			healthy:    healthy,
-			stats:      &serverStats{StartTime: time.Now()},
-			workerPool: workerPool,
-
-			onTextMessage: onTextMessage,
-			onBinMessage:  onBinMessage,
-			onReadError:   onReadError,
-			onWriteError:  onWriteError,
-			onClose:       onClose,
-		}
+	// Create netpoll poller
+	poller, err := netpoll.New(&netpoll.Config{
+		OnWaitError: func(err error) {
+			log.Printf("Netpoll error: %v", err)
+		},
 	})
-	return server
+	if err != nil {
+		panic(fmt.Errorf("failed to create netpoll: %w", err))
+	}
+
+	return &NetpollServer{
+		c:          c,
+		poller:     poller,
+		healthy:    healthy,
+		stats:      &serverStats{StartTime: time.Now()},
+		workerPool: workerPool,
+
+		onTextMessage: onTextMessage,
+		onBinMessage:  onBinMessage,
+		onReadError:   onReadError,
+		onWriteError:  onWriteError,
+		onClose:       onClose,
+	}
 }
 
 // NewConnection registers a new connection with netpoll.
@@ -355,16 +348,19 @@ func (s *NetpollServer) PrintStats() {
 
 	uptime := time.Since(s.stats.StartTime)
 
-	fmt.Printf("=== NETPOLL SERVER STATS (Runtime: %v)\n", uptime.Round(time.Second))
-	fmt.Printf("\t Connections: %d active | %d total accepted | %d closed\n",
-		currentConns, totalAccepted, totalClosed)
-	fmt.Printf("\t Memory Usage:\n")
-	fmt.Printf("\t\t   - Allocated: %.2f MB\n", float64(m.Alloc)/1024/1024)
-	fmt.Printf("\t\t- System: %.2f MB\n", float64(m.Sys)/1024/1024)
-	fmt.Printf("\t\t- Stack: %.2f MB\n", float64(m.StackSys)/1024/1024)
-	if currentConns > 0 {
-		fmt.Printf(" \t\t- Per Connection: %.2f KB (vs ~8KB in standard)\n",
-			float64(m.Alloc)/float64(currentConns)/1024)
+	attrs := []slog.Attr{
+		slog.Duration("uptime", uptime.Round(time.Second)),
+		slog.Int64("connections_active", currentConns),
+		slog.Int64("connections_accepted_total", totalAccepted),
+		slog.Int64("connections_closed_total", totalClosed),
+		slog.Float64("memory_allocated_mb", float64(m.Alloc)/1024/1024),
+		slog.Float64("memory_system_mb", float64(m.Sys)/1024/1024),
+		slog.Float64("memory_stack_mb", float64(m.StackSys)/1024/1024),
+		slog.Uint64("gc_cycles", uint64(m.NumGC)),
 	}
-	fmt.Printf("\t\t- GC Cycles: %d\n", m.NumGC)
+	if currentConns > 0 {
+		attrs = append(attrs, slog.Float64("memory_per_connection_kb", float64(m.Alloc)/float64(currentConns)/1024))
+	}
+
+	slog.LogAttrs(context.Background(), slog.LevelInfo, "netpoll server stats", attrs...)
 }

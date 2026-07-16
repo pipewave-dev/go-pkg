@@ -2,10 +2,10 @@
 
 - **Mức độ:** 🟡 Medium
 - **Vùng:** Error handling
-- **Trạng thái:** ⬜ Chưa xử lý
+- **Trạng thái:** ✅ Đã xử lý
 - **File liên quan:**
-  - [core/delivery/module/3.get_service.go](../core/delivery/module/3.get_service.go) (`CleanUp`, dòng 95-108)
-  - [shared/aerror](../shared/aerror) (`Append`, `AMultiError`)
+    - [core/delivery/module/3.get_service.go](../core/delivery/module/3.get_service.go) (`CleanUp`, dòng 95-108)
+    - [shared/aerror](../shared/aerror) (`Append`, `AMultiError`)
 
 ## Mô tả
 
@@ -21,6 +21,7 @@ func (g *getServices) CleanUp(ctx context.Context) aerror.AError {
 ```
 
 Hai lỗi:
+
 1. `aerror.Append` trả về `AMultiError` **mới** (không mutate `multiErr` truyền theo giá trị/interface nil). Kết quả bị vứt → `multiErr` mãi `nil`, hàm **luôn trả `nil`** → caller (cron cleanup) tưởng **luôn thành công** dù cả hai repo call fail.
 2. `slog.ErrorContext` chạy **vô điều kiện** → log "Failed to clean up..." trên **mọi** lần cleanup thành công → log rác, gây nhiễu/cảnh báo giả.
 
@@ -42,6 +43,3 @@ func (g *getServices) CleanUp(ctx context.Context) aerror.AError {
 ```
 
 > Gợi ý: kiểm tra các call site khác của `aerror.Append` xem có bị cùng lỗi "bỏ giá trị trả về" không.
-
-## Ghi chú review
-> _(chỗ trống để bạn ghi quyết định)_

@@ -20,6 +20,10 @@ const (
 	FieldConnectedAt    = "ConnectedAt"
 	FieldLastHeartbeat  = "LastHeartbeat"
 	FieldTTL            = "TTL"
+	// FieldTTLSeconds mirrors FieldTTL as epoch seconds (DynamoDB native TTL
+	// requires seconds, while FieldTTL is stored in millis for the existing
+	// Scan-based cleanup). Enable native TTL on this attribute in the table config.
+	FieldTTLSeconds = "TTLSeconds"
 )
 
 type ddbActiveConnection struct {
