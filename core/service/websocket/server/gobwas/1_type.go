@@ -23,7 +23,7 @@ type NetpollServer struct {
 
 	poller      netpoll.Poller
 	healthy     healthyprovider.Healthy
-	connections int64
+	connections atomic.Int64
 	stats       *serverStats
 	workerPool  *workerpool.WorkerPool
 
@@ -36,14 +36,19 @@ type NetpollServer struct {
 
 // GobwasConnection represents a single WebSocket client connection.
 type GobwasConnection struct {
-	c       configprovider.ConfigStore
-	conn    net.Conn
-	server  *NetpollServer
-	auth    voAuth.WebsocketAuth
-	desc    *netpoll.Desc
-	closed  int32
-	closeTx int32
-	closeRx int32
+	c      configprovider.ConfigStore
+	conn   net.Conn
+	server *NetpollServer
+	auth   voAuth.WebsocketAuth
+	desc   *netpoll.Desc
+	// descMu guards desc against the race between resumeRead() (re-arming
+	// the oneshot descriptor after a read) and removeClient() (stopping and
+	// closing it). Without this, Resume() could run on an fd that was
+	// already closed and possibly reused by the OS for another connection.
+	descMu  sync.Mutex
+	closed  atomic.Int32
+	closeTx atomic.Int32
+	closeRx atomic.Int32
 	writeMu sync.Mutex
 	stateMu sync.Mutex
 	// lastReadAt tracks the last successfully received frame of any kind.
@@ -103,11 +108,11 @@ func (cl *GobwasConnection) Close() {
 }
 
 func (cl *GobwasConnection) MarkCloseSentIfFirst() bool {
-	return atomic.CompareAndSwapInt32(&cl.closeTx, 0, 1)
+	return cl.closeTx.CompareAndSwap(0, 1)
 }
 
 func (cl *GobwasConnection) MarkCloseReceived() {
-	atomic.StoreInt32(&cl.closeRx, 1)
+	cl.closeRx.Store(1)
 }
 
 func (cl *GobwasConnection) noteRead(now time.Time) {
@@ -159,7 +164,7 @@ func (cl *GobwasConnection) nextPingAction() pingAction {
 
 // serverStats tracks server performance metrics.
 type serverStats struct {
-	ConnectionsAccepted int64
-	ConnectionsClosed   int64
+	ConnectionsAccepted atomic.Int64
+	ConnectionsClosed   atomic.Int64
 	StartTime           time.Time
 }

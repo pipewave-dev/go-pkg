@@ -10,7 +10,6 @@ import (
 	"net"
 	"runtime"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"github.com/gobwas/ws"
@@ -104,8 +103,8 @@ func (s *NetpollServer) NewConnection(
 		slog.Warn("Connection is not a TCP connection, may not support netpoll", slog.String("type", fmt.Sprintf("%T", conn)))
 	}
 
-	atomic.AddInt64(&s.stats.ConnectionsAccepted, 1)
-	atomic.AddInt64(&s.connections, 1)
+	s.stats.ConnectionsAccepted.Add(1)
+	s.connections.Add(1)
 
 	client := &GobwasConnection{
 		c:          s.c,
@@ -115,8 +114,15 @@ func (s *NetpollServer) NewConnection(
 		lastReadAt: time.Now(),
 	}
 
-	// Create netpoll descriptor with better error handling
-	desc, err := netpoll.HandleRead(client.conn)
+	// Create netpoll descriptor with better error handling.
+	// HandleReadOnce (EPOLLONESHOT, level-triggered) instead of HandleRead
+	// (EPOLLET, edge-triggered): the poller disarms the fd after each event,
+	// so at most one processClientMessage runs per connection at a time, and
+	// resumeRead() re-arms it only after that read finishes. Because the
+	// re-arm is level-triggered, epoll immediately re-fires if bytes from a
+	// previous event are still unread, so multiple frames delivered in one
+	// TCP segment all get drained instead of stalling until new data arrives.
+	desc, err := netpoll.HandleReadOnce(client.conn)
 	if err != nil {
 		slog.Error("Failed to create netpoll descriptor",
 			slog.Any("error", err),
@@ -126,8 +132,8 @@ func (s *NetpollServer) NewConnection(
 
 		// Clean up connection before returning error
 		conn.Close()
-		atomic.AddInt64(&s.connections, -1)
-		atomic.AddInt64(&s.stats.ConnectionsClosed, 1)
+		s.connections.Add(-1)
+		s.stats.ConnectionsClosed.Add(1)
 
 		return nil, aerror.New(context.Background(), aerror.ErrUnexpectedSyscall, err)
 	}
@@ -159,7 +165,29 @@ func (s *NetpollServer) NewConnection(
 func (s *NetpollServer) handleClientData(client *GobwasConnection) {
 	s.workerPool.Submit(func() {
 		s.processClientMessage(client)
+		// Re-arm the oneshot descriptor now that the read is done. Doing
+		// this here (worker goroutine), rather than inside the poller
+		// callback itself, avoids the Resume-inside-callback deadlock
+		// documented by netpoll, and guarantees only one worker at a time
+		// ever reads from this connection.
+		s.resumeRead(client)
 	})
+}
+
+// resumeRead re-arms client's oneshot netpoll descriptor so the poller can
+// deliver the next read event. It is a no-op if the connection has already
+// been closed. descMu serializes this against removeClient() so Resume()
+// never races with Stop()/desc.Close() on the same fd.
+func (s *NetpollServer) resumeRead(client *GobwasConnection) {
+	client.descMu.Lock()
+	defer client.descMu.Unlock()
+
+	if client.closed.Load() == 1 || client.desc == nil {
+		return
+	}
+	if err := s.poller.Resume(client.desc); err != nil {
+		slog.Warn("Failed to resume netpoll read", slog.Any("error", err))
+	}
 }
 
 // send writes a binary frame to the client connection.
@@ -276,18 +304,22 @@ func (s *NetpollServer) writeFrame(client *GobwasConnection, frame ws.Frame) err
 
 // removeClient cleans up a client on disconnect.
 func (s *NetpollServer) removeClient(client *GobwasConnection) {
-	if !atomic.CompareAndSwapInt32(&client.closed, 0, 1) {
+	if !client.closed.CompareAndSwap(0, 1) {
 		return
 	}
 
-	atomic.AddInt64(&s.stats.ConnectionsClosed, 1)
-	atomic.AddInt64(&s.connections, -1)
+	s.stats.ConnectionsClosed.Add(1)
+	s.connections.Add(-1)
 
-	// Stop netpoll monitoring
-	if client.desc != nil {
-		_ = s.poller.Stop(client.desc)
-		client.desc.Close()
-		client.desc = nil
+	// Stop netpoll monitoring. Guarded by descMu so this can never run
+	// concurrently with resumeRead()'s Resume() call on the same desc/fd.
+	client.descMu.Lock()
+	desc := client.desc
+	client.desc = nil
+	client.descMu.Unlock()
+	if desc != nil {
+		_ = s.poller.Stop(desc)
+		desc.Close()
 	}
 
 	// Close connection
@@ -303,9 +335,9 @@ func (s *NetpollServer) PrintStats() {
 	var m runtime.MemStats
 	runtime.ReadMemStats(&m)
 
-	currentConns := atomic.LoadInt64(&s.connections)
-	totalAccepted := atomic.LoadInt64(&s.stats.ConnectionsAccepted)
-	totalClosed := atomic.LoadInt64(&s.stats.ConnectionsClosed)
+	currentConns := s.connections.Load()
+	totalAccepted := s.stats.ConnectionsAccepted.Load()
+	totalClosed := s.stats.ConnectionsClosed.Load()
 
 	uptime := time.Since(s.stats.StartTime)
 
