@@ -163,7 +163,7 @@ func (s *NetpollServer) NewConnection(
 
 // handleClientData processes data from a client (called by the netpoll callback).
 func (s *NetpollServer) handleClientData(client *GobwasConnection) {
-	s.workerPool.Submit(func() {
+	submitted := s.workerPool.Submit(func() {
 		s.processClientMessage(client)
 		// Re-arm the oneshot descriptor now that the read is done. Doing
 		// this here (worker goroutine), rather than inside the poller
@@ -172,6 +172,17 @@ func (s *NetpollServer) handleClientData(client *GobwasConnection) {
 		// ever reads from this connection.
 		s.resumeRead(client)
 	})
+	if !submitted {
+		// Pool is full or shutting down. The oneshot descriptor stays
+		// disarmed until resumeRead runs, so leaving it un-resumed would
+		// stall this connection forever — resume it in a separate
+		// goroutine (never inline in the poller callback, which deadlocks
+		// per the netpoll Resume-inside-callback caveat noted above) so
+		// the poller redelivers the event and Submit gets another chance.
+		slog.Warn("handleClientData: worker pool did not accept task, dropping this read cycle",
+			slog.String("remote_addr", client.conn.RemoteAddr().String()))
+		go s.resumeRead(client)
+	}
 }
 
 // resumeRead re-arms client's oneshot netpoll descriptor so the poller can

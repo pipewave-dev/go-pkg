@@ -53,8 +53,13 @@ func NewDI(i do.Injector) (*workerpool.WorkerPool, error) {
 	ins := workerpool.New(poolCfg)
 	ins.Start()
 
-	// Shutdown worker pool before other dependencies
-	cleanupTask.RegTask(ins.Close, fncollector.FnPriorityEarly)
+	// Close after connection-closing shutdown steps (mediatorSvc.Shutdown,
+	// msgHubSvc.Shutdown — both FnPriorityNormal) so they stop submitting
+	// new tasks first; Close() then drains whatever is left in the queue.
+	// Submit itself is still safe even if called after Close (see
+	// WorkerPool.Submit/Close), this ordering just avoids needlessly
+	// dropping in-flight tasks from connections that are still closing.
+	cleanupTask.RegTask(ins.Close, fncollector.FnPriorityLate)
 
 	return ins, nil
 }

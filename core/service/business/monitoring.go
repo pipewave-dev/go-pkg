@@ -20,10 +20,11 @@ func (s SumaryActiveConnection) String() string {
 type WorkerPoolSummary struct {
 	Length   int
 	Capacity int
+	Dropped  int64
 }
 
 func (s WorkerPoolSummary) String() string {
-	return fmt.Sprintf("Length: %d, Capacity: %d", s.Length, s.Capacity)
+	return fmt.Sprintf("Length: %d, Capacity: %d, Dropped: %d", s.Length, s.Capacity, s.Dropped)
 }
 
 type Monitoring interface {

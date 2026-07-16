@@ -20,5 +20,6 @@ func (m *monitoringService) WorkerPoolStats(ctx context.Context) (result busines
 	return business.WorkerPoolSummary{
 		Length:   stat.QueueLength,
 		Capacity: stat.QueueCapacity,
+		Dropped:  stat.DroppedTasks,
 	}, nil
 }

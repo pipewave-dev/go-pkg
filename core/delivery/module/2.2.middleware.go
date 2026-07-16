@@ -15,7 +15,7 @@ func (m *moduleDelivery) AllMiddilewares(h http.Handler) http.Handler {
 		m.mw.RequestID(func(ctx context.Context, rId string) context.Context {
 			aCtx := actx.From(ctx)
 			aCtx.SetTraceID(rId)
-			return ctx
+			return aCtx.Context
 		}),
 		m.mw.PanicRecover(),
 		// m.mw.InjectCmdQueue(),
@@ -34,7 +34,7 @@ func (m *moduleDelivery) WsMiddlewares(h http.Handler) http.Handler {
 		m.mw.RequestID(func(ctx context.Context, rId string) context.Context {
 			aCtx := actx.From(ctx)
 			aCtx.SetTraceID(rId)
-			return ctx
+			return aCtx.Context
 		}),
 		m.corsMiddleware,
 	)
