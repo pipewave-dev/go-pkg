@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"math/rand"
+	"time"
 
 	"github.com/pipewave-dev/go-pkg/pkg/pubsub"
 	"github.com/valkey-io/valkey-go"
@@ -20,6 +22,29 @@ type Config struct {
 	Password      string
 	DB            int
 	Prefix        string
+
+	// MaxSubscribeRetries is how many consecutive times Subscribe will retry a dropped
+	// subscription (with backoff) before giving up and invoking CallbackFn. Defaults to
+	// defaultMaxSubscribeRetries if <= 0.
+	MaxSubscribeRetries int
+	// CallbackFn is invoked once a subscription could not be re-established after
+	// MaxSubscribeRetries attempts, so the caller can react (e.g. restart the process).
+	CallbackFn func()
+}
+
+const defaultMaxSubscribeRetries = 3
+
+// subscribeRetryBackoff returns an exponential backoff (capped at 5s) with jitter for the
+// given retry attempt (1-indexed).
+func subscribeRetryBackoff(attempt int) time.Duration {
+	const (
+		base       = 500 * time.Millisecond
+		maxBackoff = 5 * time.Second
+	)
+
+	d := min(base*time.Duration(1<<uint(attempt-1)), maxBackoff)
+
+	return d/2 + time.Duration(rand.Int63n(int64(d/2)+1))
 }
 
 func New(cfg *Config) pubsub.Adapter {
@@ -60,13 +85,43 @@ func (ra *redisAdapter) Subscribe(channel string, handler func(message []byte)) 
 			}
 		}()
 
-		err := ra.coreRedis.Receive(subCtx, ra.coreRedis.B().Subscribe().Channel(fullChannel).Build(), func(msg valkey.PubSubMessage) {
-			if msg.Message != "" {
-				handler([]byte(msg.Message))
+		maxRetries := ra.cfg.MaxSubscribeRetries
+		if maxRetries <= 0 {
+			maxRetries = defaultMaxSubscribeRetries
+		}
+
+		attempt := 0
+		for subCtx.Err() == nil {
+			receiveErr := ra.coreRedis.Receive(subCtx, ra.coreRedis.B().Subscribe().Channel(fullChannel).Build(), func(msg valkey.PubSubMessage) {
+				if msg.Message != "" {
+					handler([]byte(msg.Message))
+				}
+			})
+			if subCtx.Err() != nil {
+				return
 			}
-		})
-		if err != nil && subCtx.Err() == nil {
-			slog.Error("Redis subscription error", slog.Any("err", err))
+
+			attempt++
+			slog.Error("Redis subscription dropped, retrying",
+				slog.String("channel", fullChannel),
+				slog.Int("attempt", attempt),
+				slog.Any("err", receiveErr))
+
+			if attempt >= maxRetries {
+				slog.Error("Redis subscription permanently dead after retries",
+					slog.String("channel", fullChannel),
+					slog.Int("attempts", attempt))
+				if ra.cfg.CallbackFn != nil {
+					ra.cfg.CallbackFn()
+				}
+				return
+			}
+
+			select {
+			case <-time.After(subscribeRetryBackoff(attempt)):
+			case <-subCtx.Done():
+				return
+			}
 		}
 	}()
 

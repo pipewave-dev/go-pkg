@@ -92,10 +92,16 @@ func (h *clientMsgHandler) handleMessage(ctx context.Context, clientMsg []byte, 
 
 	switch msg.MsgType {
 	case wsSv.MessageTypeHeartbeat:
+		if !h.rateLimiter.Get(auth).Allow() {
+			return
+		}
 		h.handleHeartbeat(ctx, auth)
 		response = &hearbeatResMsg
 
 	case wsSv.MessageTypeAck:
+		if !h.rateLimiter.Get(auth).Allow() {
+			return
+		}
 		// Handle ACK from client
 		ackID := string(msg.Binary)
 		if ackID == "" {

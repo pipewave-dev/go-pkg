@@ -16,6 +16,7 @@ import (
 	healthyprovider "github.com/pipewave-dev/go-pkg/provider/healthy-provider"
 
 	"github.com/mailru/easygo/netpoll"
+	"golang.org/x/time/rate"
 )
 
 type NetpollServer struct {
@@ -58,6 +59,9 @@ type GobwasConnection struct {
 	// awaitingPong is set after a server ping is sent and cleared on pong.
 	awaitingPong bool
 	drainMu      sync.RWMutex
+	// ctrlFrameLimiter caps how many client-initiated ping frames are answered with a
+	// pong per second, so a client can't turn a ping flood into a pong flood.
+	ctrlFrameLimiter *rate.Limiter
 }
 
 func (cl *GobwasConnection) CoreType() voWs.WsCoreType {

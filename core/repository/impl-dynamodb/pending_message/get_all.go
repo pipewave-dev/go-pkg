@@ -14,7 +14,7 @@ import (
 
 const fnGetAll = "pendingMessageRepo.GetAll"
 
-func (r *pendingMessageRepo) GetAll(ctx context.Context, userID, instanceID string) (msgs [][]byte, aErr aerror.AError) {
+func (r *pendingMessageRepo) GetAll(ctx context.Context, userID, instanceID string) (msgs [][]byte, maxSendAt int64, aErr aerror.AError) {
 	var op observer.Operation
 	ctx, op = r.obs.StartOperation(ctx, fnGetAll)
 	defer op.Finish(aErr)
@@ -40,18 +40,19 @@ func (r *pendingMessageRepo) GetAll(ctx context.Context, userID, instanceID stri
 		output, err2 := paginator.NextPage(ctx)
 		if err2 != nil {
 			aErr = aerror.New(ctx, aerror.ErrUnexpectedDynamoDB, err2)
-			return nil, aErr
+			return nil, 0, aErr
 		}
 
 		for _, item := range output.Items {
 			var row ddbPendingMessage
 			if err3 := attributevalue.UnmarshalMap(item, &row); err3 != nil {
 				aErr = aerror.New(ctx, aerror.ErrUnexpectedDynamoDB, err3)
-				return nil, aErr
+				return nil, 0, aErr
 			}
 			msgs = append(msgs, row.Message)
+			maxSendAt = row.SendAt // rows arrive ascending by SendAt, so the last one is the max
 		}
 	}
 
-	return msgs, nil
+	return msgs, maxSendAt, nil
 }

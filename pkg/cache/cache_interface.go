@@ -20,6 +20,8 @@ type NetworkSerializable interface {
 type CacheProvider interface {
 	Set(ctx context.Context, key string, value any, ttl time.Duration) (setable bool)
 	Get(ctx context.Context, key string, unmarshalTo any) (found bool)
+	// GetDel atomically reads and deletes key, so a value can only ever be consumed once.
+	GetDel(ctx context.Context, key string, unmarshalTo any) (found bool)
 	Del(ctx context.Context, key string) (deleted bool)
 	Incr(ctx context.Context, key string) bool
 	Decr(ctx context.Context, key string) bool
@@ -183,6 +185,22 @@ func (r *cacheProvider) Set(ctx context.Context, key string, value any, ttl time
 }
 
 func (r *cacheProvider) Get(ctx context.Context, key string, unmarshalTo any) (found bool) {
+	valueStr, found := r.store.Get(ctx, key)
+	if !found {
+		return false
+	}
+	return unmarshalCachedValue(ctx, valueStr, unmarshalTo)
+}
+
+func (r *cacheProvider) GetDel(ctx context.Context, key string, unmarshalTo any) (found bool) {
+	valueStr, found := r.store.GetDel(ctx, key)
+	if !found {
+		return false
+	}
+	return unmarshalCachedValue(ctx, valueStr, unmarshalTo)
+}
+
+func unmarshalCachedValue(ctx context.Context, valueStr string, unmarshalTo any) bool {
 	vv := reflect.ValueOf(unmarshalTo)
 	if vv.Kind() != reflect.Pointer {
 		slog.ErrorContext(ctx, "unmarshalTo type must be Pointer")
@@ -193,14 +211,7 @@ func (r *cacheProvider) Get(ctx context.Context, key string, unmarshalTo any) (f
 		return false
 	}
 
-	var (
-		valueStr string
-		err      error
-	)
-	valueStr, found = r.store.Get(ctx, key)
-	if !found {
-		return false
-	}
+	var err error
 
 	switch u := unmarshalTo.(type) {
 	case *int:

@@ -155,6 +155,12 @@ func (s *NetpollServer) handleCloseFrame(client *GobwasConnection, payload []byt
 
 // handlePingFrame processes a ping frame.
 func (s *NetpollServer) handlePingFrame(client *GobwasConnection, payload []byte) error {
+	// Drop pings beyond the per-connection control-frame rate instead of replying, so a
+	// client flooding ping frames can't turn that into a matching flood of pongs.
+	if !client.ctrlFrameLimiter.Allow() {
+		return nil
+	}
+
 	// Respond with pong frame containing the same payload
 	pongFrame := ws.NewPongFrame(payload)
 	if err := s.writeFrame(client, pongFrame); err != nil {

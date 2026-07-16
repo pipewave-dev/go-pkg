@@ -22,6 +22,7 @@ import (
 	"github.com/pipewave-dev/go-pkg/shared/actx"
 	"github.com/pipewave-dev/go-pkg/shared/aerror"
 	"github.com/pipewave-dev/go-pkg/shared/utils/fn"
+	"golang.org/x/time/rate"
 )
 
 // Check types
@@ -106,12 +107,14 @@ func (s *NetpollServer) NewConnection(
 	s.stats.ConnectionsAccepted.Add(1)
 	s.connections.Add(1)
 
+	rlCfg := s.c.Env().RateLimiter
 	client := &GobwasConnection{
-		c:          s.c,
-		server:     s,
-		conn:       conn,
-		auth:       propAuth,
-		lastReadAt: time.Now(),
+		c:                s.c,
+		server:           s,
+		conn:             conn,
+		auth:             propAuth,
+		lastReadAt:       time.Now(),
+		ctrlFrameLimiter: rate.NewLimiter(rate.Limit(rlCfg.ControlFrameRate), rlCfg.ControlFrameBurst),
 	}
 
 	// Create netpoll descriptor with better error handling.

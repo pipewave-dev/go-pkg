@@ -35,7 +35,9 @@ func (r *exchangeToken) ScanConnToken(ctx context.Context, connTmpToken string) 
 	defer op.Finish(aErr)
 
 	authEncoded := ""
-	found := r.store.Get(ctx, connTmpToken, &authEncoded)
+	// GetDel makes the token single-use: it atomically reads and deletes it, so it can't
+	// be replayed to open another connection within the TTL window.
+	found := r.store.GetDel(ctx, connTmpToken, &authEncoded)
 	if !found {
 		return voAuth.WebsocketAuth{}, aerror.New(ctx, aerror.RecordNotFound, nil)
 	}

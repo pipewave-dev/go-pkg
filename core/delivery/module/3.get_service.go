@@ -98,12 +98,24 @@ func (g *getServices) CleanUp(ctx context.Context) aerror.AError {
 	err1 := g.repo.ActiveConnStore().CleanUpExpiredConnections(ctx)
 	err2 := g.repo.PendingMessage().CleanUpExpiredPendingMessages(ctx)
 
-	aerror.Append(multiErr, err1, err2)
+	// aerror.Append doesn't filter nil errors, so only append the ones that actually
+	// failed — otherwise multiErr would be considered non-nil even on full success.
+	if err1 != nil {
+		multiErr = aerror.Append(multiErr, err1)
+	}
+	if err2 != nil {
+		multiErr = aerror.Append(multiErr, err2)
+	}
+
+	if multiErr == nil {
+		return nil
+	}
 
 	slog.ErrorContext(ctx, "Failed to clean up expired websocket resources",
 		slog.Any("activeConnError", err1),
-		slog.Any("pendingMessageError", err2),
-		slog.Any("error", multiErr))
+		slog.Any("pendingMessageError", err2))
 
-	return nil
+	// CleanUp's signature returns a single AError, so the accumulated multi-error is
+	// wrapped as its origin rather than discarded.
+	return aerror.New(ctx, aerror.ErrUnexpectedBussiness, multiErr)
 }

@@ -140,7 +140,7 @@ func (s *msgHubSvc) Save(ctx context.Context, userID, instanceID string, wrapped
 }
 
 func (s *msgHubSvc) Consume(ctx context.Context, userID, instanceID string) ([][]byte, error) {
-	msgs, aErr := s.repo.GetAll(ctx, userID, instanceID)
+	msgs, maxSendAt, aErr := s.repo.GetAll(ctx, userID, instanceID)
 	if aErr != nil {
 		slog.ErrorContext(ctx, "MessageHubSvc.Consume: GetAll failed",
 			slog.String("userID", userID),
@@ -151,7 +151,17 @@ func (s *msgHubSvc) Consume(ctx context.Context, userID, instanceID string) ([][
 	if len(msgs) == 0 {
 		return nil, nil
 	}
-	s.DeleteAllPendingMessage(ctx, userID, instanceID)
+
+	// DeleteUpTo, not DeleteAll: a message Saved for this session between the GetAll
+	// read above and this delete (e.g. another container's SendToSession racing this
+	// reconnect) has a SendAt greater than maxSendAt, so it survives instead of being
+	// silently dropped.
+	if delErr := s.repo.DeleteUpTo(ctx, userID, instanceID, maxSendAt); delErr != nil {
+		slog.ErrorContext(ctx, "MessageHubSvc.Consume: DeleteUpTo failed — messages may re-deliver on next reconnect",
+			slog.String("userID", userID),
+			slog.String("instanceID", instanceID),
+			slog.Any("error", delErr))
+	}
 
 	return msgs, nil
 }

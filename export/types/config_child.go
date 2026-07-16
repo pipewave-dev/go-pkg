@@ -164,6 +164,12 @@ type RateLimiterT struct {
 
 	AnonymousRate  int `koanf:"ANONYMOUS_RATE"`
 	AnonymousBurst int `koanf:"ANONYMOUS_BURST"`
+
+	// ControlFrameRate/Burst limit ping frames per second, per-connection, at the
+	// transport layer — independent of the application-level user/anonymous limiter —
+	// so a client can't flood pong responses by flooding pings.
+	ControlFrameRate  int `koanf:"CONTROL_FRAME_RATE"`
+	ControlFrameBurst int `koanf:"CONTROL_FRAME_BURST"`
 }
 
 func (r *RateLimiterT) validate() {
@@ -179,6 +185,12 @@ func (r *RateLimiterT) validate() {
 	if r.AnonymousBurst < r.AnonymousRate {
 		panic("rate limiter anonymous burst must be greater than or equal to anonymous rate")
 	}
+	if r.ControlFrameRate <= 0 {
+		panic("rate limiter control frame rate must be greater than 0")
+	}
+	if r.ControlFrameBurst < r.ControlFrameRate {
+		panic("rate limiter control frame burst must be greater than or equal to control frame rate")
+	}
 }
 
 func (r *RateLimiterT) loadDefault() {
@@ -193,6 +205,12 @@ func (r *RateLimiterT) loadDefault() {
 	}
 	if r.AnonymousBurst == 0 {
 		r.AnonymousBurst = 10
+	}
+	if r.ControlFrameRate == 0 {
+		r.ControlFrameRate = 5
+	}
+	if r.ControlFrameBurst == 0 {
+		r.ControlFrameBurst = 10
 	}
 }
 

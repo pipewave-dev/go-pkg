@@ -4,6 +4,7 @@ import (
 	"context"
 	"log/slog"
 	"net/http"
+	"net/url"
 	"time"
 
 	"github.com/samber/lo"
@@ -53,7 +54,7 @@ func (mw *middlewareProvider) JSONLogFmt(
 			entry := LogStruct{
 				IP:        r.RemoteAddr,
 				Method:    r.Method,
-				URL:       r.RequestURI,
+				URL:       redactQueryParams(r.RequestURI, mw.config.RedactQueryParams),
 				StartTime: t.Format(time.RFC3339),
 				Duration:  time.Since(t).String(),
 				Agent:     r.UserAgent(),
@@ -69,6 +70,34 @@ func (mw *middlewareProvider) JSONLogFmt(
 			}
 		})
 	}
+}
+
+// redactQueryParams replaces the value of each key in redactKeys with "REDACTED" in
+// rawURI's query string, so sensitive values (e.g. connection tokens) never reach logs.
+func redactQueryParams(rawURI string, redactKeys []string) string {
+	if len(redactKeys) == 0 {
+		return rawURI
+	}
+
+	u, err := url.ParseRequestURI(rawURI)
+	if err != nil {
+		return rawURI
+	}
+
+	q := u.Query()
+	redacted := false
+	for _, key := range redactKeys {
+		if q.Has(key) {
+			q.Set(key, "REDACTED")
+			redacted = true
+		}
+	}
+	if !redacted {
+		return rawURI
+	}
+
+	u.RawQuery = q.Encode()
+	return u.RequestURI()
 }
 
 func defaultLogFn(ctx context.Context, entry LogStruct) {

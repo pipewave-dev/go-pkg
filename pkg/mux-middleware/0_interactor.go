@@ -25,6 +25,10 @@ type MiddlewareProvider interface {
 type MWConfig struct {
 	IgnoreAccessLogPath []string
 	TraceIDHeader       string
+	// RedactQueryParams lists query string keys (e.g. "tk") whose values are replaced with
+	// "REDACTED" before the request URL is written to the access log, so secrets passed
+	// via query string never end up in logs.
+	RedactQueryParams []string
 }
 
 type middlewareProvider struct {

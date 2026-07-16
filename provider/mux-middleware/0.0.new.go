@@ -13,6 +13,7 @@ func NewDI(i do.Injector) (mm.MiddlewareProvider, error) {
 		&mm.MWConfig{
 			IgnoreAccessLogPath: nil,
 			TraceIDHeader:       config.ExtractHeader.TraceIDHeader,
+			RedactQueryParams:   []string{"tk"},
 		},
 	)
 
