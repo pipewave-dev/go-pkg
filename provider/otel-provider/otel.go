@@ -17,9 +17,16 @@ func NewDI(i do.Injector) (otelprv.OtelProvider, error) {
 	cleanupTask := do.MustInvoke[fncollector.CleanupTask](i)
 	env := cfg.Env()
 
+	exporterType := env.Otel.ExporterType
+	if !env.Otel.Enabled {
+		// Otel disabled: force the no-op discard exporter instead of trusting
+		// whatever ExporterType is set, so tracing never breaks silently.
+		exporterType = "discard"
+	}
+
 	otelIns := otelprv.NewOtelProvider(&otelprv.OtelConfig{
 		AppName:           constants.AppNameShort,
-		ExporterType:      env.Otel.ExporterType,
+		ExporterType:      exporterType,
 		CollectorEndpoint: lo.ToPtr(env.Otel.CollectorEndpoint),
 		Insecure:          env.Otel.CollectorInsecure,
 		ExtractAttr: func(ctx context.Context) map[string]string {

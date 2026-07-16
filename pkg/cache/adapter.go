@@ -13,8 +13,8 @@ type StoreAdapter interface {
 	// GetDel atomically reads and deletes key in a single round-trip.
 	GetDel(ctx context.Context, key string) (val string, found bool)
 	Del(ctx context.Context, key string) (deleted bool)
-	Incr(ctx context.Context, key string) bool
-	Decr(ctx context.Context, key string) bool
+	Incr(ctx context.Context, key string) (int64, bool)
+	Decr(ctx context.Context, key string) (int64, bool)
 
 	Flush() error
 }

@@ -23,8 +23,8 @@ type CacheProvider interface {
 	// GetDel atomically reads and deletes key, so a value can only ever be consumed once.
 	GetDel(ctx context.Context, key string, unmarshalTo any) (found bool)
 	Del(ctx context.Context, key string) (deleted bool)
-	Incr(ctx context.Context, key string) bool
-	Decr(ctx context.Context, key string) bool
+	Incr(ctx context.Context, key string) (int64, bool)
+	Decr(ctx context.Context, key string) (int64, bool)
 
 	Flush() error
 }
@@ -33,11 +33,11 @@ type cacheProvider struct {
 	store StoreAdapter
 }
 
-func (r *cacheProvider) Incr(ctx context.Context, key string) bool {
+func (r *cacheProvider) Incr(ctx context.Context, key string) (int64, bool) {
 	return r.store.Incr(ctx, key)
 }
 
-func (r *cacheProvider) Decr(ctx context.Context, key string) bool {
+func (r *cacheProvider) Decr(ctx context.Context, key string) (int64, bool) {
 	return r.store.Decr(ctx, key)
 }
 

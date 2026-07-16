@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"os"
 	"time"
 
@@ -127,6 +128,15 @@ func (s *otelClient) newTraceProvider(ctx context.Context) (*trace.TracerProvide
 
 		if err != nil {
 			return nil, fmt.Errorf("failed to create trace exporter: %w", err)
+		}
+	default:
+		slog.WarnContext(ctx, "unknown otel exporter type, falling back to discard",
+			slog.String("exporterType", s.config.ExporterType))
+		var err error
+		traceExporter, err = stdouttrace.New(
+			stdouttrace.WithWriter(io.Discard))
+		if err != nil {
+			return nil, fmt.Errorf("failed to create discard trace exporter: %w", err)
 		}
 	}
 

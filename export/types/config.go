@@ -40,6 +40,7 @@ func (e *EnvType) LoadDefault() {
 	e.PingChecker.loadDefault()
 	e.RateLimiter.loadDefault()
 	e.WorkerPool.loadDefault()
+	e.Otel.loadDefault()
 }
 
 // ensureNonNil allocates zero-value sub-configs for any block missing from

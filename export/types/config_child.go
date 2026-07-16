@@ -276,6 +276,12 @@ func (o *OtelT) validate() {
 	}
 }
 
+func (o *OtelT) loadDefault() {
+	if o.ExporterType == "" {
+		o.ExporterType = "discard"
+	}
+}
+
 // DynamoTables contains DynamoDB table name configurations
 type DynamoTables struct {
 	ActiveConnection string `koanf:"ACTIVE_CONNECTION"`

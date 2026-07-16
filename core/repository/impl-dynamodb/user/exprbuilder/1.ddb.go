@@ -12,7 +12,10 @@ import (
 const (
 	FieldID            = "ID"
 	FieldLastHeartbeat = "LastHeartbeat"
-	FieldCreatedAt     = "CreatedAt"
+	// FieldCreatedAt must match the ddbUser.CreatedAt `dynamodbav` tag below,
+	// not the Go field name, or expression builders referencing it will
+	// target an attribute that was never actually written.
+	FieldCreatedAt = "create_at"
 )
 
 type ddbUser struct {

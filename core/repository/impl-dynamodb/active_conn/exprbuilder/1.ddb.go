@@ -34,19 +34,6 @@ type ddbActiveConnection struct {
 	TTL            voUnixTime.UnixMilliTime
 }
 
-func toDynamoDBItem(e *entities.ActiveConnection) *ddbActiveConnection {
-	return &ddbActiveConnection{
-		UserID:         e.UserID,
-		InstanceID:     e.InstanceID,
-		HolderID:       e.HolderID,
-		ConnectionType: e.ConnectionType,
-		Status:         e.Status,
-		ConnectedAt:    voUnixTime.UnixMilliTime(e.ConnectedAt),
-		LastHeartbeat:  voUnixTime.UnixMilliTime(e.LastHeartbeat),
-		TTL:            voUnixTime.UnixMilliTime(e.TTL),
-	}
-}
-
 func (e *ddbActiveConnection) toEntity() *entities.ActiveConnection {
 	return &entities.ActiveConnection{
 		UserID:         e.UserID,
@@ -58,11 +45,6 @@ func (e *ddbActiveConnection) toEntity() *entities.ActiveConnection {
 		LastHeartbeat:  time.Time(e.LastHeartbeat),
 		TTL:            time.Time(e.TTL),
 	}
-}
-
-func toDynamoMap(e *entities.ActiveConnection) (map[string]types.AttributeValue, error) {
-	ddbItem := toDynamoDBItem(e)
-	return attributevalue.MarshalMap(ddbItem)
 }
 
 func fromDynamoMap(item map[string]types.AttributeValue) (e *entities.ActiveConnection, err error) {
