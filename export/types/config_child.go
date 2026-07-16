@@ -1,6 +1,8 @@
 package types
 
 import (
+	"regexp"
+	"slices"
 	"time"
 
 	"github.com/samber/lo"
@@ -36,6 +38,8 @@ type CorsT struct {
 	Enabled        bool     `koanf:"ENABLED"`
 	ExactlyOrigins []string `koanf:"EXACTLY_ORIGINS"`
 	RegexOrigins   []string `koanf:"REGEX_ORIGINS"`
+
+	compiledRegexOrigins []*regexp.Regexp
 }
 
 func (c *CorsT) validate() {
@@ -43,7 +47,25 @@ func (c *CorsT) validate() {
 		if len(c.ExactlyOrigins) == 0 && len(c.RegexOrigins) == 0 {
 			panic("cors config: either exactly origins or regex origins must be provided when cors is enabled")
 		}
+		c.compiledRegexOrigins = make([]*regexp.Regexp, 0, len(c.RegexOrigins))
+		for _, pattern := range c.RegexOrigins {
+			c.compiledRegexOrigins = append(c.compiledRegexOrigins, regexp.MustCompile("^(?:"+pattern+")$"))
+		}
 	}
+}
+
+// IsAllowedOrigin reports whether origin matches an exact allowlist entry or
+// one of the (anchored) regex allowlist patterns.
+func (c *CorsT) IsAllowedOrigin(origin string) bool {
+	if slices.Contains(c.ExactlyOrigins, origin) {
+		return true
+	}
+	for _, re := range c.compiledRegexOrigins {
+		if re.MatchString(origin) {
+			return true
+		}
+	}
+	return false
 }
 
 /*

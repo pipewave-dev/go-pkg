@@ -67,9 +67,9 @@ type KoanfProvider interface {
 				GlobalEnv GlobalEnvT
 			)
 
-			instance.Unmarshall(&GlobalEnv)
+			err := instance.Unmarshall(&GlobalEnv)
 	*/
-	Unmarshall(output any)
+	Unmarshall(output any) error
 }
 
 type koanfProvider struct {
@@ -98,11 +98,17 @@ func (k *koanfProvider) load() {
 		}
 
 		abspath := path.Join(fileDir, yamlFile.FilePath)
-		raw, _ := os.ReadFile(abspath)
+		raw, err := os.ReadFile(abspath)
+		if err != nil {
+			if !yamlFile.SkipError {
+				log.Panicf("fail read config [%s]: %v", abspath, err)
+			}
+			continue
+		}
 		if k.koanfCfg.EnvExpand {
 			raw = []byte(os.ExpandEnv(string(raw)))
 		}
-		err := k.koanf.Load(rawbytes.Provider(raw), yaml.Parser())
+		err = k.koanf.Load(rawbytes.Provider(raw), yaml.Parser())
 		if err != nil && !yamlFile.SkipError {
 			log.Panicf("fail load config [%s]: %v", abspath, err)
 		}
@@ -113,9 +119,11 @@ func (k *koanfProvider) load() {
 		delimiter = *k.koanfCfg.Delimiter
 	}
 	// Load environment vars and merge at last
-	k.koanf.Load(env.Provider(k.koanfCfg.EnvPrefix, delim, func(s string) string {
+	if err := k.koanf.Load(env.Provider(k.koanfCfg.EnvPrefix, delim, func(s string) string {
 		return strings.Replace(strings.ToUpper(
 			strings.TrimPrefix(s, k.koanfCfg.EnvPrefix)),
 			delimiter, ".", -1)
-	}), nil)
+	}), nil); err != nil {
+		log.Panicf("fail load env vars: %v", err)
+	}
 }

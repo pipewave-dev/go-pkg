@@ -3,8 +3,6 @@ package moduledelivery
 import (
 	"context"
 	"net/http"
-	"regexp"
-	"slices"
 
 	"github.com/pipewave-dev/go-pkg/shared/actx"
 )
@@ -51,7 +49,7 @@ func (m *moduleDelivery) corsMiddleware(next http.Handler) http.Handler {
 	config := m.c.Env().Cors
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		origin := r.Header.Get("Origin")
-		if origin != "" && isAllowedOrigin(origin, config.ExactlyOrigins, config.RegexOrigins) {
+		if origin != "" && config.IsAllowedOrigin(origin) {
 			w.Header().Set("Access-Control-Allow-Origin", origin)
 			w.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS")
 			w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Pipewave-ID")
@@ -64,17 +62,4 @@ func (m *moduleDelivery) corsMiddleware(next http.Handler) http.Handler {
 
 		next.ServeHTTP(w, r)
 	})
-}
-
-func isAllowedOrigin(origin string, exactlyOrigins, regexOrigins []string) bool {
-	if slices.Contains(exactlyOrigins, origin) {
-		return true
-	}
-	for _, pattern := range regexOrigins {
-		matched, err := regexp.MatchString(pattern, origin)
-		if err == nil && matched {
-			return true
-		}
-	}
-	return false
 }

@@ -33,9 +33,50 @@ func (e *EnvType) Validate() {
 }
 
 func (e *EnvType) LoadDefault() {
+	e.ensureNonNil()
+
 	e.Info.loadDefault()
 	e.ActiveConnection.loadDefault()
 	e.PingChecker.loadDefault()
 	e.RateLimiter.loadDefault()
 	e.WorkerPool.loadDefault()
+}
+
+// ensureNonNil allocates zero-value sub-configs for any block missing from
+// the loaded YAML/env config, so Validate()/LoadDefault() never dereference
+// a nil pointer receiver.
+func (e *EnvType) ensureNonNil() {
+	if e.Info == nil {
+		e.Info = &InfoT{}
+	}
+	if e.ActiveConnection == nil {
+		e.ActiveConnection = &ActiveConnectionT{}
+	}
+	if e.PingChecker == nil {
+		e.PingChecker = &PingCheckerT{}
+	}
+	if e.RateLimiter == nil {
+		e.RateLimiter = &RateLimiterT{}
+	}
+	if e.WorkerPool == nil {
+		e.WorkerPool = &WorkerPoolT{}
+	}
+	if e.ExtractHeader == nil {
+		e.ExtractHeader = &ExtractHeaderT{}
+	}
+	if e.Cors == nil {
+		e.Cors = &CorsT{}
+	}
+	if e.Otel == nil {
+		e.Otel = &OtelT{}
+	}
+	if e.Valkey == nil {
+		e.Valkey = &ValkeyT{}
+	}
+	if e.DynamoDB == nil {
+		e.DynamoDB = &DynamoConfigT{}
+	}
+	if e.Postgres == nil {
+		e.Postgres = &PostgresT{}
+	}
 }

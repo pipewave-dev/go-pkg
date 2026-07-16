@@ -1,6 +1,8 @@
 package configprovider
 
 import (
+	"log"
+
 	types "github.com/pipewave-dev/go-pkg/export/types"
 	koanfpvd "github.com/pipewave-dev/go-pkg/pkg/koanf"
 )
@@ -44,7 +46,9 @@ func FromYaml(yamlFiles []string) ConfigStore {
 	})
 
 	var input types.EnvType
-	k.Unmarshall(&input)
+	if err := k.Unmarshall(&input); err != nil {
+		log.Panicf("fail unmarshal config: %v", err)
+	}
 
 	// Load default values and validate
 

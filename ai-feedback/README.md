@@ -12,13 +12,13 @@ Mỗi vấn đề có một file chi tiết riêng. Cột **Trạng thái** đ�
 |---|--------|--------|------|------|-----------|
 | 01 | Self-deadlock trong `RateLimiter.Get()` | 🔴 Critical | Concurrency | [01-ratelimiter-deadlock.md](01-ratelimiter-deadlock.md) | ⬜ Chưa xử lý |
 | 02 | Vòng đọc netpoll edge-triggered: đọc thiếu + đọc đồng thời | 🟠 High | Concurrency | [02-netpoll-edge-triggered-read.md](02-netpoll-edge-triggered-read.md) | ⬜ Chưa xử lý |
-| 03 | WorkerPool: `Submit` blocking + panic khi shutdown | 🟠 High | Concurrency | [03-workerpool-blocking-and-shutdown-panic.md](03-workerpool-blocking-and-shutdown-panic.md) | ⬜ Chưa xử lý |
+| 03 | WorkerPool: `Submit` blocking + panic khi shutdown | 🟠 High | Concurrency | [03-workerpool-blocking-and-shutdown-panic.md](03-workerpool-blocking-and-shutdown-panic.md) | ✅ Đã sửa |
 | 04 | DynamoDB `UpdateItem` thiếu điều kiện → ghost record | 🟠 High | Repository | [04-dynamodb-updateitem-ghost-records.md](04-dynamodb-updateitem-ghost-records.md) | ✅ Đã sửa |
-| 05 | CORS regex không neo `^...$` | 🟠 High | Security | [05-cors-unanchored-regex.md](05-cors-unanchored-regex.md) | ⬜ Chưa xử lý |
+| 05 | CORS regex không neo `^...$` | 🟠 High | Security | [05-cors-unanchored-regex.md](05-cors-unanchored-regex.md) | ✅ Đã sửa |
 | 06 | Bypass rate-limit & chiếm session anonymous qua header client | 🟠 High | Security | [06-anonymous-ratelimit-session-bypass.md](06-anonymous-ratelimit-session-bypass.md) | ⬜ Chưa xử lý |
-| 07 | `actx`: mutex khai báo nhưng không khoá → data race | 🟠 High | Shared | [07-actx-mutex-not-locked-datarace.md](07-actx-mutex-not-locked-datarace.md) | ⬜ Chưa xử lý |
-| 08 | Config nil-pointer panic khi thiếu section | 🟠 High | Config | [08-config-nil-pointer-panic.md](08-config-nil-pointer-panic.md) | ⬜ Chưa xử lý |
-| 09 | koanf nuốt lỗi đọc/parse → chạy config mặc định âm thầm | 🟠 High | Config | [09-koanf-swallow-config-errors.md](09-koanf-swallow-config-errors.md) | ⬜ Chưa xử lý |
+| 07 | `actx`: mutex khai báo nhưng không khoá → data race | 🟠 High | Shared | [07-actx-mutex-not-locked-datarace.md](07-actx-mutex-not-locked-datarace.md) | ✅ Đã sửa |
+| 08 | Config nil-pointer panic khi thiếu section | 🟠 High | Config | [08-config-nil-pointer-panic.md](08-config-nil-pointer-panic.md) | ✅ Đã sửa |
+| 09 | koanf nuốt lỗi đọc/parse → chạy config mặc định âm thầm | 🟠 High | Config | [09-koanf-swallow-config-errors.md](09-koanf-swallow-config-errors.md) | ✅ Đã sửa |
 | 10 | Pub/Sub không reconnect → mất message âm thầm | 🟠 High | Pubsub | [10-pubsub-no-reconnect-message-loss.md](10-pubsub-no-reconnect-message-loss.md) | ⬜ Chưa xử lý |
 | 11 | Trace ID không propagate qua middleware | 🟡 Medium | Observability | [11-trace-id-not-propagated.md](11-trace-id-not-propagated.md) | ⬜ Chưa xử lý |
 | 12 | Token kết nối tái sử dụng + lộ qua URL | 🟡 Medium | Security | [12-conn-token-replay-and-url-leak.md](12-conn-token-replay-and-url-leak.md) | ⬜ Chưa xử lý |

@@ -1,5 +1,5 @@
 package koanf
 
-func (k *koanfProvider) Unmarshall(output any) {
-	_ = k.koanf.Unmarshal("", output)
+func (k *koanfProvider) Unmarshall(output any) error {
+	return k.koanf.Unmarshal("", output)
 }
