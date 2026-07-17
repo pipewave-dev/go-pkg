@@ -1,0 +1,158 @@
+// server/config/config.go
+package serverconfig
+
+import (
+	"fmt"
+	"path/filepath"
+	"time"
+
+	koanfpvd "github.com/pipewave-dev/go-pkg/pkg/koanf"
+)
+
+const (
+	AuthModeJWT     = "jwt"
+	AuthModeWebhook = "webhook"
+
+	HandleMsgModeSync     = "sync"
+	HandleMsgModeForward  = "forward"
+	HandleMsgModeDisabled = "disabled"
+
+	RepositoryPostgres = "postgres"
+	RepositoryDynamoDB = "dynamodb"
+)
+
+type ServerConfigT struct {
+	ClientAddr string     `koanf:"CLIENT_ADDR"`
+	AdminAddr  string     `koanf:"ADMIN_ADDR"`
+	APIKeys    []string   `koanf:"API_KEYS"`
+	Repository string     `koanf:"REPOSITORY"`
+	Auth       AuthT      `koanf:"AUTH"`
+	Callbacks  CallbacksT `koanf:"CALLBACKS"`
+}
+
+type AuthT struct {
+	Mode string `koanf:"MODE"` // jwt | webhook
+	JWT  JWTT   `koanf:"JWT"`
+}
+
+type JWTT struct {
+	JWKSURL          string   `koanf:"JWKS_URL"`
+	PublicKeyPEMFile string   `koanf:"PUBLIC_KEY_PEM_FILE"`
+	UserIDClaim      string   `koanf:"USER_ID_CLAIM"`
+	MetadataClaims   []string `koanf:"METADATA_CLAIMS"`
+}
+
+type CallbacksT struct {
+	BaseURL        string        `koanf:"BASE_URL"`
+	SigningKeyFile string        `koanf:"SIGNING_KEY_FILE"`
+	HandleMessage  HandleMsgT    `koanf:"HANDLE_MESSAGE"`
+	SyncTimeout    time.Duration `koanf:"SYNC_TIMEOUT"`
+	AsyncRetryMax  int           `koanf:"ASYNC_RETRY_MAX"`
+}
+
+type HandleMsgT struct {
+	Mode    string        `koanf:"MODE"` // sync | forward | disabled
+	Timeout time.Duration `koanf:"TIMEOUT"`
+}
+
+type rootT struct {
+	Server ServerConfigT `koanf:"SERVER"`
+}
+
+// Load reads the SERVER section from the given YAML files (later files
+// override earlier ones), merges APP_-prefixed env vars on top, applies
+// defaults, and validates. It intentionally reuses pkg/koanf so the server
+// section lives in the same files as the core EnvType config.
+func Load(yamlFiles []string) (*ServerConfigT, error) {
+	koanfYamlFiles := make([]struct {
+		FileDir   string
+		FilePath  string
+		SkipError bool
+	}, 0, len(yamlFiles))
+	for _, filePath := range yamlFiles {
+		// Split absolute paths into directory and filename for koanf
+		dir := filepath.Dir(filePath)
+		file := filepath.Base(filePath)
+		koanfYamlFiles = append(koanfYamlFiles, struct {
+			FileDir   string
+			FilePath  string
+			SkipError bool
+		}{FileDir: dir, FilePath: file})
+	}
+
+	k := koanfpvd.NewKoanfProvider(&koanfpvd.KoanfConfig{
+		YamlConfigFile: koanfYamlFiles,
+		EnvPrefix:      "APP",
+	})
+
+	var root rootT
+	if err := k.Unmarshall(&root); err != nil {
+		return nil, fmt.Errorf("serverconfig: unmarshal: %w", err)
+	}
+
+	cfg := root.Server
+	cfg.loadDefault()
+	if err := cfg.validate(); err != nil {
+		return nil, err
+	}
+	return &cfg, nil
+}
+
+func (c *ServerConfigT) loadDefault() {
+	if c.ClientAddr == "" {
+		c.ClientAddr = ":8080"
+	}
+	if c.AdminAddr == "" {
+		c.AdminAddr = ":8081"
+	}
+	if c.Repository == "" {
+		c.Repository = RepositoryPostgres
+	}
+	if c.Auth.JWT.UserIDClaim == "" {
+		c.Auth.JWT.UserIDClaim = "sub"
+	}
+	if c.Callbacks.SigningKeyFile == "" {
+		c.Callbacks.SigningKeyFile = "webhook_ed25519.key"
+	}
+	if c.Callbacks.HandleMessage.Mode == "" {
+		c.Callbacks.HandleMessage.Mode = HandleMsgModeSync
+	}
+	if c.Callbacks.HandleMessage.Timeout <= 0 {
+		c.Callbacks.HandleMessage.Timeout = 5 * time.Second
+	}
+	if c.Callbacks.SyncTimeout <= 0 {
+		c.Callbacks.SyncTimeout = 3 * time.Second
+	}
+	if c.Callbacks.AsyncRetryMax <= 0 {
+		c.Callbacks.AsyncRetryMax = 6
+	}
+}
+
+func (c *ServerConfigT) validate() error {
+	if len(c.APIKeys) == 0 {
+		return fmt.Errorf("serverconfig: SERVER.API_KEYS must not be empty")
+	}
+	switch c.Auth.Mode {
+	case AuthModeWebhook:
+	case AuthModeJWT:
+		if c.Auth.JWT.JWKSURL == "" && c.Auth.JWT.PublicKeyPEMFile == "" {
+			return fmt.Errorf("serverconfig: SERVER.AUTH.MODE=jwt requires JWKS_URL or PUBLIC_KEY_PEM_FILE")
+		}
+	default:
+		return fmt.Errorf("serverconfig: SERVER.AUTH.MODE must be %q or %q, got %q", AuthModeJWT, AuthModeWebhook, c.Auth.Mode)
+	}
+	if c.Callbacks.BaseURL == "" {
+		return fmt.Errorf("serverconfig: SERVER.CALLBACKS.BASE_URL is required")
+	}
+	switch c.Callbacks.HandleMessage.Mode {
+	case HandleMsgModeSync, HandleMsgModeForward, HandleMsgModeDisabled:
+	default:
+		return fmt.Errorf("serverconfig: SERVER.CALLBACKS.HANDLE_MESSAGE.MODE must be sync|forward|disabled, got %q", c.Callbacks.HandleMessage.Mode)
+	}
+	switch c.Repository {
+	case RepositoryPostgres, RepositoryDynamoDB:
+	default:
+		return fmt.Errorf("serverconfig: SERVER.REPOSITORY must be postgres|dynamodb, got %q", c.Repository)
+	}
+	return nil
+}

@@ -1,0 +1,65 @@
+# server-config.example.yaml — config for the pipewave-server container.
+# Core sections (VALKEY, POSTGRES, WORKER_POOL, ...) are the same as
+# example-config.yaml; SERVER is the container-only section.
+
+# INFO.ENV is required — EnvType.Validate() panics with
+# "info env must not be empty" if it's blank. CONTAINER_ID is intentionally
+# omitted: InfoT.loadDefault() auto-generates one when empty.
+INFO:
+  ENV: "development" # required, e.g. development | staging | production
+  POD_NAME: "pipewave-server-dev" # optional, informational only
+
+AUTO_MIGRATION: true
+
+# ANONYMOUS_INSTANCE.SECRET is required — AnonymousInstanceT.validate() panics
+# ("anonymous instance secret must be set") if it's blank. It's the HMAC
+# secret used to sign/verify server-issued anonymous InstanceIDs and must be
+# shared/stable across all replicas.
+ANONYMOUS_INSTANCE:
+  SECRET: "dev-anonymous-instance-secret-change-me"
+
+WORKER_POOL:
+  BUFFER: 100
+  UPPER_THRESHOLD: 80
+  LOWER_THRESHOLD: 20
+
+VALKEY:
+  PRIMARY_ADDRESS: "localhost:29100"
+  REPLICA_ADDRESS: "localhost:29100"
+  PASSWORD: "veryStrongP@ssw0rd"
+  DB_INDEX: 0 # was DATABASE_IDX — not a real koanf tag on ValkeyT, silently ignored
+
+POSTGRES:
+  CREATE_TABLES: true
+  HOST: "localhost"
+  PORT: 29102
+  DB_NAME: "postgres"
+  USER: "postgres"
+  PASSWORD: "postgres"
+  SSL_MODE: "disable"
+  MAX_CONNS: 15
+  MIN_CONNS: 1
+
+SERVER:
+  CLIENT_ADDR: ":8080"
+  ADMIN_ADDR: ":8081"
+  # Env-var overrides (e.g. APP_SERVER__ADMIN_ADDR) are currently
+  # non-functional (known pkg/koanf bug). Use additional YAML override files
+  # passed via the comma-separated -config flag instead.
+  API_KEYS: ["change-me"]
+  REPOSITORY: "postgres" # postgres | dynamodb
+  AUTH:
+    MODE: "webhook" # webhook | jwt
+    JWT:
+      JWKS_URL: ""
+      PUBLIC_KEY_PEM_FILE: ""
+      USER_ID_CLAIM: "sub"
+      METADATA_CLAIMS: []
+  CALLBACKS:
+    BASE_URL: "http://localhost:9000/pipewave/callback"
+    SIGNING_KEY_FILE: "webhook_ed25519.key"
+    HANDLE_MESSAGE:
+      MODE: "sync" # sync | forward | disabled
+      TIMEOUT: "5s"
+    SYNC_TIMEOUT: "3s"
+    ASYNC_RETRY_MAX: 6
