@@ -39,6 +39,25 @@ services:
     networks:
       - pipewave
 
+  pipewave-server:
+    build: .
+    ports:
+      - "8080:8080"
+      - "8081:8081"
+    volumes:
+      - ./server-config.example.yaml:/etc/pipewave/config.yaml:ro
+    environment:
+      APP_SERVER__CALLBACKS__BASE_URL: "http://host.docker.internal:9000/pipewave/callback"
+      APP_VALKEY__PRIMARY_ADDRESS: "valkey:6379" # match compose service name/port
+      APP_VALKEY__REPLICA_ADDRESS: "valkey:6379"
+      APP_POSTGRES__HOST: "postgres" # match compose service name
+      APP_POSTGRES__PORT: "5432"
+    depends_on:
+      - valkey
+      - postgres
+    networks:
+      - pipewave
+
 networks:
   pipewave:
     driver: bridge
