@@ -1,0 +1,49 @@
+# server-config.example.yaml — config for the pipewave-server container.
+# Core sections (VALKEY, POSTGRES, WORKER_POOL, ...) are the same as
+# example-config.yaml; SERVER is the container-only section.
+
+AUTO_MIGRATION: true
+
+WORKER_POOL:
+  BUFFER: 100
+  UPPER_THRESHOLD: 80
+  LOWER_THRESHOLD: 20
+
+VALKEY:
+  PRIMARY_ADDRESS: "localhost:29100"
+  REPLICA_ADDRESS: "localhost:29100"
+  PASSWORD: "veryStrongP@ssw0rd"
+  DATABASE_IDX: 0
+
+POSTGRES:
+  CREATE_TABLES: true
+  HOST: "localhost"
+  PORT: 29102
+  DB_NAME: "postgres"
+  USER: "postgres"
+  PASSWORD: "postgres"
+  SSL_MODE: "disable"
+  MAX_CONNS: 15
+  MIN_CONNS: 1
+
+SERVER:
+  CLIENT_ADDR: ":8080"
+  ADMIN_ADDR: ":8081"
+  # Scalar fields can be overridden via env, e.g. APP_SERVER__ADMIN_ADDR
+  API_KEYS: ["change-me"]
+  REPOSITORY: "postgres" # postgres | dynamodb
+  AUTH:
+    MODE: "webhook" # webhook | jwt
+    JWT:
+      JWKS_URL: ""
+      PUBLIC_KEY_PEM_FILE: ""
+      USER_ID_CLAIM: "sub"
+      METADATA_CLAIMS: []
+  CALLBACKS:
+    BASE_URL: "http://localhost:9000/pipewave/callback"
+    SIGNING_KEY_FILE: "webhook_ed25519.key"
+    HANDLE_MESSAGE:
+      MODE: "sync" # sync | forward | disabled
+      TIMEOUT: "5s"
+    SYNC_TIMEOUT: "3s"
+    ASYNC_RETRY_MAX: 6
