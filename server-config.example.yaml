@@ -2,7 +2,21 @@
 # Core sections (VALKEY, POSTGRES, WORKER_POOL, ...) are the same as
 # example-config.yaml; SERVER is the container-only section.
 
+# INFO.ENV is required — EnvType.Validate() panics with
+# "info env must not be empty" if it's blank. CONTAINER_ID is intentionally
+# omitted: InfoT.loadDefault() auto-generates one when empty.
+INFO:
+  ENV: "development" # required, e.g. development | staging | production
+  POD_NAME: "pipewave-server-dev" # optional, informational only
+
 AUTO_MIGRATION: true
+
+# ANONYMOUS_INSTANCE.SECRET is required — AnonymousInstanceT.validate() panics
+# ("anonymous instance secret must be set") if it's blank. It's the HMAC
+# secret used to sign/verify server-issued anonymous InstanceIDs and must be
+# shared/stable across all replicas.
+ANONYMOUS_INSTANCE:
+  SECRET: "dev-anonymous-instance-secret-change-me"
 
 WORKER_POOL:
   BUFFER: 100
@@ -13,7 +27,7 @@ VALKEY:
   PRIMARY_ADDRESS: "localhost:29100"
   REPLICA_ADDRESS: "localhost:29100"
   PASSWORD: "veryStrongP@ssw0rd"
-  DATABASE_IDX: 0
+  DB_INDEX: 0 # was DATABASE_IDX — not a real koanf tag on ValkeyT, silently ignored
 
 POSTGRES:
   CREATE_TABLES: true
