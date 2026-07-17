@@ -75,6 +75,7 @@ services:
         target: /etc/pipewave/docker-overrides.yaml
       - source: pipewave-docker-overrides
         target: /home/nonroot/etc/pipewave/docker-overrides.yaml
+    # Docker appends command after ENTRYPOINT args, so -config is passed twice; Go's flag package lets the later value win — intentional, do not simplify.
     command: ["-config", "/etc/pipewave/config.yaml,/etc/pipewave/docker-overrides.yaml"]
     depends_on:
       - valkey
@@ -100,4 +101,5 @@ configs:
         PORT: 5432
       SERVER:
         CALLBACKS:
+          # On native Linux Docker Engine, use extra_hosts: ["host.docker.internal:host-gateway"] (works out of the box on Docker Desktop)
           BASE_URL: "http://host.docker.internal:9000/pipewave/callback"

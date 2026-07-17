@@ -11,8 +11,7 @@ Go host. See the design doc for the full rationale and REST mapping table:
 
 Copy [`server-config.example.yaml`](server-config.example.yaml) and point
 `SERVER.CALLBACKS.BASE_URL` at your application backend's callback endpoint.
-Scalar fields can also be overridden via `APP_`-prefixed env vars (e.g.
-`APP_SERVER__ADMIN_ADDR`, `APP_SERVER__CALLBACKS__BASE_URL`).
+**Note:** env-var overrides (e.g. `APP_SERVER__ADMIN_ADDR`) are currently non-functional due to a known `pkg/koanf` bug; use additional YAML override files passed via the comma-separated `-config` flag instead (as the docker-compose service does).
 
 ### Callback contract
 
