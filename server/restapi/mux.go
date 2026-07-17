@@ -49,7 +49,13 @@ func NewAdminMux(pw delivery.ModuleDelivery, cfg MuxConfig) *http.ServeMux {
 
 func requireAPIKey(keys []string, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		got := strings.TrimSpace(strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer"))
+		const bearerPrefix = "Bearer "
+		authz := r.Header.Get("Authorization")
+		if !strings.HasPrefix(authz, bearerPrefix) {
+			writeUnauthorized(w)
+			return
+		}
+		got := strings.TrimSpace(strings.TrimPrefix(authz, bearerPrefix))
 		if got == "" || !matchAnyKey(got, keys) {
 			writeUnauthorized(w)
 			return

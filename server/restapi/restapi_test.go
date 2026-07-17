@@ -150,6 +150,24 @@ func TestAuth(t *testing.T) {
 	resp, out = doReq(t, "GET", srv.URL+"/healthz", "", nil)
 	require.Equal(t, http.StatusOK, resp.StatusCode)
 	require.Equal(t, true, out["healthy"])
+
+	// raw key without Bearer prefix must fail
+	req, err := http.NewRequest("GET", srv.URL+"/api/v1/webhook/public-key", nil)
+	require.NoError(t, err)
+	req.Header.Set("Authorization", testKey)
+	resp, err = http.DefaultClient.Do(req)
+	require.NoError(t, err)
+	defer resp.Body.Close()
+	require.Equal(t, http.StatusUnauthorized, resp.StatusCode)
+
+	// Bearer without space must fail
+	req, err = http.NewRequest("GET", srv.URL+"/api/v1/webhook/public-key", nil)
+	require.NoError(t, err)
+	req.Header.Set("Authorization", "Bearer"+testKey)
+	resp, err = http.DefaultClient.Do(req)
+	require.NoError(t, err)
+	defer resp.Body.Close()
+	require.Equal(t, http.StatusUnauthorized, resp.StatusCode)
 }
 
 func TestSendToSession(t *testing.T) {
