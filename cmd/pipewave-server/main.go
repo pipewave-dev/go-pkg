@@ -13,10 +13,10 @@ import (
 
 	pipewave "github.com/pipewave-dev/go-pkg"
 	"github.com/pipewave-dev/go-pkg/export/adapters"
-	dynamorepo "github.com/pipewave-dev/go-pkg/export/adapters/repo/dynamodb"
-	pgrepo "github.com/pipewave-dev/go-pkg/export/adapters/repo/postgresql"
 	pubsubvalkey "github.com/pipewave-dev/go-pkg/export/adapters/pubsub/valkey"
 	queuevalkey "github.com/pipewave-dev/go-pkg/export/adapters/queue/valkey"
+	dynamorepo "github.com/pipewave-dev/go-pkg/export/adapters/repo/dynamodb"
+	pgrepo "github.com/pipewave-dev/go-pkg/export/adapters/repo/postgresql"
 	"github.com/pipewave-dev/go-pkg/server/authn"
 	serverconfig "github.com/pipewave-dev/go-pkg/server/config"
 	serverfns "github.com/pipewave-dev/go-pkg/server/fns"
