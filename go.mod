@@ -5,10 +5,12 @@ go 1.25.5
 tool golang.org/x/tools/cmd/stringer
 
 require (
+	github.com/MicahParks/keyfunc/v3 v3.8.0
 	github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue v1.20.32
 	github.com/aws/aws-sdk-go-v2/feature/dynamodb/expression v1.8.32
 	github.com/aws/aws-sdk-go-v2/service/dynamodb v1.55.0
 	github.com/gobwas/ws v1.4.0
+	github.com/golang-jwt/jwt/v5 v5.3.1
 	github.com/google/uuid v1.6.0
 	github.com/jackc/pgx/v5 v5.8.0
 	github.com/mailru/easygo v0.0.0-20190618140210-3c14a0dc985f
@@ -26,6 +28,7 @@ require (
 
 require (
 	github.com/Azure/go-ansiterm v0.0.0-20230124172434-306776ec8161 // indirect
+	github.com/MicahParks/jwkset v0.11.0 // indirect
 	github.com/Microsoft/go-winio v0.6.2 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/cenkalti/backoff/v4 v4.3.0 // indirect
