@@ -45,13 +45,37 @@ services:
       - "8080:8080"
       - "8081:8081"
     volumes:
+      # pipewave-server's startup reads the same -config path through two
+      # different loaders that disagree on how they treat an absolute path:
+      #   - server/config.Load splits filepath.Dir/Base, so it reads the
+      #     literal absolute path "/etc/pipewave/config.yaml".
+      #   - pipewave.ConfigFromYAML (pkg/koanf) does path.Join(".", path),
+      #     which strips the leading "/" and reads relative to the
+      #     process's cwd instead (WORKDIR /home/nonroot, see Dockerfile),
+      #     i.e. "/home/nonroot/etc/pipewave/config.yaml".
+      # Both previously resolved to the same file only because cwd was "/"
+      # (no WORKDIR). Now that WORKDIR is /home/nonroot, mount the config at
+      # both effective paths so each loader finds it.
       - ./server-config.example.yaml:/etc/pipewave/config.yaml:ro
-    environment:
-      APP_SERVER__CALLBACKS__BASE_URL: "http://host.docker.internal:9000/pipewave/callback"
-      APP_VALKEY__PRIMARY_ADDRESS: "valkey:6379" # match compose service name/port
-      APP_VALKEY__REPLICA_ADDRESS: "valkey:6379"
-      APP_POSTGRES__HOST: "postgres" # match compose service name
-      APP_POSTGRES__PORT: "5432"
+      - ./server-config.example.yaml:/home/nonroot/etc/pipewave/config.yaml:ro
+      - pipewave-server-data:/home/nonroot
+    # NOTE: APP_-prefixed env var overrides (as documented in the README,
+    # e.g. APP_SERVER__ADMIN_ADDR) do not currently take effect for nested
+    # fields: pkg/koanf's env-var callback does
+    # strings.TrimPrefix(key, "APP") before replacing "__" with ".", which
+    # leaves a stray leading "_" (e.g. "APP_POSTGRES__HOST" -> "_POSTGRES.HOST"
+    # instead of "POSTGRES.HOST"), so the override silently lands on an
+    # unused key and never reaches the struct. Verified empirically while
+    # wiring this service up. Until that's fixed upstream, override the
+    # container-facing addresses via a second config file merged through
+    # the same "-config a.yaml,b.yaml" mechanism used everywhere else
+    # (server/config.Load: "later files override earlier ones").
+    configs:
+      - source: pipewave-docker-overrides
+        target: /etc/pipewave/docker-overrides.yaml
+      - source: pipewave-docker-overrides
+        target: /home/nonroot/etc/pipewave/docker-overrides.yaml
+    command: ["-config", "/etc/pipewave/config.yaml,/etc/pipewave/docker-overrides.yaml"]
     depends_on:
       - valkey
       - postgres
@@ -61,3 +85,19 @@ services:
 networks:
   pipewave:
     driver: bridge
+
+volumes:
+  pipewave-server-data:
+
+configs:
+  pipewave-docker-overrides:
+    content: |
+      VALKEY:
+        PRIMARY_ADDRESS: "valkey:6379"
+        REPLICA_ADDRESS: "valkey:6379"
+      POSTGRES:
+        HOST: "postgres"
+        PORT: 5432
+      SERVER:
+        CALLBACKS:
+          BASE_URL: "http://host.docker.internal:9000/pipewave/callback"

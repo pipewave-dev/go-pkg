@@ -28,6 +28,12 @@ the raw request body; verify it against the container's public key
 (`GET /api/v1/webhook/public-key`). Reject stale deliveries (`meta.sent_at`
 too far in the past) to guard against replay.
 
+Note: for `inspect_token`, the `token` field the callback receives is the raw
+`Authorization` header value verbatim, scheme prefix included (e.g.
+`"Bearer alice"`, not `"alice"`) — the container does not strip `Bearer `
+for you. Production receivers should strip that prefix themselves before
+treating the remainder as the credential.
+
 Event types:
 
 | `event_type`        | Class            | Expected response                                                          |
@@ -68,7 +74,9 @@ curl -s localhost:8081/healthz                                # {"healthy":true}
 # 4b. admin auth
 curl -s localhost:8081/api/v1/webhook/public-key              # 401
 curl -s -H "Authorization: Bearer change-me" localhost:8081/api/v1/webhook/public-key
-# 4c. websocket roundtrip (token "alice" -> inspect_token callback -> user alice)
+# 4c. websocket roundtrip (Authorization: "Bearer alice" -> inspect_token callback
+#     receives token "Bearer alice" verbatim -> stub backend echoes it as the
+#     user id, i.e. user "Bearer alice", not "alice")
 #     issue-tmp-token then connect; easiest with the playground web client or websocat.
 #     Non-anonymous callers must also pass X-Pipewave-ID (client-chosen instance/session id).
 curl -s -X POST -H "Authorization: Bearer alice" -H "X-Pipewave-ID: alice-device-1" \
