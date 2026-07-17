@@ -164,7 +164,7 @@ X-Pipewave-Signature: <base64 signature over raw body>
   "data": { ...event-specific payload... },
   "meta": {
     "sent_at": 1789617000123,
-    "id": "cb_01J9XYZ...",          // idempotency key (ULID)
+    "id": "cb_V1StGXR8Z5...",       // idempotency key (nanoid, "cb_" prefix)
     "event_type": "on_close_connection"
   }
 }
@@ -273,7 +273,7 @@ existing `aerror` code + i18n message serialized as
 | DELETE | `/api/v1/sessions/{user_id}`               | DisconnectUser                                                                                                                                                      |
 | GET    | `/api/v1/presence/{user_id}`               | CheckOnline → `{online: bool}`                                                                                                                                      |
 | POST   | `/api/v1/presence/batch`                   | CheckOnlineMultiple — `{user_ids[]}` → `{results: {id: bool}}`                                                                                                      |
-| GET    | `/api/v1/sessions/{user_id}`               | GetUserSessions → `[{instance_id, holder_id, connection_type, status, connected_at}]`                                                                               |
+| GET    | `/api/v1/sessions/{user_id}`               | GetUserSessions → `{"sessions":[{instance_id, holder_id, connection_type, status, connected_at}]}`                                                                               |
 | POST   | `/api/v1/maintenance/cleanup`              | CleanUp                                                                                                                                                             |
 | GET    | `/api/v1/monitoring/connections`           | InsideActiveConnection + TotalActiveConnection                                                                                                                      |
 | GET    | `/api/v1/monitoring/worker-pool`           | WorkerPoolStats                                                                                                                                                     |
