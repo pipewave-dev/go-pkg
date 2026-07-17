@@ -10,6 +10,8 @@ type EnvType struct {
 
 	RateLimiter *RateLimiterT `koanf:"RATE_LIMITER"`
 
+	AnonymousInstance *AnonymousInstanceT `koanf:"ANONYMOUS_INSTANCE"`
+
 	WorkerPool *WorkerPoolT `koanf:"WORKER_POOL"`
 
 	ExtractHeader *ExtractHeaderT `koanf:"EXTRACT_HEADER"`
@@ -28,6 +30,7 @@ func (e *EnvType) Validate() {
 	e.ActiveConnection.validate()
 	e.PingChecker.validate()
 	e.RateLimiter.validate()
+	e.AnonymousInstance.validate()
 	e.Otel.validate()
 	e.WorkerPool.validate()
 }
@@ -58,6 +61,9 @@ func (e *EnvType) ensureNonNil() {
 	}
 	if e.RateLimiter == nil {
 		e.RateLimiter = &RateLimiterT{}
+	}
+	if e.AnonymousInstance == nil {
+		e.AnonymousInstance = &AnonymousInstanceT{}
 	}
 	if e.WorkerPool == nil {
 		e.WorkerPool = &WorkerPoolT{}

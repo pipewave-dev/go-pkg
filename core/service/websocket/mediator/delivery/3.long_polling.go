@@ -178,12 +178,6 @@ func (d *serverDelivery) LongPollingEndpoint() http.HandlerFunc {
 			http.Error(w, "Missing Authorization header", http.StatusUnauthorized)
 			return
 		}
-		instanceHeader := r.Header.Get("X-Pipewave-ID")
-		if instanceHeader == "" {
-			http.Error(w, "Missing X-Pipewave-ID header", http.StatusBadRequest)
-			return
-		}
-
 		fns := d.c.Env().Fns
 		if fns == nil || fns.InspectToken == nil {
 			panic("InspectToken function is not implemented")
@@ -196,8 +190,21 @@ func (d *serverDelivery) LongPollingEndpoint() http.HandlerFunc {
 
 		var wsAuth voAuth.WebsocketAuth
 		if isAnonymous {
-			wsAuth = voAuth.AnonymousUserWebsocketAuthWithMetadata(instanceHeader, metadata)
+			// Deliberately not read from X-Pipewave-ID: that header is client-controlled
+			// and unauthenticated. The cookie is only ever minted by /issue-tmp-token,
+			// which is IP-throttled — see anon_instance.go.
+			instanceID, ok := d.anonInstanceSigner.readAnonymousInstanceID(r)
+			if !ok {
+				http.Error(w, "Missing or invalid anonymous instance id; call /issue-tmp-token first", http.StatusBadRequest)
+				return
+			}
+			wsAuth = voAuth.AnonymousUserWebsocketAuthWithMetadata(instanceID, metadata)
 		} else {
+			instanceHeader := r.Header.Get("X-Pipewave-ID")
+			if instanceHeader == "" {
+				http.Error(w, "Missing X-Pipewave-ID header", http.StatusBadRequest)
+				return
+			}
 			wsAuth = voAuth.UserWebsocketAuthWithMetadata(username, instanceHeader, metadata)
 		}
 

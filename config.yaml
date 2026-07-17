@@ -36,6 +36,14 @@ RATE_LIMITER:
   USER_BURST: 200
   ANONYMOUS_RATE: 10
   ANONYMOUS_BURST: 20
+  ISSUE_TOKEN_IP_RATE: 5
+  ISSUE_TOKEN_IP_BURST: 20
+
+# HMAC secret used to sign server-issued anonymous InstanceIDs. Required —
+# must be shared and stable across all replicas. Generate with e.g.
+# `openssl rand -base64 32` and set via env var in non-dev environments.
+ANONYMOUS_INSTANCE:
+  SECRET: "dev-only-anonymous-instance-secret-change-me"
 
 OTEL:
   ENABLED: false

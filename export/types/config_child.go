@@ -170,6 +170,13 @@ type RateLimiterT struct {
 	// so a client can't flood pong responses by flooding pings.
 	ControlFrameRate  int `koanf:"CONTROL_FRAME_RATE"`
 	ControlFrameBurst int `koanf:"CONTROL_FRAME_BURST"`
+
+	// IssueTokenIPRate/Burst throttle POST /issue-tmp-token per client IP — the
+	// sole mint point for anonymous InstanceIDs. Bounds how fast an attacker can
+	// churn through fresh anonymous sessions even though InstanceID is no longer
+	// client-chosen (see ai-feedback/06-anonymous-ratelimit-session-bypass.md).
+	IssueTokenIPRate  int `koanf:"ISSUE_TOKEN_IP_RATE"`
+	IssueTokenIPBurst int `koanf:"ISSUE_TOKEN_IP_BURST"`
 }
 
 func (r *RateLimiterT) validate() {
@@ -191,6 +198,12 @@ func (r *RateLimiterT) validate() {
 	if r.ControlFrameBurst < r.ControlFrameRate {
 		panic("rate limiter control frame burst must be greater than or equal to control frame rate")
 	}
+	if r.IssueTokenIPRate <= 0 {
+		panic("rate limiter issue-token IP rate must be greater than 0")
+	}
+	if r.IssueTokenIPBurst < r.IssueTokenIPRate {
+		panic("rate limiter issue-token IP burst must be greater than or equal to issue-token IP rate")
+	}
 }
 
 func (r *RateLimiterT) loadDefault() {
@@ -211,6 +224,27 @@ func (r *RateLimiterT) loadDefault() {
 	}
 	if r.ControlFrameBurst == 0 {
 		r.ControlFrameBurst = 10
+	}
+	if r.IssueTokenIPRate == 0 {
+		r.IssueTokenIPRate = 5
+	}
+	if r.IssueTokenIPBurst == 0 {
+		r.IssueTokenIPBurst = 20
+	}
+}
+
+// AnonymousInstanceT holds the HMAC secret used to sign/verify server-issued
+// anonymous InstanceIDs (see core/service/websocket/mediator/delivery/anon_instance.go).
+// Must be shared and stable across all replicas of the service, since a token
+// minted by one replica must verify on whichever replica handles the next
+// request. See ai-feedback/06-anonymous-ratelimit-session-bypass.md.
+type AnonymousInstanceT struct {
+	Secret string `koanf:"SECRET"`
+}
+
+func (a *AnonymousInstanceT) validate() {
+	if a.Secret == "" {
+		panic("anonymous instance secret must be set (ANONYMOUS_INSTANCE_SECRET)")
 	}
 }
 

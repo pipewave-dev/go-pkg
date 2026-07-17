@@ -17,6 +17,7 @@ import (
 	healthyprovider "github.com/pipewave-dev/go-pkg/provider/healthy-provider"
 	"github.com/pipewave-dev/go-pkg/shared/actx"
 	"github.com/samber/do/v2"
+	"golang.org/x/time/rate"
 )
 
 func NewDI(i do.Injector) (wsSv.ServerDelivery, error) {
@@ -35,22 +36,25 @@ func NewDI(i do.Injector) (wsSv.ServerDelivery, error) {
 	msgHubSvc := do.MustInvoke[msghub.MessageHubSvc](i)
 	shutdownSignal := do.MustInvoke[*msghub.ShutdownSignal](i)
 
+	rl := c.Env().RateLimiter
 	ins := &serverDelivery{
-		c:                c,
-		mux:              http.NewServeMux(),
-		workerPool:       wpool,
-		wsService:        wsService,
-		connectionMgr:    connectionMgr,
-		rateLimiter:      rateLimiter,
-		clientMsgHandler: clientMsgHandler,
-		exchangeToken:    exchangeToken,
-		activeConnRepo:   repo.ActiveConnStore(),
-		queueAdapter:     queueAdapter,
-		onNewStuff:       onNewStuff,
-		onCloseStuff:     onCloseStuff,
-		msgHubSvc:        msgHubSvc,
-		shutdownSignal:   shutdownSignal,
-		gobwasServer:     nil,
+		c:                   c,
+		mux:                 http.NewServeMux(),
+		workerPool:          wpool,
+		wsService:           wsService,
+		connectionMgr:       connectionMgr,
+		rateLimiter:         rateLimiter,
+		clientMsgHandler:    clientMsgHandler,
+		exchangeToken:       exchangeToken,
+		activeConnRepo:      repo.ActiveConnStore(),
+		queueAdapter:        queueAdapter,
+		onNewStuff:          onNewStuff,
+		onCloseStuff:        onCloseStuff,
+		msgHubSvc:           msgHubSvc,
+		shutdownSignal:      shutdownSignal,
+		gobwasServer:        nil,
+		issueTokenIPLimiter: newIPRateLimiter(rate.Limit(rl.IssueTokenIPRate), rl.IssueTokenIPBurst),
+		anonInstanceSigner:  newAnonymousInstanceSigner(c.Env().AnonymousInstance.Secret),
 	}
 
 	ins.registerCallback()
@@ -106,6 +110,13 @@ type serverDelivery struct {
 
 	// WebSocket server (gobwas)
 	gobwasServer wsSv.WebsocketServer
+
+	// issueTokenIPLimiter throttles POST /issue-tmp-token per client IP (the sole
+	// mint point for anonymous InstanceIDs).
+	issueTokenIPLimiter *ipRateLimiter
+
+	// anonInstanceSigner mints/verifies server-issued anonymous InstanceIDs.
+	anonInstanceSigner *anonymousInstanceSigner
 
 	// Event trigger
 	onNewStuff   wsSv.OnNewStuffFn
