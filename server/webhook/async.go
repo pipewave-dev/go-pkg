@@ -26,8 +26,11 @@ type asyncJob struct {
 }
 
 // AsyncDispatcher delivers Class-2 events at-least-once with in-memory
-// retry. Events are dropped (with a warning log) when the queue is full,
-// when retryMax is exhausted, or on shutdown/crash — accepted for v1.
+// retry. Events are dropped (with a warning log) when the queue is full or
+// when retryMax is exhausted. Events are also dropped on shutdown/crash —
+// accepted for v1 — but in that case (and in a narrow shutdown-vs-retry-timer
+// race, where select chooses arbitrarily between the closed-queue and
+// enqueue-into-queue cases) the drop may occur without a warning log.
 type AsyncDispatcher struct {
 	sender   *Sender
 	backoff  []time.Duration
@@ -56,7 +59,9 @@ func NewAsyncDispatcher(sender *Sender, retryMax int, backoff []time.Duration) *
 }
 
 // Emit enqueues an event without blocking the caller (WS hot paths call
-// this). A full queue drops the event.
+// this). A full queue drops the event (with a warning log). Calling Emit
+// during or after Shutdown is not guaranteed to log a drop — the event may
+// enqueue into a queue that will never be drained again.
 func (d *AsyncDispatcher) Emit(eventType string, data any) {
 	job := asyncJob{eventType: eventType, callbackID: NewCallbackID(), data: data}
 	select {
