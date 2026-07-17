@@ -2,6 +2,9 @@ package serverfns
 
 import (
 	"context"
+	"encoding/json"
+	"errors"
+	"log/slog"
 	"net/http"
 	"time"
 
@@ -69,6 +72,37 @@ type webhookFns struct {
 	cfg   Config
 }
 
+// deliberateErrorBody is the shape a backend uses to communicate a
+// deliberate rejection (4xx) to the end client, e.g. {"error":"banned"}.
+type deliberateErrorBody struct {
+	Error string `json:"error"`
+}
+
+// sanitizeCallError logs the full failure detail (which may embed the
+// private callback URL or a raw backend response body) and returns a safe,
+// generic error for core to surface to end clients. A 4xx CallError is
+// treated as a deliberate application-level rejection: if the backend body
+// decodes to {"error": "..."} with a non-empty message, that message is
+// surfaced verbatim; otherwise a generic "<hook> rejected" is used. Every
+// other failure (5xx, transport, circuit open, decode errors) collapses to
+// genericMsg.
+func sanitizeCallError(hook string, genericMsg string, err error) error {
+	if err == nil {
+		return nil
+	}
+	slog.Error("[fns] callback failed", "hook", hook, "error", err)
+
+	var ce *webhook.CallError
+	if errors.As(err, &ce) && ce.Status >= 400 && ce.Status < 500 {
+		var body deliberateErrorBody
+		if jsonErr := json.Unmarshal(ce.Body, &body); jsonErr == nil && body.Error != "" {
+			return errors.New(body.Error)
+		}
+		return errors.New(hook + " rejected")
+	}
+	return errors.New(genericMsg)
+}
+
 // New builds the *types.Fns that bridges pipewave hooks to HTTP callbacks.
 func New(syncCaller *webhook.SyncCaller, async *webhook.AsyncDispatcher, cfg Config) *types.Fns {
 	w := &webhookFns{sync: syncCaller, async: async, cfg: cfg}
@@ -89,7 +123,13 @@ func (w *webhookFns) inspectToken(ctx context.Context, token string, headers htt
 	var resp inspectTokenResp
 	// Any failure (transport, 4xx, 5xx, open breaker) fails closed.
 	if err := w.sync.Call(ctx, webhook.EventInspectToken, inspectTokenReq{Token: token, Headers: headers}, w.cfg.SyncTimeout, &resp); err != nil {
-		return "", false, nil, err
+		return "", false, nil, sanitizeCallError(webhook.EventInspectToken, "authentication failed", err)
+	}
+	if !resp.IsAnonymous && resp.UserID == "" {
+		// A 200 with an empty, non-anonymous user_id would panic core's
+		// auth path — fail closed instead of trusting a malformed backend.
+		slog.Error("[fns] callback returned empty user_id for non-anonymous auth", "hook", webhook.EventInspectToken)
+		return "", false, nil, errors.New("authentication failed")
 	}
 	return resp.UserID, resp.IsAnonymous, resp.Metadata, nil
 }
@@ -105,7 +145,8 @@ func (w *webhookFns) HandleMessage(ctx context.Context, auth types.WebsocketAuth
 	default: // sync
 		var resp handleMessageResp
 		if err := w.sync.Call(ctx, webhook.EventHandleMessage, req, w.cfg.HandleMessageTimeout, &resp); err != nil {
-			return "", nil, err // surfaces as an error frame to the client
+			// surfaces as an error frame to the client — must be sanitized.
+			return "", nil, sanitizeCallError(webhook.EventHandleMessage, "upstream error", err)
 		}
 		return resp.OutputType, resp.Data, nil
 	}
@@ -114,7 +155,7 @@ func (w *webhookFns) HandleMessage(ctx context.Context, auth types.WebsocketAuth
 func (w *webhookFns) OnNewConnection(ctx context.Context, auth types.WebsocketAuth) error {
 	// Fail closed: only a 2xx from the backend admits the connection.
 	if err := w.sync.Call(ctx, webhook.EventOnNewConnection, authEvent{Auth: toAuthDTO(auth)}, w.cfg.SyncTimeout, nil); err != nil {
-		return err
+		return sanitizeCallError(webhook.EventOnNewConnection, "connection rejected", err)
 	}
 	w.async.Emit(webhook.EventOnNewConnectionEstablished, authEvent{Auth: toAuthDTO(auth)})
 	return nil

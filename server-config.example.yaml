@@ -43,7 +43,9 @@ POSTGRES:
 SERVER:
   CLIENT_ADDR: ":8080"
   ADMIN_ADDR: ":8081"
-  # Scalar fields can be overridden via env, e.g. APP_SERVER__ADMIN_ADDR
+  # Env-var overrides (e.g. APP_SERVER__ADMIN_ADDR) are currently
+  # non-functional (known pkg/koanf bug). Use additional YAML override files
+  # passed via the comma-separated -config flag instead.
   API_KEYS: ["change-me"]
   REPOSITORY: "postgres" # postgres | dynamodb
   AUTH:
