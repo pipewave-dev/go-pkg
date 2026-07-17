@@ -145,6 +145,19 @@ func TestHandleMessage_ForwardMode(t *testing.T) {
 	require.Equal(t, webhook.EventMessageReceived, b.envelopes()[0].Meta.EventType)
 }
 
+func TestHandleMessage_DisabledMode(t *testing.T) {
+	b := &backend{}
+	fns := newFns(t, b, serverconfig.HandleMsgModeDisabled)
+
+	outType, res, err := fns.HandleMessage.HandleMessage(context.Background(), testAuth, "ANY", []byte("x"))
+	require.NoError(t, err)
+	require.Empty(t, outType)
+	require.Nil(t, res)
+
+	time.Sleep(20 * time.Millisecond) // give any (wrong) async emit a chance to land
+	require.Empty(t, b.envelopes(), "disabled mode must not call the backend at all")
+}
+
 func TestOnNewConnection_AcceptEmitsEstablished(t *testing.T) {
 	b := &backend{}
 	fns := newFns(t, b, serverconfig.HandleMsgModeSync)
