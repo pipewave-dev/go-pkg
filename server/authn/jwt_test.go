@@ -85,4 +85,24 @@ func TestJWTInspector_Rejections(t *testing.T) {
 		_, _, _, err := insp.InspectToken(context.Background(), "not-a-jwt", nil)
 		require.Error(t, err)
 	})
+	t.Run("HS256 algorithm confusion", func(t *testing.T) {
+		pemBytes, err := os.ReadFile(pemFile)
+		require.NoError(t, err)
+		token, err := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
+			"sub": "u",
+			"exp": time.Now().Add(time.Hour).Unix(),
+		}).SignedString(pemBytes)
+		require.NoError(t, err)
+		_, _, _, err = insp.InspectToken(context.Background(), token, nil)
+		require.Error(t, err)
+	})
+	t.Run("alg none", func(t *testing.T) {
+		token, err := jwt.NewWithClaims(jwt.SigningMethodNone, jwt.MapClaims{
+			"sub": "u",
+			"exp": time.Now().Add(time.Hour).Unix(),
+		}).SignedString(jwt.UnsafeAllowNoneSignatureType)
+		require.NoError(t, err)
+		_, _, _, err = insp.InspectToken(context.Background(), token, nil)
+		require.Error(t, err)
+	})
 }
