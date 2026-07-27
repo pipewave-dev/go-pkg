@@ -57,7 +57,9 @@ SERVER:
       METADATA_CLAIMS: []
   CALLBACKS:
     BASE_URL: "http://localhost:9000/pipewave/callback"
-    SIGNING_KEY_FILE: "webhook_ed25519.key"
+    SIGNATURE:
+      MODE: "enabled" # enabled | disabled — disabled bỏ ký khi callback nội bộ / đã có mTLS
+      SIGNING_KEY_FILE: "webhook_ed25519.key"
     HANDLE_MESSAGE:
       MODE: "sync" # sync | forward | disabled
       TIMEOUT: "5s"
