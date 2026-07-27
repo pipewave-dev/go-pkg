@@ -37,7 +37,8 @@ func TestLoad_DefaultsApplied(t *testing.T) {
 	require.Equal(t, 5*time.Second, cfg.Callbacks.HandleMessage.Timeout)
 	require.Equal(t, 3*time.Second, cfg.Callbacks.SyncTimeout)
 	require.Equal(t, 6, cfg.Callbacks.AsyncRetryMax)
-	require.Equal(t, "webhook_ed25519.key", cfg.Callbacks.SigningKeyFile)
+	require.Equal(t, serverconfig.SignatureModeEnabled, cfg.Callbacks.Signature.Mode)
+	require.Equal(t, "webhook_ed25519.key", cfg.Callbacks.Signature.SigningKeyFile)
 	require.Equal(t, "sub", cfg.Auth.JWT.UserIDClaim)
 }
 
@@ -72,6 +73,22 @@ SERVER:
 	require.Equal(t, 10*time.Second, cfg.Callbacks.HandleMessage.Timeout)
 	require.Equal(t, 1*time.Second, cfg.Callbacks.SyncTimeout)
 	require.Equal(t, 3, cfg.Callbacks.AsyncRetryMax)
+}
+
+func TestLoad_SignatureDisabled(t *testing.T) {
+	cfg, err := serverconfig.Load([]string{writeYAML(t, `
+SERVER:
+  API_KEYS: ["k"]
+  AUTH: {MODE: "webhook"}
+  CALLBACKS:
+    BASE_URL: "https://x/cb"
+    SIGNATURE:
+      MODE: "disabled"
+      SIGNING_KEY_FILE: "custom.key"
+`)})
+	require.NoError(t, err)
+	require.Equal(t, serverconfig.SignatureModeDisabled, cfg.Callbacks.Signature.Mode)
+	require.Equal(t, "custom.key", cfg.Callbacks.Signature.SigningKeyFile)
 }
 
 func TestLoad_ValidationErrors(t *testing.T) {
@@ -117,6 +134,14 @@ SERVER:
   AUTH: {MODE: "webhook"}
   CALLBACKS: {BASE_URL: "https://x/cb"}
 `, "REPOSITORY"},
+		{"bad signature mode", `
+SERVER:
+  API_KEYS: ["k"]
+  AUTH: {MODE: "webhook"}
+  CALLBACKS:
+    BASE_URL: "https://x/cb"
+    SIGNATURE: {MODE: "on"}
+`, "SIGNATURE.MODE"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

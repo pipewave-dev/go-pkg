@@ -17,6 +17,9 @@ const (
 	HandleMsgModeForward  = "forward"
 	HandleMsgModeDisabled = "disabled"
 
+	SignatureModeEnabled  = "enabled"
+	SignatureModeDisabled = "disabled"
+
 	RepositoryPostgres = "postgres"
 	RepositoryDynamoDB = "dynamodb"
 )
@@ -43,11 +46,16 @@ type JWTT struct {
 }
 
 type CallbacksT struct {
-	BaseURL        string        `koanf:"BASE_URL"`
-	SigningKeyFile string        `koanf:"SIGNING_KEY_FILE"`
-	HandleMessage  HandleMsgT    `koanf:"HANDLE_MESSAGE"`
-	SyncTimeout    time.Duration `koanf:"SYNC_TIMEOUT"`
-	AsyncRetryMax  int           `koanf:"ASYNC_RETRY_MAX"`
+	BaseURL       string        `koanf:"BASE_URL"`
+	Signature     SignatureT    `koanf:"SIGNATURE"`
+	HandleMessage HandleMsgT    `koanf:"HANDLE_MESSAGE"`
+	SyncTimeout   time.Duration `koanf:"SYNC_TIMEOUT"`
+	AsyncRetryMax int           `koanf:"ASYNC_RETRY_MAX"`
+}
+
+type SignatureT struct {
+	Mode           string `koanf:"MODE"`
+	SigningKeyFile string `koanf:"SIGNING_KEY_FILE"`
 }
 
 type HandleMsgT struct {
@@ -111,8 +119,11 @@ func (c *ServerConfigT) loadDefault() {
 	if c.Auth.JWT.UserIDClaim == "" {
 		c.Auth.JWT.UserIDClaim = "sub"
 	}
-	if c.Callbacks.SigningKeyFile == "" {
-		c.Callbacks.SigningKeyFile = "webhook_ed25519.key"
+	if c.Callbacks.Signature.Mode == "" {
+		c.Callbacks.Signature.Mode = SignatureModeEnabled
+	}
+	if c.Callbacks.Signature.SigningKeyFile == "" {
+		c.Callbacks.Signature.SigningKeyFile = "webhook_ed25519.key"
 	}
 	if c.Callbacks.HandleMessage.Mode == "" {
 		c.Callbacks.HandleMessage.Mode = HandleMsgModeSync
@@ -148,6 +159,11 @@ func (c *ServerConfigT) validate() error {
 	case HandleMsgModeSync, HandleMsgModeForward, HandleMsgModeDisabled:
 	default:
 		return fmt.Errorf("serverconfig: SERVER.CALLBACKS.HANDLE_MESSAGE.MODE must be sync|forward|disabled, got %q", c.Callbacks.HandleMessage.Mode)
+	}
+	switch c.Callbacks.Signature.Mode {
+	case SignatureModeEnabled, SignatureModeDisabled:
+	default:
+		return fmt.Errorf("serverconfig: SERVER.CALLBACKS.SIGNATURE.MODE must be %q or %q, got %q", SignatureModeEnabled, SignatureModeDisabled, c.Callbacks.Signature.Mode)
 	}
 	switch c.Repository {
 	case RepositoryPostgres, RepositoryDynamoDB:
