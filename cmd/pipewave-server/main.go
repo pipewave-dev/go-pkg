@@ -41,9 +41,12 @@ func main() {
 		PubsubFactory:     pubsubvalkey.PubsubValkey,
 	})
 
-	signer, err := webhook.LoadOrGenerateSigner(srvCfg.Callbacks.SigningKeyFile)
-	if err != nil {
-		fatal("init webhook signer", err)
+	var signer *webhook.Signer
+	if srvCfg.Callbacks.Signature.Mode == serverconfig.SignatureModeEnabled {
+		signer, err = webhook.LoadOrGenerateSigner(srvCfg.Callbacks.Signature.SigningKeyFile)
+		if err != nil {
+			fatal("init webhook signer", err)
+		}
 	}
 	sender := webhook.NewSender(srvCfg.Callbacks.BaseURL, signer)
 	async := webhook.NewAsyncDispatcher(sender, srvCfg.Callbacks.AsyncRetryMax, webhook.DefaultBackoff)
@@ -77,10 +80,11 @@ func main() {
 	}
 
 	clientSrv := &http.Server{Addr: srvCfg.ClientAddr, Handler: pw.Mux()}
-	adminSrv := &http.Server{Addr: srvCfg.AdminAddr, Handler: restapi.NewAdminMux(pw, restapi.MuxConfig{
-		APIKeys:   srvCfg.APIKeys,
-		PublicKey: signer.PublicKey(),
-	})}
+	muxCfg := restapi.MuxConfig{APIKeys: srvCfg.APIKeys}
+	if signer != nil {
+		muxCfg.PublicKey = signer.PublicKey()
+	}
+	adminSrv := &http.Server{Addr: srvCfg.AdminAddr, Handler: restapi.NewAdminMux(pw, muxCfg)}
 
 	go serve("client", clientSrv)
 	go serve("admin", adminSrv)
