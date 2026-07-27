@@ -54,7 +54,9 @@ func (s *Sender) Post(ctx context.Context, eventType, callbackID string, data an
 		return 0, nil, fmt.Errorf("webhook: build request for %s: %w", eventType, err)
 	}
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set(SignatureHeader, s.signer.Sign(body))
+	if s.signer != nil {
+		req.Header.Set(SignatureHeader, s.signer.Sign(body))
+	}
 
 	resp, err := s.httpClient.Do(req)
 	if err != nil {

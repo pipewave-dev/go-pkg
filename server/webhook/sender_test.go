@@ -52,6 +52,35 @@ func TestSender_PostSignedEnvelope(t *testing.T) {
 	require.JSONEq(t, `{"user_id":"u1"}`, string(envelope.Data))
 }
 
+func TestSender_PostWithoutSigner(t *testing.T) {
+	var gotBody []byte
+	var sigPresent bool
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotBody, _ = io.ReadAll(r.Body)
+		_, sigPresent = r.Header[http.CanonicalHeaderKey(webhook.SignatureHeader)]
+		require.Equal(t, "application/json", r.Header.Get("Content-Type"))
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"pong":true}`))
+	}))
+	defer srv.Close()
+
+	sender := webhook.NewSender(srv.URL, nil)
+	status, resp, err := sender.Post(context.Background(), webhook.EventOnCloseConnection, "cb_nosig", map[string]string{"user_id": "u1"}, time.Second)
+	require.NoError(t, err)
+	require.Equal(t, http.StatusOK, status)
+	require.JSONEq(t, `{"pong":true}`, string(resp))
+
+	// no signature header at all
+	require.False(t, sigPresent)
+
+	// envelope body is still well-formed
+	var envelope webhook.Body
+	require.NoError(t, json.Unmarshal(gotBody, &envelope))
+	require.Equal(t, webhook.EventOnCloseConnection, envelope.Meta.EventType)
+	require.Equal(t, "cb_nosig", envelope.Meta.CallbackID)
+	require.JSONEq(t, `{"user_id":"u1"}`, string(envelope.Data))
+}
+
 func TestSender_Timeout(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		time.Sleep(200 * time.Millisecond)
