@@ -340,3 +340,16 @@ func TestAErrorMapping(t *testing.T) {
 	errObj := out["error"].(map[string]any)
 	require.Equal(t, "RecordNotFound", errObj["code"])
 }
+
+func TestWebhookPublicKeyDisabled(t *testing.T) {
+	mux := restapi.NewAdminMux(&fakeModule{svc: &fakeServices{}, mon: &fakeMonitoring{}, healthy: true}, restapi.MuxConfig{
+		APIKeys: []string{testKey},
+		// PublicKey left zero-value → signature disabled
+	})
+	srv := httptest.NewServer(mux)
+	defer srv.Close()
+
+	resp, out := doReq(t, "GET", srv.URL+"/api/v1/webhook/public-key", testKey, nil)
+	require.Equal(t, http.StatusNotFound, resp.StatusCode)
+	require.Equal(t, "webhook signature is disabled", out["error"])
+}

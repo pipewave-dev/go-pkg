@@ -267,5 +267,9 @@ func (h *handlers) monitoringWorkerPool(w http.ResponseWriter, r *http.Request) 
 }
 
 func (h *handlers) webhookPublicKey(w http.ResponseWriter, r *http.Request) {
+	if h.publicKey.PublicKeyInBase64 == "" {
+		writeJSON(w, http.StatusNotFound, map[string]string{"error": "webhook signature is disabled"})
+		return
+	}
 	writeJSON(w, http.StatusOK, h.publicKey)
 }
