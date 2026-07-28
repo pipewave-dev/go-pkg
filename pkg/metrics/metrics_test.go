@@ -66,6 +66,27 @@ func sumFor(t *testing.T, m metricdata.Metrics, want map[string]string) int64 {
 	return 0
 }
 
+func histCountFor(t *testing.T, m metricdata.Metrics, want map[string]string) uint64 {
+	t.Helper()
+	hist, ok := m.Data.(metricdata.Histogram[float64])
+	require.True(t, ok, "metric %s is not a float64 histogram", m.Name)
+	for _, dp := range hist.DataPoints {
+		matched := true
+		for k, v := range want {
+			got, found := dp.Attributes.Value(attribute.Key(k))
+			if !found || got.AsString() != v {
+				matched = false
+				break
+			}
+		}
+		if matched {
+			return dp.Count
+		}
+	}
+	t.Fatalf("no datapoint on %s matching %v", m.Name, want)
+	return 0
+}
+
 func TestRecordConnectionAccepted(t *testing.T) {
 	reader := newTestReader(t)
 	m := metrics.New(metrics.Config{Version: "v1", ContainerID: "c1"})
@@ -100,10 +121,20 @@ func TestRecordClientMessage_SanitizesMsgType(t *testing.T) {
 	// system heartbeat byte -> "heartbeat"
 	m.RecordClientMessage(context.Background(), string([]byte{202}), metrics.OutcomeOK, 0.03)
 
-	got := findMetric(t, collect(t, reader), "pipewave_client_messages_total")
+	rm := collect(t, reader)
+
+	got := findMetric(t, rm, "pipewave_client_messages_total")
 	require.Equal(t, int64(1), sumFor(t, got, map[string]string{"msg_type": "CHAT"}))
 	require.Equal(t, int64(1), sumFor(t, got, map[string]string{"msg_type": "other"}))
 	require.Equal(t, int64(1), sumFor(t, got, map[string]string{"msg_type": "heartbeat"}))
+
+	// The histogram must carry the same sanitized msg_type as the counter —
+	// otherwise an unbounded client-controlled value could leak into
+	// Prometheus through the duration histogram alone.
+	gotHist := findMetric(t, rm, "pipewave_client_message_duration_seconds")
+	require.Equal(t, uint64(1), histCountFor(t, gotHist, map[string]string{"msg_type": "CHAT"}))
+	require.Equal(t, uint64(1), histCountFor(t, gotHist, map[string]string{"msg_type": "other"}))
+	require.Equal(t, uint64(1), histCountFor(t, gotHist, map[string]string{"msg_type": "heartbeat"}))
 }
 
 func TestRecordClientMessage_RecordsHistogram(t *testing.T) {
