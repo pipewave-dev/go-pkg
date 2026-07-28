@@ -18,6 +18,12 @@ AUTO_MIGRATION: true
 ANONYMOUS_INSTANCE:
   SECRET: "dev-anonymous-instance-secret-change-me"
 
+# Server-driven liveness detection. Both keys are optional; the values below
+# are the defaults applied by PingCheckerT.loadDefault().
+PING_CHECKER:
+  PING_IDLE_AFTER: "20s" # send a ping after a connection has been idle this long
+  PONG_TIMEOUT: "3s" # close the connection if no pong arrives within this window
+
 WORKER_POOL:
   BUFFER: 100
   UPPER_THRESHOLD: 80

@@ -103,8 +103,8 @@ func (m *ActiveConnectionT) loadDefault() {
 }
 
 type PingCheckerT struct {
-	PingIdleAfter time.Duration `koanf:"HEARTBEAT_CUTOFF"`
-	PongTimeout   time.Duration `koanf:"PENDING_MSG_TTL"`
+	PingIdleAfter time.Duration `koanf:"PING_IDLE_AFTER"`
+	PongTimeout   time.Duration `koanf:"PONG_TIMEOUT"`
 }
 
 func (p *PingCheckerT) validate() {
