@@ -11,10 +11,12 @@ import (
 	wsSv "github.com/pipewave-dev/go-pkg/core/service/websocket"
 	msghub "github.com/pipewave-dev/go-pkg/core/service/websocket/msg-hub"
 	"github.com/pipewave-dev/go-pkg/core/service/websocket/server/gobwas"
+	"github.com/pipewave-dev/go-pkg/pkg/metrics"
 	"github.com/pipewave-dev/go-pkg/pkg/queue"
 	workerpool "github.com/pipewave-dev/go-pkg/pkg/worker-pool"
 	configprovider "github.com/pipewave-dev/go-pkg/provider/config-provider"
 	healthyprovider "github.com/pipewave-dev/go-pkg/provider/healthy-provider"
+	metricsprovider "github.com/pipewave-dev/go-pkg/provider/metrics-provider"
 	"github.com/pipewave-dev/go-pkg/shared/actx"
 	"github.com/samber/do/v2"
 	"golang.org/x/time/rate"
@@ -35,6 +37,7 @@ func NewDI(i do.Injector) (wsSv.ServerDelivery, error) {
 	onCloseStuff := do.MustInvoke[wsSv.OnCloseStuffFn](i)
 	msgHubSvc := do.MustInvoke[msghub.MessageHubSvc](i)
 	shutdownSignal := do.MustInvoke[*msghub.ShutdownSignal](i)
+	metricsProvider := do.MustInvoke[*metricsprovider.Provider](i)
 
 	rl := c.Env().RateLimiter
 	ins := &serverDelivery{
@@ -52,6 +55,8 @@ func NewDI(i do.Injector) (wsSv.ServerDelivery, error) {
 		onCloseStuff:        onCloseStuff,
 		msgHubSvc:           msgHubSvc,
 		shutdownSignal:      shutdownSignal,
+		metrics:             metricsProvider.Metrics(),
+		connTracker:         newConnTracker(),
 		gobwasServer:        nil,
 		issueTokenIPLimiter: newIPRateLimiter(rate.Limit(rl.IssueTokenIPRate), rl.IssueTokenIPBurst),
 		anonInstanceSigner:  newAnonymousInstanceSigner(c.Env().AnonymousInstance.Secret),
@@ -124,6 +129,11 @@ type serverDelivery struct {
 
 	msgHubSvc      msghub.MessageHubSvc
 	shutdownSignal *msghub.ShutdownSignal
+
+	// metrics records connection lifecycle counters/histograms.
+	metrics *metrics.PipewaveMetrics
+	// connTracker holds open timestamps so close can report a duration.
+	connTracker *connTracker
 }
 
 // Mux implements ServerDelivery interface
@@ -230,15 +240,22 @@ func (d *serverDelivery) registerCallback() {
 			}
 			// defer dc.EndDrain() fires here → blocked Send() goroutines proceed after pending messages.
 
+			d.connTracker.open(auth)
+			d.metrics.RecordConnectionAccepted(ctx, metrics.TransportWS, authKind(auth))
+
 			return nil
 		})
 
 	d.onCloseStuff.RegisterAll(func(auth voAuth.WebsocketAuth) {
-		d.connectionMgr.RemoveConnection(auth)
-		d.rateLimiter.Remove(auth)
-
 		ctx := actx.New()
 		ctx.SetWebsocketAuth(auth)
+
+		if dur, ok := d.connTracker.close(auth); ok {
+			d.metrics.RecordConnectionDuration(ctx, dur.Seconds(), authKind(auth))
+		}
+
+		d.connectionMgr.RemoveConnection(auth)
+		d.rateLimiter.Remove(auth)
 
 		// Anonymous sessions: always remove permanently (no reconnect buffering for anon).
 		if auth.IsAnonymous() {
