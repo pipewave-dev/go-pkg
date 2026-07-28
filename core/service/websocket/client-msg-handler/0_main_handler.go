@@ -3,12 +3,15 @@ package clientmsghandler
 import (
 	"context"
 	"log/slog"
+	"time"
 
 	wsSv "github.com/pipewave-dev/go-pkg/core/service/websocket"
+	"github.com/pipewave-dev/go-pkg/pkg/metrics"
 	"github.com/pipewave-dev/go-pkg/pkg/observer"
 	"github.com/pipewave-dev/go-pkg/pkg/pubsub"
 	configprovider "github.com/pipewave-dev/go-pkg/provider/config-provider"
 	fncollector "github.com/pipewave-dev/go-pkg/provider/fn-collector"
+	metricsprovider "github.com/pipewave-dev/go-pkg/provider/metrics-provider"
 	"github.com/pipewave-dev/go-pkg/shared/aerror"
 	"github.com/pipewave-dev/go-pkg/shared/utils/fn"
 	"github.com/samber/do/v2"
@@ -27,6 +30,7 @@ func NewDI(i do.Injector) (wsSv.ClientMsgHandler, error) {
 	otelProvider := do.MustInvoke[otelP.OtelProvider](i)
 	rateLimiter := do.MustInvoke[wsSv.RateLimiter](i)
 	ackMgr := do.MustInvoke[*ackmanager.AckManager](i)
+	metricsProvider := do.MustInvoke[*metricsprovider.Provider](i)
 
 	return &clientMsgHandler{
 		c:             do.MustInvoke[configprovider.ConfigStore](i),
@@ -40,6 +44,7 @@ func NewDI(i do.Injector) (wsSv.ClientMsgHandler, error) {
 		hbThrottle:    newHeartbeatThrottle(do.MustInvoke[fncollector.IntervalTask](i)),
 		deduplicator:  newMsgDeduplicator(do.MustInvoke[fncollector.IntervalTask](i)),
 		ackManager:    ackMgr,
+		metrics:       metricsProvider.Metrics(),
 	}, nil
 }
 
@@ -55,6 +60,7 @@ type clientMsgHandler struct {
 	hbThrottle    *heartbeatThrottle
 	deduplicator  *msgDeduplicator
 	ackManager    *ackmanager.AckManager
+	metrics       *metrics.PipewaveMetrics
 }
 
 var hearbeatResMsg = wsSv.WebsocketResponse{
@@ -73,6 +79,15 @@ func (h *clientMsgHandler) HandleBinMessage(ctx context.Context, clientMsg []byt
 func (h *clientMsgHandler) handleMessage(ctx context.Context, clientMsg []byte, auth voAuth.WebsocketAuth, sendFn func(context.Context, []byte) error) {
 	var response *wsSv.WebsocketResponse
 
+	// Instrument every exit path from one place: a defer cannot miss a branch
+	// the way scattered Record calls can.
+	start := time.Now()
+	rawMsgType := ""
+	outcome := metrics.OutcomeOK
+	defer func() {
+		h.metrics.RecordClientMessage(ctx, rawMsgType, outcome, time.Since(start).Seconds())
+	}()
+
 	defer func() {
 		if response != nil {
 			data := response.Marshall()
@@ -84,15 +99,18 @@ func (h *clientMsgHandler) handleMessage(ctx context.Context, clientMsg []byte, 
 	err2 := msg.Unmarshall(clientMsg)
 	if err2 != nil {
 		// Invalid message format
+		outcome = metrics.OutcomeInvalidSchema
 		response = &wsSv.WebsocketResponse{
 			Error: aerror.New(ctx, aerror.InvalidInputSchema, err2).Error(),
 		}
 		return
 	}
+	rawMsgType = string(msg.MsgType)
 
 	switch msg.MsgType {
 	case wsSv.MessageTypeHeartbeat:
 		if !h.rateLimiter.Get(auth).Allow() {
+			outcome = metrics.OutcomeRateLimited
 			return
 		}
 		h.handleHeartbeat(ctx, auth)
@@ -100,6 +118,7 @@ func (h *clientMsgHandler) handleMessage(ctx context.Context, clientMsg []byte, 
 
 	case wsSv.MessageTypeAck:
 		if !h.rateLimiter.Get(auth).Allow() {
+			outcome = metrics.OutcomeRateLimited
 			return
 		}
 		// Handle ACK from client
@@ -125,6 +144,7 @@ func (h *clientMsgHandler) handleMessage(ctx context.Context, clientMsg []byte, 
 		resID := fn.NewUUID()
 		rl := h.rateLimiter.Get(auth)
 		if !rl.Allow() {
+			outcome = metrics.OutcomeRateLimited
 			response = &wsSv.WebsocketResponse{
 				Id:           resID.String(),
 				ResponseToId: msg.Id,
@@ -135,11 +155,13 @@ func (h *clientMsgHandler) handleMessage(ctx context.Context, clientMsg []byte, 
 		}
 
 		if msg.Id != "" && h.deduplicator.isDuplicate(msg.Id+auth.InstanceID) {
+			outcome = metrics.OutcomeDedup
 			return
 		}
 
 		msgType, res, err := h.c.Env().Fns.HandleMessage.HandleMessage(ctx, auth, string(msg.MsgType), msg.Binary)
 		if err != nil {
+			outcome = metrics.OutcomeError
 			response = &wsSv.WebsocketResponse{
 				Id:           resID.String(),
 				ResponseToId: msg.Id,
