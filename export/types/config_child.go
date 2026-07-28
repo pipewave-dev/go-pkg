@@ -3,6 +3,7 @@ package types
 import (
 	"regexp"
 	"slices"
+	"strings"
 	"time"
 
 	"github.com/samber/lo"
@@ -315,6 +316,61 @@ func (o *OtelT) loadDefault() {
 		o.ExporterType = "discard"
 	}
 }
+
+// MetricsT contains Prometheus metrics configuration.
+//
+// Metrics are served on their own listener, separate from the client and admin
+// listeners, so Prometheus can scrape without being granted admin API access.
+type MetricsT struct {
+	Enabled bool   `koanf:"ENABLED"`
+	Port    int    `koanf:"PORT"`
+	Path    string `koanf:"PATH"`
+	// MsgTypeAllowlist names the app-level msg_type values that get their own
+	// metric label. Anything not listed is reported as "other". Empty (the
+	// default) collapses every app-level msg_type — msg_type is
+	// client-controlled, so this list is what bounds label cardinality.
+	MsgTypeAllowlist []string `koanf:"MSG_TYPE_ALLOWLIST"`
+}
+
+// maxMetricsMsgTypeLen must stay in sync with metrics.maxMsgTypeLen.
+const maxMetricsMsgTypeLen = 32
+
+func (m *MetricsT) validate() {
+	if !m.Enabled {
+		return
+	}
+	if m.Port <= 0 || m.Port > 65535 {
+		panic("METRICS.PORT must be between 1 and 65535 when METRICS.ENABLED is true")
+	}
+	if !strings.HasPrefix(m.Path, "/") {
+		panic("METRICS.PATH must start with '/' when METRICS.ENABLED is true")
+	}
+	for _, e := range m.MsgTypeAllowlist {
+		if e == "" || len(e) > maxMetricsMsgTypeLen {
+			panic("METRICS.MSG_TYPE_ALLOWLIST entries must be 1..32 characters")
+		}
+		for i := 0; i < len(e); i++ {
+			if e[i] < 0x20 || e[i] > 0x7E {
+				panic("METRICS.MSG_TYPE_ALLOWLIST entries must be printable ASCII")
+			}
+		}
+	}
+}
+
+func (m *MetricsT) loadDefault() {
+	if m.Port == 0 {
+		m.Port = 9090
+	}
+	if m.Path == "" {
+		m.Path = "/metrics"
+	}
+}
+
+// ValidateForTest exposes validate() to the types_test package.
+func (m *MetricsT) ValidateForTest() { m.validate() }
+
+// LoadDefaultForTest exposes loadDefault() to the types_test package.
+func (m *MetricsT) LoadDefaultForTest() { m.loadDefault() }
 
 // DynamoTables contains DynamoDB table name configurations
 type DynamoTables struct {

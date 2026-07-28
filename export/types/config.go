@@ -18,6 +18,7 @@ type EnvType struct {
 	Cors          *CorsT          `koanf:"CORS"`
 
 	Otel     *OtelT         `koanf:"OTEL"`
+	Metrics  *MetricsT      `koanf:"METRICS"`
 	Valkey   *ValkeyT       `koanf:"VALKEY"`
 	DynamoDB *DynamoConfigT `koanf:"DYNAMODB"`
 
@@ -32,6 +33,9 @@ func (e *EnvType) Validate() {
 	e.RateLimiter.validate()
 	e.AnonymousInstance.validate()
 	e.Otel.validate()
+	if e.Metrics != nil {
+		e.Metrics.validate()
+	}
 	e.WorkerPool.validate()
 }
 
@@ -44,6 +48,10 @@ func (e *EnvType) LoadDefault() {
 	e.RateLimiter.loadDefault()
 	e.WorkerPool.loadDefault()
 	e.Otel.loadDefault()
+	if e.Metrics == nil {
+		e.Metrics = &MetricsT{}
+	}
+	e.Metrics.loadDefault()
 }
 
 // ensureNonNil allocates zero-value sub-configs for any block missing from
