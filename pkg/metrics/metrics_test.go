@@ -151,6 +151,29 @@ func TestRecordClientMessage_RecordsHistogram(t *testing.T) {
 	require.InDelta(t, 0.25, hist.DataPoints[0].Sum, 0.0001)
 }
 
+func TestRecordClientMessage_OutcomeLabels(t *testing.T) {
+	reader := newTestReader(t)
+	m := metrics.New(metrics.Config{})
+
+	outcomes := []string{
+		metrics.OutcomeOK,
+		metrics.OutcomeError,
+		metrics.OutcomeInvalidSchema,
+		metrics.OutcomeDedup,
+		metrics.OutcomeRateLimited,
+	}
+	for _, o := range outcomes {
+		m.RecordClientMessage(context.Background(), string([]byte{202}), o, 0.01)
+	}
+
+	got := findMetric(t, collect(t, reader), "pipewave_client_messages_total")
+	for _, o := range outcomes {
+		require.Equal(t, int64(1), sumFor(t, got, map[string]string{
+			"msg_type": "heartbeat", "outcome": o,
+		}), "outcome %q must reach the counter as its own series", o)
+	}
+}
+
 func TestRecordConnectionDuration(t *testing.T) {
 	reader := newTestReader(t)
 	m := metrics.New(metrics.Config{})

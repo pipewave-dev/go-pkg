@@ -241,7 +241,7 @@ func (d *serverDelivery) registerCallback() {
 			// defer dc.EndDrain() fires here → blocked Send() goroutines proceed after pending messages.
 
 			d.connTracker.open(auth)
-			d.metrics.RecordConnectionAccepted(ctx, metrics.TransportWS, authKind(auth))
+			d.metrics.RecordConnectionAccepted(ctx, transportKind(connection.CoreType()), authKind(auth))
 
 			return nil
 		})

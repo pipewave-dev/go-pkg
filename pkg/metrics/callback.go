@@ -2,7 +2,6 @@ package metrics
 
 import (
 	"context"
-	"log/slog"
 	"time"
 
 	"go.opentelemetry.io/otel"
@@ -96,8 +95,5 @@ func (c *CallbackMetrics) RegisterBreakerGauge(src BreakerStateSource) error {
 		o.ObserveInt64(g, v)
 		return nil
 	}, g)
-	if err != nil {
-		slog.Warn("metrics: register breaker gauge failed", slog.Any("error", err))
-	}
 	return err
 }

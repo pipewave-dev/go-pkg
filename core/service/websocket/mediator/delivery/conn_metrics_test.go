@@ -5,6 +5,7 @@ import (
 	"time"
 
 	voAuth "github.com/pipewave-dev/go-pkg/core/domain/value-object/auth"
+	voWs "github.com/pipewave-dev/go-pkg/core/domain/value-object/ws"
 	"github.com/pipewave-dev/go-pkg/pkg/metrics"
 	"github.com/stretchr/testify/require"
 )
@@ -12,6 +13,12 @@ import (
 func TestAuthKind(t *testing.T) {
 	require.Equal(t, metrics.AuthUser, authKind(voAuth.UserWebsocketAuth("u1", "i1")))
 	require.Equal(t, metrics.AuthAnon, authKind(voAuth.AnonymousUserWebsocketAuth("i1")))
+}
+
+func TestTransportKind(t *testing.T) {
+	require.Equal(t, metrics.TransportWS, transportKind(voWs.WsCoreGobwas))
+	require.Equal(t, metrics.TransportLongPoll, transportKind(voWs.WsCoreLongPolling))
+	require.Equal(t, metrics.TransportWS, transportKind(voWs.WsCoreType(0)), "zero value must fall back to ws")
 }
 
 func TestConnTracker_ReturnsElapsed(t *testing.T) {

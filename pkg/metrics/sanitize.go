@@ -87,8 +87,6 @@ const (
 	ReasonDNS         = "dns"
 	ReasonStatus4xx   = "status_4xx"
 	ReasonStatus5xx   = "status_5xx"
-	ReasonBadBody     = "bad_body"
-	ReasonBreakerOpen = "breaker_open"
 	ReasonOther       = "other"
 )
 

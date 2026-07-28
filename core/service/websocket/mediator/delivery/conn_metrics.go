@@ -5,6 +5,7 @@ import (
 	"time"
 
 	voAuth "github.com/pipewave-dev/go-pkg/core/domain/value-object/auth"
+	voWs "github.com/pipewave-dev/go-pkg/core/domain/value-object/ws"
 	"github.com/pipewave-dev/go-pkg/pkg/metrics"
 )
 
@@ -14,6 +15,14 @@ func authKind(auth voAuth.WebsocketAuth) string {
 		return metrics.AuthAnon
 	}
 	return metrics.AuthUser
+}
+
+// transportKind maps a connection's core type to the bounded "transport" label.
+func transportKind(coreType voWs.WsCoreType) string {
+	if coreType == voWs.WsCoreLongPolling {
+		return metrics.TransportLongPoll
+	}
+	return metrics.TransportWS
 }
 
 // authKey identifies a session; mirrors ws-event-trigger's keying.
