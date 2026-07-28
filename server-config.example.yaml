@@ -86,3 +86,14 @@ SERVER:
       FAIL_THRESHOLD: 3
     UNHEALTHY_ACTION: "log-only" # log-only | shutdown — what to do when backend is marked unhealthy
     BREAKER_OPEN_SHUTDOWN: "0s" # e.g. "60s" to also mark unhealthy when breaker stays open that long; 0 = disabled
+
+# Prometheus metrics. Served on a dedicated listener so Prometheus can scrape
+# without being granted admin API access.
+METRICS:
+  ENABLED: false
+  PORT: 9090
+  PATH: "/metrics"
+  # App-level msg_type values that get their own metric label. Anything not
+  # listed is reported as "other" — msg_type is client-controlled, so this
+  # list is what bounds label cardinality. Max 32 printable ASCII chars each.
+  MSG_TYPE_ALLOWLIST: []

@@ -13,6 +13,36 @@ Copy [`server-config.example.yaml`](server-config.example.yaml) and point
 `SERVER.CALLBACKS.BASE_URL` at your application backend's callback endpoint.
 **Note:** env-var overrides (e.g. `APP_SERVER__ADMIN_ADDR`) are currently non-functional due to a known `pkg/koanf` bug; use additional YAML override files passed via the comma-separated `-config` flag instead (as the docker-compose service does).
 
+### Metrics
+
+Set `METRICS.ENABLED: true` to expose Prometheus metrics on a dedicated
+listener (`METRICS.PORT`, default `9090`, path `METRICS.PATH`, default
+`/metrics`). The listener is separate from the client (`:8080`) and admin
+(`:8081`) listeners and requires no API key, so Prometheus can scrape it
+without admin credentials — keep the port unexposed to the internet.
+
+```bash
+curl -s localhost:9090/metrics | grep pipewave_
+```
+
+Exported metrics: connection lifecycle
+(`pipewave_connections_active`, `pipewave_users_active`,
+`pipewave_connections_accepted_total`, `pipewave_connections_rejected_total`,
+`pipewave_connection_duration_seconds`), inbound client messages
+(`pipewave_client_messages_total`,
+`pipewave_client_message_duration_seconds`), outbound callbacks
+(`pipewave_callback_duration_seconds`, `pipewave_callback_errors_total`,
+`pipewave_callback_retries_total`, `pipewave_callback_dropped_total`,
+`pipewave_callback_breaker_open`), and `pipewave_build_info`.
+
+`msg_type` is client-controlled, so only values listed in
+`METRICS.MSG_TYPE_ALLOWLIST` get their own label; everything else is
+reported as `other`.
+
+Go embedders: `pipewave` never installs a global OTEL `MeterProvider`. Set
+your own before calling `pipewave.New()` and pipewave's instruments flow into
+your registry; set none and every metric call is a no-op.
+
 ### Callback contract
 
 Every webhook is an HTTP POST to `SERVER.CALLBACKS.BASE_URL` with a signed

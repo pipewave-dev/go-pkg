@@ -1,6 +1,7 @@
 package moduledelivery
 
 import (
+	"log/slog"
 	"net/http"
 	"time"
 
@@ -8,11 +9,13 @@ import (
 	"github.com/pipewave-dev/go-pkg/core/repository"
 	business "github.com/pipewave-dev/go-pkg/core/service/business"
 	wsSv "github.com/pipewave-dev/go-pkg/core/service/websocket"
+	"github.com/pipewave-dev/go-pkg/pkg/metrics"
 	mm "github.com/pipewave-dev/go-pkg/pkg/mux-middleware"
 	workerpool "github.com/pipewave-dev/go-pkg/pkg/worker-pool"
 	configprovider "github.com/pipewave-dev/go-pkg/provider/config-provider"
 	fncollector "github.com/pipewave-dev/go-pkg/provider/fn-collector"
 	healthyprovider "github.com/pipewave-dev/go-pkg/provider/healthy-provider"
+	metricsprovider "github.com/pipewave-dev/go-pkg/provider/metrics-provider"
 	"github.com/samber/do/v2"
 )
 
@@ -32,8 +35,21 @@ func NewDI(i do.Injector) (delivery.ModuleDelivery, error) {
 		cleanupTask:  do.MustInvoke[fncollector.CleanupTask](i),
 		intervalTask: do.MustInvoke[fncollector.IntervalTask](i),
 		repo:         do.MustInvoke[repository.AllRepository](i),
+
+		metricsProvider: do.MustInvoke[*metricsprovider.Provider](i),
 	}
 	ins.registerHandlers()
+
+	// Gauges read live connection state on each scrape, so they cannot drift.
+	if err := ins.metricsProvider.Metrics().RegisterConnectionGauges(ins.monitoringSvc); err != nil {
+		slog.Warn("metrics: register connection gauges failed", slog.Any("error", err))
+	}
+	// Handler() is nil exactly when metrics are disabled; skip building the
+	// callback observer so CallbackObserver() reports nil to the container.
+	if ins.metricsProvider.Handler() != nil {
+		ins.callbackMetrics = metrics.NewCallbackMetrics()
+	}
+
 	stopFn := ins.runIntervalTasks(time.Second * 600)
 	cleanupTask := do.MustInvoke[fncollector.CleanupTask](i)
 	cleanupTask.RegTask(stopFn, fncollector.FnPriorityEarlyest) // Stop to prevent push new tasks
@@ -59,6 +75,9 @@ type moduleDelivery struct {
 	cleanupTask  fncollector.CleanupTask
 	intervalTask fncollector.IntervalTask
 	repo         repository.AllRepository
+
+	metricsProvider *metricsprovider.Provider
+	callbackMetrics *metrics.CallbackMetrics
 }
 
 func (m *moduleDelivery) runIntervalTasks(d time.Duration) func() {

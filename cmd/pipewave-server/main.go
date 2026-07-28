@@ -18,6 +18,7 @@ import (
 	queuevalkey "github.com/pipewave-dev/go-pkg/export/adapters/queue/valkey"
 	dynamorepo "github.com/pipewave-dev/go-pkg/export/adapters/repo/dynamodb"
 	pgrepo "github.com/pipewave-dev/go-pkg/export/adapters/repo/postgresql"
+	"github.com/pipewave-dev/go-pkg/pkg/metrics"
 	"github.com/pipewave-dev/go-pkg/server/authn"
 	serverconfig "github.com/pipewave-dev/go-pkg/server/config"
 	serverfns "github.com/pipewave-dev/go-pkg/server/fns"
@@ -53,6 +54,9 @@ func main() {
 		}
 	}
 	sender := webhook.NewSender(srvCfg.Callbacks.BaseURL, signer)
+	if obs, ok := pw.CallbackObserver().(webhook.CallObserver); ok {
+		sender.SetObserver(obs)
+	}
 
 	asyncBackoff := webhook.DefaultBackoff
 	if len(srvCfg.Callbacks.AsyncBackoff) > 0 {
@@ -61,6 +65,11 @@ func main() {
 	async := webhook.NewAsyncDispatcher(sender, srvCfg.Callbacks.AsyncRetryMax, asyncBackoff)
 
 	breaker := webhook.NewCircuitBreaker(srvCfg.Callbacks.Breaker.Threshold, srvCfg.Callbacks.Breaker.Cooldown)
+	if cm, ok := pw.CallbackObserver().(*metrics.CallbackMetrics); ok {
+		if gaugeErr := cm.RegisterBreakerGauge(breaker); gaugeErr != nil {
+			slog.Warn("metrics: register breaker gauge failed", "error", gaugeErr)
+		}
+	}
 	syncCaller := webhook.NewSyncCaller(sender, breaker,
 		srvCfg.Callbacks.SyncRetry.Max, srvCfg.Callbacks.SyncRetry.Backoff)
 
@@ -81,6 +90,9 @@ func main() {
 	if srvCfg.Callbacks.Ping.Enabled {
 		pingURL := srvCfg.Callbacks.BaseURL + srvCfg.Callbacks.Ping.Path
 		pingSender := webhook.NewSender(pingURL, signer)
+		if obs, ok := pw.CallbackObserver().(webhook.CallObserver); ok {
+			pingSender.SetObserver(obs)
+		}
 		pinger = webhook.NewPinger(pingSender, srvCfg.Callbacks.Ping.Timeout, srvCfg.Callbacks.Ping.FailThreshold)
 		if srvCfg.Callbacks.Ping.BootCheck {
 			bootCtx, cancel := context.WithTimeout(rootCtx, srvCfg.Callbacks.Ping.Timeout)
@@ -129,6 +141,14 @@ func main() {
 	go serve("client", clientSrv)
 	go serve("admin", adminSrv)
 
+	go func() {
+		// Log, never fatal: a metrics listener that cannot bind must not take
+		// the server down.
+		if metricsErr := pw.ServeMetrics(); metricsErr != nil {
+			slog.Error("[pipewave-server] metrics listener stopped", "error", metricsErr)
+		}
+	}()
+
 	if pinger != nil {
 		go pinger.Run(rootCtx, srvCfg.Callbacks.Ping.Interval, monitor.SetHealthy,
 			func() { monitor.SetUnhealthy("ping failed >= threshold") })
@@ -144,6 +164,7 @@ func main() {
 	defer cancel()
 	_ = adminSrv.Shutdown(shutdownCtx)
 	_ = clientSrv.Shutdown(shutdownCtx)
+	_ = pw.ShutdownMetrics(shutdownCtx)
 	pw.Shutdown()
 	async.Shutdown(shutdownCtx)
 	slog.Info("[pipewave-server] bye")

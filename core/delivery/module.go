@@ -33,6 +33,17 @@ type ModuleDelivery interface {
 	IsHealthy() bool
 	RunMigration() error
 	Shutdown()
+
+	// ServeMetrics starts the metrics listener and blocks. Returns nil
+	// immediately when metrics are disabled. Callers should log, not exit,
+	// on error — a metrics listener must never take the server down.
+	ServeMetrics() error
+	// ShutdownMetrics stops the metrics listener.
+	ShutdownMetrics(ctx context.Context) error
+	// CallbackObserver returns the webhook call observer, or nil when metrics
+	// are disabled. Typed as any so core/delivery does not import
+	// server/webhook; the container type-asserts it to webhook.CallObserver.
+	CallbackObserver() any
 }
 
 type ExportedServices interface {
