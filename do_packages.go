@@ -24,6 +24,7 @@ import (
 	configprovider "github.com/pipewave-dev/go-pkg/provider/config-provider"
 	fncollector "github.com/pipewave-dev/go-pkg/provider/fn-collector"
 	healthyprovider "github.com/pipewave-dev/go-pkg/provider/healthy-provider"
+	metricsprovider "github.com/pipewave-dev/go-pkg/provider/metrics-provider"
 	muxmiddleware "github.com/pipewave-dev/go-pkg/provider/mux-middleware"
 	observerprovider "github.com/pipewave-dev/go-pkg/provider/observer-provider"
 	otelprovider "github.com/pipewave-dev/go-pkg/provider/otel-provider"
@@ -65,6 +66,7 @@ func injectionPackage(
 		do.Lazy(fncollector.NewDICleanupTask),
 		do.Lazy(fncollector.NewDIIntervalTask),
 		do.Lazy(healthyprovider.NewDI),
+		do.Lazy(metricsprovider.NewDI),
 		do.Lazy(muxmiddleware.NewDI),
 		do.Lazy(observerprovider.NewDI),
 		do.Lazy(otelprovider.NewDI),
