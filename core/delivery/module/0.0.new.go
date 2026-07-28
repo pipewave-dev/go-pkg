@@ -8,7 +8,6 @@ import (
 	"github.com/pipewave-dev/go-pkg/core/repository"
 	business "github.com/pipewave-dev/go-pkg/core/service/business"
 	wsSv "github.com/pipewave-dev/go-pkg/core/service/websocket"
-	"github.com/pipewave-dev/go-pkg/pkg/metrics"
 	mm "github.com/pipewave-dev/go-pkg/pkg/mux-middleware"
 	workerpool "github.com/pipewave-dev/go-pkg/pkg/worker-pool"
 	configprovider "github.com/pipewave-dev/go-pkg/provider/config-provider"
@@ -28,7 +27,6 @@ func NewDI(i do.Injector) (delivery.ModuleDelivery, error) {
 		wsOnCloseReg:  do.MustInvoke[wsSv.OnCloseStuffFn](i),
 		healthy:       do.MustInvoke[healthyprovider.Healthy](i),
 		monitoringSvc: do.MustInvoke[business.Monitoring](i),
-		metrics:       metrics.New(),
 
 		workerPool:   do.MustInvoke[*workerpool.WorkerPool](i),
 		cleanupTask:  do.MustInvoke[fncollector.CleanupTask](i),
@@ -56,7 +54,6 @@ type moduleDelivery struct {
 
 	healthy       healthyprovider.Healthy
 	monitoringSvc business.Monitoring
-	metrics       *metrics.PipewaveMetrics
 
 	workerPool   *workerpool.WorkerPool
 	cleanupTask  fncollector.CleanupTask
