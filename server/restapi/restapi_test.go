@@ -341,6 +341,19 @@ func TestAErrorMapping(t *testing.T) {
 	require.Equal(t, "RecordNotFound", errObj["code"])
 }
 
+func TestHealthz_ReflectsExtraHealthy(t *testing.T) {
+	mux := restapi.NewAdminMux(&fakeModule{svc: &fakeServices{}, mon: &fakeMonitoring{}, healthy: true}, restapi.MuxConfig{
+		APIKeys:      []string{testKey},
+		ExtraHealthy: func() bool { return false },
+	})
+	srv := httptest.NewServer(mux)
+	defer srv.Close()
+
+	resp, out := doReq(t, "GET", srv.URL+"/healthz", "", nil)
+	require.Equal(t, http.StatusServiceUnavailable, resp.StatusCode)
+	require.Equal(t, false, out["healthy"])
+}
+
 func TestWebhookPublicKeyDisabled(t *testing.T) {
 	mux := restapi.NewAdminMux(&fakeModule{svc: &fakeServices{}, mon: &fakeMonitoring{}, healthy: true}, restapi.MuxConfig{
 		APIKeys: []string{testKey},

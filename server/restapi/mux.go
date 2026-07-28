@@ -12,6 +12,10 @@ import (
 type MuxConfig struct {
 	APIKeys   []string
 	PublicKey webhook.PublicKeyVerifier
+	// ExtraHealthy, when set, is consulted alongside pw.IsHealthy() to
+	// decide the /healthz status. nil means no extra constraint (always
+	// healthy from this source's perspective).
+	ExtraHealthy func() bool
 }
 
 // NewAdminMux builds the admin REST API from the public ModuleDelivery
@@ -38,7 +42,8 @@ func NewAdminMux(pw delivery.ModuleDelivery, cfg MuxConfig) *http.ServeMux {
 	mux := http.NewServeMux()
 	mux.Handle("/api/v1/", requireAPIKey(cfg.APIKeys, api))
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) {
-		if pw.IsHealthy() {
+		healthy := pw.IsHealthy() && (cfg.ExtraHealthy == nil || cfg.ExtraHealthy())
+		if healthy {
 			writeJSON(w, http.StatusOK, map[string]bool{"healthy": true})
 			return
 		}
