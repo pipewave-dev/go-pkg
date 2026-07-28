@@ -71,8 +71,9 @@ SERVER:
       PATH: "/pipewave/ping"   # ghép sau BASE_URL; rỗng = ping thẳng BASE_URL
       INTERVAL: "30s"
       TIMEOUT: "3s"
-      BOOT_CHECK: true         # ping fail lúc boot → fatal, không start
       FAIL_THRESHOLD: 3        # số ping fail liên tiếp trước khi coi unhealthy
+      # Boot-check LUÔN chạy khi ping enabled (fail lúc boot → fatal, không start);
+      # không phải knob cấu hình vì koanf không phân biệt unset/false cho bool.
     UNHEALTHY_ACTION: "log-only"   # shutdown | log-only
     BREAKER_OPEN_SHUTDOWN: "0s"    # breaker mở liên tục quá lâu → unhealthy (0 = tắt)
 ```
@@ -135,7 +136,7 @@ Trong `loadDefault()`:
 - `Breaker.Threshold <= 0` → `5`; `Breaker.Cooldown <= 0` → `10s`.
 - `Ping.Enabled` mặc định `false`; nếu bật: `Path` mặc định `/pipewave/ping`,
   `Interval` <= 0 → `30s`, `Timeout` <= 0 → `3s`, `FailThreshold` <= 0 → `3`,
-  `BootCheck` mặc định `true`.
+  `BootCheck` luôn set `true` (không phải knob — koanf không phân biệt unset/false).
 - `UnhealthyAction == ""` → `"log-only"` (**mặc định KHÔNG tự exit** — service
   không nên tự giết mình trừ khi vận hành viên chủ động chọn `"shutdown"`).
 - `BreakerOpenShutdown` mặc định `0` (tắt watcher).
