@@ -124,3 +124,31 @@ func TestRegisterConnectionGauges_SlowSourceDoesNotBlockScrape(t *testing.T) {
 	require.GreaterOrEqual(t, elapsed, metrics.StatsCallbackTimeoutForTest(),
 		"callback returned before its timeout could have fired")
 }
+
+func TestRegisterConnectionGauges_ErrorWithEmptyCacheEmitsNothing(t *testing.T) {
+	reader := newTestReader(t)
+	m := metrics.New(metrics.Config{})
+
+	// Source fails on the very first scrape, so the cache was never primed.
+	src := &stubStats{err: aerror.New(context.Background(), aerror.ErrUnexpectedBussiness, nil)}
+	require.NoError(t, m.RegisterConnectionGauges(src))
+
+	var rm metricdata.ResourceMetrics
+	require.NotPanics(t, func() {
+		require.NoError(t, reader.Collect(context.Background(), &rm))
+	})
+
+	// No datapoint at all — NOT a zero. An observed 0 would read as an outage
+	// on a dashboard; an absent series correctly reads as "no data".
+	for _, sm := range rm.ScopeMetrics {
+		for _, mt := range sm.Metrics {
+			if mt.Name != "pipewave_connections_active" && mt.Name != "pipewave_users_active" {
+				continue
+			}
+			g, ok := mt.Data.(metricdata.Gauge[int64])
+			require.True(t, ok, "metric %s is not an int64 gauge", mt.Name)
+			require.Empty(t, g.DataPoints,
+				"metric %s must emit no datapoint when the source errors with an empty cache", mt.Name)
+		}
+	}
+}
