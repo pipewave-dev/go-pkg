@@ -1375,8 +1375,20 @@ func TestRegisterConnectionGauges_SlowSourceDoesNotBlockScrape(t *testing.T) {
 
 	start := time.Now()
 	_ = collect(t, reader)
-	require.Less(t, time.Since(start), 2*time.Second,
-		"callback must bail out well before the source finishes")
+	elapsed := time.Since(start)
+
+	// The source sleeps 3s; the callback's own timeout is 2s. Assert it bailed
+	// out on the timeout rather than waiting for the source: comfortably under
+	// the source delay, but not instant (which would mean the timeout never
+	// engaged and something else returned early).
+	//
+	// Do NOT assert `elapsed < statsCallbackTimeout` — reaching the timeout
+	// consumes the whole 2s before any post-cancellation work runs, so that
+	// bound is unsatisfiable by construction.
+	require.Less(t, elapsed, 3*time.Second,
+		"callback must bail out on its own timeout, not wait for the slow source")
+	require.GreaterOrEqual(t, elapsed, metrics.StatsCallbackTimeoutForTest(),
+		"callback returned before its timeout could have fired")
 }
 ```
 
@@ -1413,6 +1425,11 @@ import (
 // The callback runs on the Prometheus scrape path; without a bound a slow
 // source would let scrapes pile up.
 const statsCallbackTimeout = 2 * time.Second
+
+// StatsCallbackTimeoutForTest exposes statsCallbackTimeout to the metrics_test
+// package, so the timing test derives its bound from the real constant instead
+// of hardcoding it.
+func StatsCallbackTimeoutForTest() time.Duration { return statsCallbackTimeout }
 
 // ConnectionStatsSource supplies live per-container connection counts.
 // business.Monitoring satisfies it.
