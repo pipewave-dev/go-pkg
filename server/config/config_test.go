@@ -151,3 +151,49 @@ SERVER:
 		})
 	}
 }
+
+func TestLoad_CallbackResilienceDefaults(t *testing.T) {
+	cfg, err := serverconfig.Load([]string{writeYAML(t, validYAML)})
+	require.NoError(t, err)
+	require.Equal(t, 1, cfg.Callbacks.SyncRetry.Max)                 // no-retry preserved
+	require.Equal(t, 100*time.Millisecond, cfg.Callbacks.SyncRetry.Backoff)
+	require.Equal(t, 5, cfg.Callbacks.Breaker.Threshold)
+	require.Equal(t, 10*time.Second, cfg.Callbacks.Breaker.Cooldown)
+	require.False(t, cfg.Callbacks.Ping.Enabled)
+	require.Equal(t, serverconfig.UnhealthyActionLogOnly, cfg.Callbacks.UnhealthyAction)
+	require.Equal(t, time.Duration(0), cfg.Callbacks.BreakerOpenShutdown)
+	require.Empty(t, cfg.Callbacks.AsyncBackoff)
+}
+
+func TestLoad_PingDefaultsWhenEnabled(t *testing.T) {
+	cfg, err := serverconfig.Load([]string{writeYAML(t, `
+SERVER:
+  API_KEYS: ["k"]
+  AUTH:
+    MODE: "webhook"
+  CALLBACKS:
+    BASE_URL: "https://app.example.com/cb"
+    PING:
+      ENABLED: true
+`)})
+	require.NoError(t, err)
+	require.True(t, cfg.Callbacks.Ping.Enabled)
+	require.Equal(t, "/pipewave/ping", cfg.Callbacks.Ping.Path)
+	require.Equal(t, 30*time.Second, cfg.Callbacks.Ping.Interval)
+	require.Equal(t, 3*time.Second, cfg.Callbacks.Ping.Timeout)
+	require.True(t, cfg.Callbacks.Ping.BootCheck)
+	require.Equal(t, 3, cfg.Callbacks.Ping.FailThreshold)
+}
+
+func TestLoad_RejectsBadUnhealthyAction(t *testing.T) {
+	_, err := serverconfig.Load([]string{writeYAML(t, `
+SERVER:
+  API_KEYS: ["k"]
+  AUTH:
+    MODE: "webhook"
+  CALLBACKS:
+    BASE_URL: "https://app.example.com/cb"
+    UNHEALTHY_ACTION: "explode"
+`)})
+	require.Error(t, err)
+}

@@ -22,6 +22,9 @@ const (
 
 	RepositoryPostgres = "postgres"
 	RepositoryDynamoDB = "dynamodb"
+
+	UnhealthyActionShutdown = "shutdown"
+	UnhealthyActionLogOnly  = "log-only"
 )
 
 type ServerConfigT struct {
@@ -51,6 +54,32 @@ type CallbacksT struct {
 	HandleMessage HandleMsgT    `koanf:"HANDLE_MESSAGE"`
 	SyncTimeout   time.Duration `koanf:"SYNC_TIMEOUT"`
 	AsyncRetryMax int           `koanf:"ASYNC_RETRY_MAX"`
+
+	AsyncBackoff        []time.Duration `koanf:"ASYNC_BACKOFF"`
+	SyncRetry           SyncRetryT      `koanf:"SYNC_RETRY"`
+	Breaker             BreakerT        `koanf:"BREAKER"`
+	Ping                PingT           `koanf:"PING"`
+	UnhealthyAction     string          `koanf:"UNHEALTHY_ACTION"`
+	BreakerOpenShutdown time.Duration   `koanf:"BREAKER_OPEN_SHUTDOWN"`
+}
+
+type SyncRetryT struct {
+	Max     int           `koanf:"MAX"`
+	Backoff time.Duration `koanf:"BACKOFF"`
+}
+
+type BreakerT struct {
+	Threshold int           `koanf:"THRESHOLD"`
+	Cooldown  time.Duration `koanf:"COOLDOWN"`
+}
+
+type PingT struct {
+	Enabled       bool          `koanf:"ENABLED"`
+	Path          string        `koanf:"PATH"`
+	Interval      time.Duration `koanf:"INTERVAL"`
+	Timeout       time.Duration `koanf:"TIMEOUT"`
+	BootCheck     bool          `koanf:"BOOT_CHECK"`
+	FailThreshold int           `koanf:"FAIL_THRESHOLD"`
 }
 
 type SignatureT struct {
@@ -137,6 +166,36 @@ func (c *ServerConfigT) loadDefault() {
 	if c.Callbacks.AsyncRetryMax <= 0 {
 		c.Callbacks.AsyncRetryMax = 6
 	}
+	if c.Callbacks.SyncRetry.Max <= 0 {
+		c.Callbacks.SyncRetry.Max = 1
+	}
+	if c.Callbacks.SyncRetry.Backoff <= 0 {
+		c.Callbacks.SyncRetry.Backoff = 100 * time.Millisecond
+	}
+	if c.Callbacks.Breaker.Threshold <= 0 {
+		c.Callbacks.Breaker.Threshold = 5
+	}
+	if c.Callbacks.Breaker.Cooldown <= 0 {
+		c.Callbacks.Breaker.Cooldown = 10 * time.Second
+	}
+	if c.Callbacks.Ping.Enabled {
+		if c.Callbacks.Ping.Path == "" {
+			c.Callbacks.Ping.Path = "/pipewave/ping"
+		}
+		if c.Callbacks.Ping.Interval <= 0 {
+			c.Callbacks.Ping.Interval = 30 * time.Second
+		}
+		if c.Callbacks.Ping.Timeout <= 0 {
+			c.Callbacks.Ping.Timeout = 3 * time.Second
+		}
+		if c.Callbacks.Ping.FailThreshold <= 0 {
+			c.Callbacks.Ping.FailThreshold = 3
+		}
+		c.Callbacks.Ping.BootCheck = true // luôn boot-check khi ping enabled
+	}
+	if c.Callbacks.UnhealthyAction == "" {
+		c.Callbacks.UnhealthyAction = UnhealthyActionLogOnly
+	}
 }
 
 func (c *ServerConfigT) validate() error {
@@ -169,6 +228,15 @@ func (c *ServerConfigT) validate() error {
 	case RepositoryPostgres, RepositoryDynamoDB:
 	default:
 		return fmt.Errorf("serverconfig: SERVER.REPOSITORY must be postgres|dynamodb, got %q", c.Repository)
+	}
+	switch c.Callbacks.UnhealthyAction {
+	case UnhealthyActionShutdown, UnhealthyActionLogOnly:
+	default:
+		return fmt.Errorf("serverconfig: SERVER.CALLBACKS.UNHEALTHY_ACTION must be %q or %q, got %q",
+			UnhealthyActionShutdown, UnhealthyActionLogOnly, c.Callbacks.UnhealthyAction)
+	}
+	if c.Callbacks.SyncRetry.Max < 1 {
+		return fmt.Errorf("serverconfig: SERVER.CALLBACKS.SYNC_RETRY.MAX must be >= 1, got %d", c.Callbacks.SyncRetry.Max)
 	}
 	return nil
 }
