@@ -46,7 +46,7 @@ SERVER:
   # Env-var overrides (e.g. APP_SERVER__ADMIN_ADDR) are currently
   # non-functional (known pkg/koanf bug). Use additional YAML override files
   # passed via the comma-separated -config flag instead.
-  API_KEYS: ["change-me"]
+  API_KEYS: ["change-me-123"]
   REPOSITORY: "postgres" # postgres | dynamodb
   AUTH:
     MODE: "webhook" # webhook | jwt
@@ -65,3 +65,18 @@ SERVER:
       TIMEOUT: "5s"
     SYNC_TIMEOUT: "3s"
     ASYNC_RETRY_MAX: 6
+    # ASYNC_BACKOFF: ["1s", "5s", "30s", "2m", "10m"] # default when unset; last value repeats
+    SYNC_RETRY:
+      MAX: 1 # 1 = no retry (client is waiting); retries only transport errors/5xx, never 4xx
+      BACKOFF: "100ms"
+    BREAKER:
+      THRESHOLD: 5 # consecutive transport/5xx failures before the circuit opens
+      COOLDOWN: "10s"
+    PING:
+      ENABLED: false # boot-check + runtime ticker; disabled = no active health probing
+      PATH: "/pipewave/ping"
+      INTERVAL: "30s"
+      TIMEOUT: "3s"
+      FAIL_THRESHOLD: 3
+    UNHEALTHY_ACTION: "log-only" # log-only | shutdown — what to do when backend is marked unhealthy
+    BREAKER_OPEN_SHUTDOWN: "0s" # e.g. "60s" to also mark unhealthy when breaker stays open that long; 0 = disabled
