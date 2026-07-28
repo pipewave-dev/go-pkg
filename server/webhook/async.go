@@ -106,7 +106,7 @@ func (d *AsyncDispatcher) loop() {
 }
 
 func (d *AsyncDispatcher) deliver(job asyncJob) {
-	status, _, err := d.sender.Post(context.Background(), job.eventType, job.callbackID, job.data, asyncPostTimeout)
+	status, _, err := d.sender.PostWithMode(context.Background(), job.eventType, job.callbackID, job.data, asyncPostTimeout, ModeAsync)
 	job.attempt++
 	if err == nil && status >= 200 && status < 300 {
 		return
@@ -115,7 +115,14 @@ func (d *AsyncDispatcher) deliver(job asyncJob) {
 	if job.attempt >= d.retryMax {
 		slog.Warn("[webhook] dropping event after max retries",
 			"event_type", job.eventType, "callback_id", job.callbackID, "attempts", job.attempt, "last_status", status, "error", err)
+		if d.sender.obs != nil {
+			d.sender.obs.ObserveDropped(job.eventType)
+		}
 		return
+	}
+
+	if d.sender.obs != nil {
+		d.sender.obs.ObserveRetry(job.eventType, ModeAsync)
 	}
 
 	delay := d.backoff[min(job.attempt-1, len(d.backoff)-1)]
@@ -126,6 +133,9 @@ func (d *AsyncDispatcher) deliver(job asyncJob) {
 		default:
 			slog.Warn("[webhook] async queue full, dropping retried event",
 				"event_type", job.eventType, "callback_id", job.callbackID)
+			if d.sender.obs != nil {
+				d.sender.obs.ObserveDropped(job.eventType)
+			}
 		}
 	})
 }

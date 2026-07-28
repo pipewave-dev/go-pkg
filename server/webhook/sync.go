@@ -100,6 +100,9 @@ func (c *SyncCaller) Call(ctx context.Context, eventType string, data any, timeo
 	var lastErr error
 	for attempt := 0; attempt < c.retryMax; attempt++ {
 		if attempt > 0 {
+			if c.sender.obs != nil {
+				c.sender.obs.ObserveRetry(eventType, ModeSync)
+			}
 			select {
 			case <-ctx.Done():
 				return lastErr
