@@ -21,6 +21,7 @@ const (
 	EventOnReadError                = "on_read_error"
 	EventOnWriteError               = "on_write_error"
 	EventMessageReceived            = "message_received"
+	EventPing                       = "ping"
 )
 
 type Meta struct {

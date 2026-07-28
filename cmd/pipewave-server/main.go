@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/signal"
 	"strings"
+	"sync/atomic"
 	"syscall"
 	"time"
 
@@ -41,6 +42,9 @@ func main() {
 		PubsubFactory:     pubsubvalkey.PubsubValkey,
 	})
 
+	rootCtx, stopSignals := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stopSignals()
+
 	var signer *webhook.Signer
 	if srvCfg.Callbacks.Signature.Mode == serverconfig.SignatureModeEnabled {
 		signer, err = webhook.LoadOrGenerateSigner(srvCfg.Callbacks.Signature.SigningKeyFile)
@@ -49,16 +53,51 @@ func main() {
 		}
 	}
 	sender := webhook.NewSender(srvCfg.Callbacks.BaseURL, signer)
-	async := webhook.NewAsyncDispatcher(sender, srvCfg.Callbacks.AsyncRetryMax, webhook.DefaultBackoff)
-	syncCaller := webhook.NewSyncCaller(sender, webhook.NewCircuitBreaker(5, 10*time.Second))
+
+	asyncBackoff := webhook.DefaultBackoff
+	if len(srvCfg.Callbacks.AsyncBackoff) > 0 {
+		asyncBackoff = srvCfg.Callbacks.AsyncBackoff
+	}
+	async := webhook.NewAsyncDispatcher(sender, srvCfg.Callbacks.AsyncRetryMax, asyncBackoff)
+
+	breaker := webhook.NewCircuitBreaker(srvCfg.Callbacks.Breaker.Threshold, srvCfg.Callbacks.Breaker.Cooldown)
+	syncCaller := webhook.NewSyncCaller(sender, breaker,
+		srvCfg.Callbacks.SyncRetry.Max, srvCfg.Callbacks.SyncRetry.Backoff)
+
+	var unhealthyDueToBackend atomic.Bool
+	onUnhealthy := func() {
+		slog.Error("[pipewave-server] backend unhealthy (log-only)")
+	}
+	if srvCfg.Callbacks.UnhealthyAction == serverconfig.UnhealthyActionShutdown {
+		onUnhealthy = func() {
+			slog.Error("[pipewave-server] backend unhealthy — initiating shutdown")
+			unhealthyDueToBackend.Store(true)
+			stopSignals() // cancel rootCtx → reuse the graceful shutdown path
+		}
+	}
+	monitor := webhook.NewHealthMonitor(onUnhealthy)
+
+	var pinger *webhook.Pinger
+	if srvCfg.Callbacks.Ping.Enabled {
+		pingURL := srvCfg.Callbacks.BaseURL + srvCfg.Callbacks.Ping.Path
+		pingSender := webhook.NewSender(pingURL, signer)
+		pinger = webhook.NewPinger(pingSender, srvCfg.Callbacks.Ping.Timeout, srvCfg.Callbacks.Ping.FailThreshold)
+		if srvCfg.Callbacks.Ping.BootCheck {
+			bootCtx, cancel := context.WithTimeout(rootCtx, srvCfg.Callbacks.Ping.Timeout)
+			err := pinger.Ping(bootCtx)
+			cancel()
+			if err != nil {
+				fatal("callback ping", err)
+			}
+			slog.Info("[pipewave-server] callback ping OK")
+		}
+	}
 
 	fnsCfg := serverfns.Config{
 		HandleMessageMode:    srvCfg.Callbacks.HandleMessage.Mode,
 		HandleMessageTimeout: srvCfg.Callbacks.HandleMessage.Timeout,
 		SyncTimeout:          srvCfg.Callbacks.SyncTimeout,
 	}
-	rootCtx, stopSignals := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
-	defer stopSignals()
 
 	if srvCfg.Auth.Mode == serverconfig.AuthModeJWT {
 		inspector, err := authn.NewJWTInspector(rootCtx, authn.JWTConfig{
@@ -84,10 +123,19 @@ func main() {
 	if signer != nil {
 		muxCfg.PublicKey = signer.PublicKey()
 	}
+	muxCfg.ExtraHealthy = monitor.IsHealthy
 	adminSrv := &http.Server{Addr: srvCfg.AdminAddr, Handler: restapi.NewAdminMux(pw, muxCfg)}
 
 	go serve("client", clientSrv)
 	go serve("admin", adminSrv)
+
+	if pinger != nil {
+		go pinger.Run(rootCtx, srvCfg.Callbacks.Ping.Interval, monitor.SetHealthy,
+			func() { monitor.SetUnhealthy("ping failed >= threshold") })
+	}
+	if srvCfg.Callbacks.BreakerOpenShutdown > 0 {
+		go webhook.WatchBreakerOpen(rootCtx, breaker, srvCfg.Callbacks.BreakerOpenShutdown, monitor)
+	}
 
 	<-rootCtx.Done()
 	slog.Info("[pipewave-server] shutting down")
@@ -99,6 +147,10 @@ func main() {
 	pw.Shutdown()
 	async.Shutdown(shutdownCtx)
 	slog.Info("[pipewave-server] bye")
+
+	if unhealthyDueToBackend.Load() {
+		os.Exit(1)
+	}
 }
 
 func repoAdapter(name string) adapters.RepositoryAdapter {

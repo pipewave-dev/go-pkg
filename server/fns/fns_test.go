@@ -62,7 +62,7 @@ func newFns(t *testing.T, b *backend, mode string) *types.Fns {
 	sender := webhook.NewSender(srv.URL, signer)
 	async := webhook.NewAsyncDispatcher(sender, 1, []time.Duration{time.Millisecond})
 	t.Cleanup(func() { async.Shutdown(context.Background()) })
-	syncCaller := webhook.NewSyncCaller(sender, webhook.NewCircuitBreaker(100, time.Minute))
+	syncCaller := webhook.NewSyncCaller(sender, webhook.NewCircuitBreaker(100, time.Minute), 1, 0)
 	return serverfns.New(syncCaller, async, serverfns.Config{
 		HandleMessageMode:    mode,
 		HandleMessageTimeout: time.Second,
@@ -85,7 +85,7 @@ func newFnsUnreachable(t *testing.T, mode string) *types.Fns {
 	sender := webhook.NewSender(unreachableURL, signer)
 	async := webhook.NewAsyncDispatcher(sender, 1, []time.Duration{time.Millisecond})
 	t.Cleanup(func() { async.Shutdown(context.Background()) })
-	syncCaller := webhook.NewSyncCaller(sender, webhook.NewCircuitBreaker(100, time.Minute))
+	syncCaller := webhook.NewSyncCaller(sender, webhook.NewCircuitBreaker(100, time.Minute), 1, 0)
 	return serverfns.New(syncCaller, async, serverfns.Config{
 		HandleMessageMode:    mode,
 		HandleMessageTimeout: 2 * time.Second,
