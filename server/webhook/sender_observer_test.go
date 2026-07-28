@@ -2,6 +2,7 @@ package webhook_test
 
 import (
 	"context"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"sync"
@@ -112,4 +113,71 @@ func TestSender_NilObserverIsSafe(t *testing.T) {
 	require.NotPanics(t, func() {
 		_, _, _ = sender.Post(context.Background(), webhook.EventOnCloseConnection, "cb1", map[string]string{}, time.Second)
 	})
+}
+
+// durationSpy is a minimal, single-purpose observer that additionally
+// records the reported duration — spyObserver above deliberately discards
+// it, so this stays local to the one test that needs it rather than
+// reshaping the shared spy.
+type durationSpy struct {
+	mu  sync.Mutex
+	dur time.Duration
+	saw bool
+}
+
+func (d *durationSpy) ObserveCall(_, _ string, dur time.Duration, _ int, _ error) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	d.dur = dur
+	d.saw = true
+}
+func (d *durationSpy) ObserveRetry(_, _ string) {}
+func (d *durationSpy) ObserveDropped(_ string)  {}
+
+// TestSender_TruncatedBodyReturnsNilBody pins the fix for a regression found
+// in review: PostWithMode's io.ReadAll error branch used to fall through to
+// `return status, body, err` where `body` (a named return) had already been
+// partially filled by the failed ReadAll, so a mid-body read failure leaked
+// truncated bytes instead of nil. It is currently inert (no caller reads
+// body when err != nil) but the contract matters for future callers.
+//
+// A raw TCP listener is used (rather than httptest.Server) because the
+// failure must happen AFTER the client has parsed a valid status line and
+// headers -- an httptest handler that aborts the handler (e.g. panicking
+// with http.ErrAbortHandler) severs the connection too early and instead
+// surfaces as an error from httpClient.Do itself (status stays 0), which is
+// a different code path than the one being pinned here.
+func TestSender_TruncatedBodyReturnsNilBody(t *testing.T) {
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	require.NoError(t, err)
+	defer ln.Close()
+
+	go func() {
+		conn, acceptErr := ln.Accept()
+		if acceptErr != nil {
+			return
+		}
+		defer conn.Close()
+		buf := make([]byte, 4096)
+		_, _ = conn.Read(buf) // drain the request; content doesn't matter
+		// A Content-Length far larger than the bytes actually written, then
+		// closing the connection, makes io.ReadAll fail with an
+		// unexpected-EOF after status/headers are already parsed.
+		_, _ = conn.Write([]byte("HTTP/1.1 200 OK\r\nContent-Length: 1000000\r\n\r\nshort"))
+	}()
+
+	spy := &durationSpy{}
+	sender := webhook.NewSender("http://"+ln.Addr().String(), nil)
+	sender.SetObserver(spy)
+
+	status, body, callErr := sender.Post(context.Background(), webhook.EventOnCloseConnection, "cb1", map[string]string{}, time.Second)
+
+	require.Equal(t, http.StatusOK, status, "status line was received before the body read failed")
+	require.Error(t, callErr)
+	require.Nil(t, body, "a failed body read must not leak partially-read bytes")
+
+	spy.mu.Lock()
+	defer spy.mu.Unlock()
+	require.True(t, spy.saw, "observer must still be invoked on this error path")
+	require.Greater(t, spy.dur, time.Duration(0), "duration must still be reported even though body is nil")
 }

@@ -111,7 +111,7 @@ func (s *Sender) PostWithMode(ctx context.Context, eventType, callbackID string,
 	body, err = io.ReadAll(io.LimitReader(resp.Body, maxRespBody))
 	if err != nil {
 		err = fmt.Errorf("webhook: read response for %s: %w", eventType, err)
-		return status, body, err
+		return status, nil, err
 	}
 	return status, body, err
 }
