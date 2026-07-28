@@ -15,6 +15,7 @@ import (
 	"net"
 	"net/http"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/pipewave-dev/go-pkg/export/types"
@@ -31,12 +32,14 @@ import (
 
 // Provider owns the metrics exporter, MeterProvider and listener.
 type Provider struct {
-	cfg      *types.MetricsT
-	metrics  *metrics.PipewaveMetrics
-	mp       *sdkmetric.MeterProvider
-	handler  http.Handler
-	srv      *http.Server
-	listener net.Listener
+	cfg     *types.MetricsT
+	metrics *metrics.PipewaveMetrics
+	mp      *sdkmetric.MeterProvider
+	handler http.Handler
+	srv     *http.Server
+
+	shutdownOnce sync.Once
+	shutdownErr  error
 }
 
 // NewDI builds the provider from the injector and registers a shutdown task.
@@ -126,7 +129,6 @@ func (p *Provider) ListenAndServe() error {
 	if err != nil {
 		return err
 	}
-	p.listener = ln
 	p.srv = &http.Server{Handler: p.handler, ReadHeaderTimeout: 5 * time.Second}
 	slog.Info("metrics: listening", slog.String("addr", ln.Addr().String()),
 		slog.String("path", p.cfg.Path))
@@ -137,17 +139,26 @@ func (p *Provider) ListenAndServe() error {
 }
 
 // Shutdown stops the listener and flushes the MeterProvider.
+//
+// Idempotent: it is registered as a DI cleanup task AND may be called
+// explicitly by the container's main(), so a second (or later) call must
+// return nil rather than surfacing sdkmetric's "reader is shutdown" error,
+// which it returns on every call after the first even though the shutdown
+// itself is a no-op. Only the first call's outcome is ever returned.
 func (p *Provider) Shutdown(ctx context.Context) error {
-	var firstErr error
-	if p.srv != nil {
-		if err := p.srv.Shutdown(ctx); err != nil {
-			firstErr = err
+	p.shutdownOnce.Do(func() {
+		var firstErr error
+		if p.srv != nil {
+			if err := p.srv.Shutdown(ctx); err != nil {
+				firstErr = err
+			}
 		}
-	}
-	if p.mp != nil {
-		if err := p.mp.Shutdown(ctx); err != nil && firstErr == nil {
-			firstErr = err
+		if p.mp != nil {
+			if err := p.mp.Shutdown(ctx); err != nil && firstErr == nil {
+				firstErr = err
+			}
 		}
-	}
-	return firstErr
+		p.shutdownErr = firstErr
+	})
+	return p.shutdownErr
 }
