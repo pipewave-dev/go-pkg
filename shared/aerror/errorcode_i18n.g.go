@@ -164,6 +164,8 @@ var (
 
 		ErrServerIsShuttingDown: "Server is shutting down.",
 
+		ErrServerAtCapacity: "Server is at capacity, please retry.",
+
 		end500: "end500",
 
 		start500NoTrace: "start500NoTrace",

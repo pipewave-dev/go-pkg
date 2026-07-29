@@ -68,6 +68,31 @@ func NewServer(
 	}
 }
 
+// reserveSlot claims one connection slot against maxConns, returning the
+// observed count and whether the claim succeeded. maxConns <= 0 disables the
+// cap and the claim always succeeds.
+//
+// The CAS loop (rather than a Load followed by Add) is what makes the cap
+// exact: with check-then-increment, N accepts arriving together at the limit
+// all read a below-limit value and all increment, overshooting by N-1. Since
+// the whole point of the cap is to stay clear of RLIMIT_NOFILE, an
+// unbounded overshoot under exactly the burst conditions that trigger it
+// would defeat it.
+func (s *NetpollServer) reserveSlot(maxConns int64) (observed int64, ok bool) {
+	if maxConns <= 0 {
+		return s.connections.Add(1), true
+	}
+	for {
+		cur := s.connections.Load()
+		if cur >= maxConns {
+			return cur, false
+		}
+		if s.connections.CompareAndSwap(cur, cur+1) {
+			return cur + 1, true
+		}
+	}
+}
+
 // NewConnection registers a new connection with netpoll.
 func (s *NetpollServer) NewConnection(
 	conn net.Conn,
@@ -82,10 +107,28 @@ func (s *NetpollServer) NewConnection(
 		return nil, aerror.New(context.Background(), aerror.ErrUnexpectedSyscall, errors.New("connection is nil"))
 	}
 
+	// Enforce the connection ceiling before taking any further fds.
+	maxConns := s.c.Env().ActiveConnection.MaxConnections
+	if cur, ok := s.reserveSlot(maxConns); !ok {
+		s.stats.ConnectionsRejected.Add(1)
+		conn.Close()
+		return nil, aerror.New(context.Background(), aerror.ErrServerAtCapacity,
+			fmt.Errorf("connection limit reached: %d/%d", cur, maxConns))
+	}
+	// From here on the slot is held: every failure path must release it.
+	slotReleased := false
+	releaseSlot := func() {
+		if !slotReleased {
+			slotReleased = true
+			s.connections.Add(-1)
+		}
+	}
+
 	// Ensure connection supports file descriptor operations (TCP connections)
 	if tcpConn, ok := conn.(*net.TCPConn); ok {
 		// Get the underlying file descriptor to verify it's valid
 		if file, err := tcpConn.File(); err != nil {
+			releaseSlot()
 			conn.Close()
 			return nil, aerror.New(context.Background(), aerror.ErrUnexpectedSyscall, fmt.Errorf("failed to get file descriptor from TCP connection: %w", err))
 		} else {
@@ -97,8 +140,8 @@ func (s *NetpollServer) NewConnection(
 		slog.Warn("Connection is not a TCP connection, may not support netpoll", slog.String("type", fmt.Sprintf("%T", conn)))
 	}
 
+	// connections was already incremented above when the slot was reserved.
 	s.stats.ConnectionsAccepted.Add(1)
-	s.connections.Add(1)
 
 	rlCfg := s.c.Env().RateLimiter
 	client := &GobwasConnection{
@@ -128,7 +171,7 @@ func (s *NetpollServer) NewConnection(
 
 		// Clean up connection before returning error
 		conn.Close()
-		s.connections.Add(-1)
+		releaseSlot()
 		s.stats.ConnectionsClosed.Add(1)
 
 		return nil, aerror.New(context.Background(), aerror.ErrUnexpectedSyscall, err)
@@ -150,6 +193,10 @@ func (s *NetpollServer) NewConnection(
 	if err != nil {
 		slog.Error("Failed to start netpoll monitoring", slog.Any("error", err))
 
+		// removeClient (via Close) releases the slot itself under its own
+		// CAS guard, so mark it spent here rather than calling releaseSlot
+		// and decrementing twice.
+		slotReleased = true
 		client.Close()
 		return nil, aerror.New(context.Background(), aerror.ErrUnexpectedSyscall, err)
 	}
@@ -345,6 +392,7 @@ func (s *NetpollServer) PrintStats() {
 	currentConns := s.connections.Load()
 	totalAccepted := s.stats.ConnectionsAccepted.Load()
 	totalClosed := s.stats.ConnectionsClosed.Load()
+	totalRejected := s.stats.ConnectionsRejected.Load()
 
 	uptime := time.Since(s.stats.StartTime)
 
@@ -353,11 +401,25 @@ func (s *NetpollServer) PrintStats() {
 		slog.Int64("connections_active", currentConns),
 		slog.Int64("connections_accepted_total", totalAccepted),
 		slog.Int64("connections_closed_total", totalClosed),
+		slog.Int64("connections_rejected_total", totalRejected),
 		slog.Float64("memory_allocated_mb", float64(m.Alloc)/1024/1024),
 		slog.Float64("memory_system_mb", float64(m.Sys)/1024/1024),
 		slog.Float64("memory_stack_mb", float64(m.StackSys)/1024/1024),
 		slog.Uint64("gc_cycles", uint64(m.NumGC)),
 	}
+
+	// Worker pool saturation belongs on the same line as the connection counts:
+	// dropped tasks are how "too many connections for this pod" first becomes
+	// visible, and correlating them with the active count is what distinguishes
+	// a capacity problem from a slow downstream.
+	if s.workerPool != nil {
+		poolStat := s.workerPool.Stat()
+		attrs = append(attrs,
+			slog.Int("worker_queue_length", poolStat.QueueLength),
+			slog.Int("worker_queue_capacity", poolStat.QueueCapacity),
+			slog.Int64("worker_tasks_dropped_total", poolStat.DroppedTasks))
+	}
+
 	if currentConns > 0 {
 		attrs = append(attrs, slog.Float64("memory_per_connection_kb", float64(m.Alloc)/float64(currentConns)/1024))
 	}

@@ -86,7 +86,8 @@ func _() {
 	_ = x[LogicErrOauth2PkceCodeVerifierNotMatch-6018]
 	_ = x[ErrUnexpectedPubsub-6019]
 	_ = x[ErrServerIsShuttingDown-6020]
-	_ = x[end500-6021]
+	_ = x[ErrServerAtCapacity-6021]
+	_ = x[end500-6022]
 	_ = x[start500NoTrace-8000]
 	_ = x[ErrPermissionDenied-8001]
 	_ = x[ActionNotAllowed-8002]
@@ -99,7 +100,7 @@ const (
 	_ErrorCode_name_2 = "start401SessionExceededMaxAgeLogicErrSessionExpiredLogicErrUserNeedVerifiedInvitationTokenInvalidConfirmationTokenInvalidResetPasswordTokenInvalidRefreshTokenInvalidLogicErrMissingAuthHeaderLogicErrAccessTokenVerifyFailLogicErrSessionHasBeenRevokedLogicErrWrongPasswordLogicErrAlreadyExistedPasswordLogicErrEmailOrPasswordIncorrectErrAccessTokenFormatErrConfirmationTokenFormatErrInvitationTokenFormatErrSignupConfirmTokenInvalidErrEmailUserAlreadyExistsend401"
 	_ErrorCode_name_3 = "start404RecordNotFoundErrDdbDuplicatedItemend404"
 	_ErrorCode_name_4 = "start403LogicErrRefreshTokenIsExpiredLogicErrSessionHasBeenRevokedOrExpiredLogicErrSessionIsNotExistedLogicErrInvalidRefreshTokenLogicErrInvalidTokenLogicRefreshTokenMustUseOnlyOnceRateLimitExceededInvalidInputSchemaend403"
-	_ErrorCode_name_5 = "start500ErrUnmarshalErrMarshalErrUnexpectedInputErrUnexpectedConfigErrUnexpectedTemplateErrUnexpectedSESErrUnexpectedRedisErrUnexpectedDatabaseErrUnexpectedDynamoDBErrUnexpectedBussinessErrUnexpectedNetworkErrUnexpectedSyscallErrUnexpectedCodeLogicErrUnexpectedShouldUnreachableErrUnexpectedWithMsgLogicErrDuplicateRecordLogicErrOauth2ClientSecretNotMatchLogicErrOauth2PkceCodeVerifierNotMatchErrUnexpectedPubsubErrServerIsShuttingDownend500"
+	_ErrorCode_name_5 = "start500ErrUnmarshalErrMarshalErrUnexpectedInputErrUnexpectedConfigErrUnexpectedTemplateErrUnexpectedSESErrUnexpectedRedisErrUnexpectedDatabaseErrUnexpectedDynamoDBErrUnexpectedBussinessErrUnexpectedNetworkErrUnexpectedSyscallErrUnexpectedCodeLogicErrUnexpectedShouldUnreachableErrUnexpectedWithMsgLogicErrDuplicateRecordLogicErrOauth2ClientSecretNotMatchLogicErrOauth2PkceCodeVerifierNotMatchErrUnexpectedPubsubErrServerIsShuttingDownErrServerAtCapacityend500"
 	_ErrorCode_name_6 = "start500NoTraceErrPermissionDeniedActionNotAllowedend500NoTrace"
 )
 
@@ -108,7 +109,7 @@ var (
 	_ErrorCode_index_2 = [...]uint16{0, 8, 29, 51, 75, 97, 121, 146, 165, 190, 219, 248, 269, 299, 331, 351, 377, 401, 429, 454, 460}
 	_ErrorCode_index_3 = [...]uint8{0, 8, 22, 42, 48}
 	_ErrorCode_index_4 = [...]uint8{0, 8, 37, 75, 102, 129, 149, 181, 198, 216, 222}
-	_ErrorCode_index_5 = [...]uint16{0, 8, 20, 30, 48, 67, 88, 104, 122, 143, 164, 186, 206, 226, 248, 278, 298, 321, 355, 393, 412, 435, 441}
+	_ErrorCode_index_5 = [...]uint16{0, 8, 20, 30, 48, 67, 88, 104, 122, 143, 164, 186, 206, 226, 248, 278, 298, 321, 355, 393, 412, 435, 454, 460}
 	_ErrorCode_index_6 = [...]uint8{0, 15, 34, 50, 63}
 )
 
@@ -128,7 +129,7 @@ func (i ErrorCode) String() string {
 	case 4000 <= i && i <= 4009:
 		i -= 4000
 		return _ErrorCode_name_4[_ErrorCode_index_4[i]:_ErrorCode_index_4[i+1]]
-	case 6000 <= i && i <= 6021:
+	case 6000 <= i && i <= 6022:
 		i -= 6000
 		return _ErrorCode_name_5[_ErrorCode_index_5[i]:_ErrorCode_index_5[i+1]]
 	case 8000 <= i && i <= 8003:

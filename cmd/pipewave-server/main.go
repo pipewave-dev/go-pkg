@@ -19,6 +19,7 @@ import (
 	dynamorepo "github.com/pipewave-dev/go-pkg/export/adapters/repo/dynamodb"
 	pgrepo "github.com/pipewave-dev/go-pkg/export/adapters/repo/postgresql"
 	"github.com/pipewave-dev/go-pkg/pkg/metrics"
+	"github.com/pipewave-dev/go-pkg/pkg/runtimetune"
 	"github.com/pipewave-dev/go-pkg/server/authn"
 	serverconfig "github.com/pipewave-dev/go-pkg/server/config"
 	serverfns "github.com/pipewave-dev/go-pkg/server/fns"
@@ -27,6 +28,11 @@ import (
 )
 
 func main() {
+	// Before anything opens a socket or spawns a worker: align GOMAXPROCS with
+	// the cgroup CPU quota and raise the fd limit, then log both so the
+	// connection ceiling this process is running under is on the record.
+	runtimetune.Apply().Log()
+
 	configFlag := flag.String("config", "config.yaml", "comma-separated list of YAML config files (later override earlier)")
 	flag.Parse()
 	files := strings.Split(*configFlag, ",")

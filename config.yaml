@@ -8,9 +8,30 @@ DEBUG:
   ENABLED: true
 
 WORKER_POOL:
-  BUFFER: 128
-  UPPER_THRESHOLD: 64
-  LOWER_THRESHOLD: 16
+  # WORKERS: 0 (or omitted) derives the worker count from GOMAXPROCS, which
+  # respects the container CPU limit. Set it only to override that.
+  # WORKERS: 0
+  #
+  # BUFFER is the task queue depth. When it fills, tasks are dropped and the
+  # websocket layer has to re-arm and retry the read, so size it for peak
+  # concurrent inbound frames rather than average load. UPPER/LOWER_THRESHOLD
+  # default to 3/4 and 1/4 of BUFFER; crossing the upper mark reports the
+  # container unhealthy so the load balancer stops sending it new connections.
+  BUFFER: 4096
+  UPPER_THRESHOLD: 3072
+  LOWER_THRESHOLD: 1024
+
+ACTIVE_CONNECTION:
+  # MAX_CONNECTIONS caps concurrent websocket connections per container.
+  # 0 disables the cap.
+  #
+  # Each connection costs at least one file descriptor, so keep this below the
+  # process RLIMIT_NOFILE (logged at startup by pkg/runtimetune) with headroom
+  # for the database, cache and HTTP client pools. Rejecting past a known-safe
+  # ceiling gives clients a retryable error instead of letting fd exhaustion
+  # degrade the whole process. Tune from load-test results — the safe value
+  # depends on frame size and message rate.
+  MAX_CONNECTIONS: 0
 
 # IETF language tag. See: https://en.wikipedia.org/wiki/IETF_language_tag#List_of_common_primary_language_subtags
 DEFAULT_LANG: "en"

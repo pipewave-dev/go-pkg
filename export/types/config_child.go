@@ -83,11 +83,25 @@ Known limitation:
 type ActiveConnectionT struct {
 	HeartbeatCutoff time.Duration `koanf:"HEARTBEAT_CUTOFF"`
 	PendingMsgTTL   time.Duration `koanf:"PENDING_MSG_TTL"`
+	// MaxConnections caps concurrent WebSocket connections held by this
+	// container. 0 disables the cap.
+	//
+	// Worth setting in production: every connection costs a file descriptor,
+	// and hitting RLIMIT_NOFILE degrades the entire process — accept() starts
+	// failing with EMFILE for everyone, including health checks. Rejecting past
+	// a known-safe ceiling instead gives clients a clean error they can back
+	// off from, and keeps the pod's existing connections serviceable. Size it
+	// below the fd limit (see pkg/runtimetune) with headroom for database,
+	// cache and HTTP client pools.
+	MaxConnections int64 `koanf:"MAX_CONNECTIONS"`
 }
 
 func (m *ActiveConnectionT) validate() {
 	if m.HeartbeatCutoff <= 0 {
 		panic("active connection heartbeat cutoff must be greater than 0")
+	}
+	if m.MaxConnections < 0 {
+		panic("active connection max connections must be greater than or equal to 0")
 	}
 	if m.PendingMsgTTL < m.HeartbeatCutoff {
 		panic("active connection pending message ttl must be greater than heartbeat cutoff")
@@ -127,12 +141,19 @@ func (p *PingCheckerT) loadDefault() {
 }
 
 type WorkerPoolT struct {
+	// Workers is the number of worker goroutines. Left at 0 (the default) it
+	// is derived from GOMAXPROCS, which respects the cgroup CPU quota; set it
+	// explicitly only to override that.
+	Workers        int `koanf:"WORKERS"`
 	Buffer         int `koanf:"BUFFER"`
 	UpperThreshold int `koanf:"UPPER_THRESHOLD"`
 	LowerThreshold int `koanf:"LOWER_THRESHOLD"`
 }
 
 func (w *WorkerPoolT) validate() {
+	if w.Workers < 0 {
+		panic("worker pool workers must be greater than or equal to 0")
+	}
 	if w.Buffer <= 0 {
 		panic("worker pool buffer must be greater than 0")
 	}
@@ -148,14 +169,31 @@ func (w *WorkerPoolT) validate() {
 }
 
 func (w *WorkerPoolT) loadDefault() {
+	// Buffer is the queue depth in front of the workers. Sized for a burst of
+	// simultaneous inbound frames across many connections: when it fills,
+	// Submit drops the task rather than blocking, and the netpoll layer has to
+	// re-arm and retry the read, which burns a goroutine and an epoll
+	// round-trip per drop. The old default of 64 filled at a few hundred
+	// active connections and turned sustained load into a retry storm.
 	if w.Buffer == 0 {
-		w.Buffer = 64
+		w.Buffer = 4096
 	}
+	// Crossing UpperThreshold marks the container unhealthy so the load
+	// balancer stops sending it new connections; dropping back below
+	// LowerThreshold marks it healthy again. The gap between them is
+	// hysteresis — too narrow and the pod flaps in and out of the LB pool.
+	// max(1, …) keeps the derived pair valid for a very small explicit Buffer:
+	// at Buffer=1 the raw ratios would yield UpperThreshold=0, which validate
+	// rejects.
 	if w.UpperThreshold == 0 {
-		w.UpperThreshold = 48
+		w.UpperThreshold = max(1, w.Buffer*3/4)
 	}
 	if w.LowerThreshold == 0 {
-		w.LowerThreshold = 16
+		w.LowerThreshold = w.Buffer / 4
+	}
+	// Restore hysteresis if the ratios collapsed them together (small Buffer).
+	if w.UpperThreshold <= w.LowerThreshold {
+		w.LowerThreshold = w.UpperThreshold - 1
 	}
 }
 

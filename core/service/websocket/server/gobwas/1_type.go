@@ -170,5 +170,9 @@ func (cl *GobwasConnection) nextPingAction() pingAction {
 type serverStats struct {
 	ConnectionsAccepted atomic.Int64
 	ConnectionsClosed   atomic.Int64
+	// ConnectionsRejected counts connections refused because the container was
+	// already at MaxConnections. Sustained growth here means the cap is the
+	// binding constraint and the deployment needs more replicas.
+	ConnectionsRejected atomic.Int64
 	StartTime           time.Time
 }

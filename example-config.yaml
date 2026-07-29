@@ -8,9 +8,18 @@ DEBUG:
   ENABLED: false
 
 WORKER_POOL:
-  BUFFER: 100
-  UPPER_THRESHOLD: 50
-  LOWER_THRESHOLD: 10
+  # Omit WORKERS to size the pool from GOMAXPROCS (respects the container CPU
+  # limit). BUFFER is the task queue depth; when it fills tasks are dropped and
+  # reads are retried, so size it for peak concurrent inbound frames.
+  BUFFER: 4096
+  UPPER_THRESHOLD: 3072
+  LOWER_THRESHOLD: 1024
+
+ACTIVE_CONNECTION:
+  # Cap on concurrent websocket connections per container; 0 disables it.
+  # Keep below RLIMIT_NOFILE (logged at startup) with headroom for DB/cache
+  # pools, and tune from load-test results.
+  MAX_CONNECTIONS: 0
 
 # IETF language tag. See: https://en.wikipedia.org/wiki/IETF_language_tag#List_of_common_primary_language_subtags
 DEFAULT_LANG: "en"

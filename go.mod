@@ -24,6 +24,7 @@ require (
 	github.com/yunerou/aerro v0.0.8
 	go.opentelemetry.io/otel/exporters/prometheus v0.64.0
 	go.opentelemetry.io/otel/sdk/metric v1.42.0
+	go.uber.org/automaxprocs v1.6.0
 	golang.org/x/time v0.14.0
 )
 
