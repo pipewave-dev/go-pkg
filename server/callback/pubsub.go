@@ -43,6 +43,12 @@ type pubsubJob struct {
 	payload []byte
 }
 
+var _ AsyncTransport = (*PubsubTransport)(nil)
+
+// NewPubsubTransport starts a background delivery goroutine tied to the
+// returned transport. Callers MUST call Shutdown to release it — there is
+// no other way to stop the loop, so a PubsubTransport dropped without
+// Shutdown leaks that goroutine for the life of the process.
 func NewPubsubTransport(pub Publisher, subjectPrefix string) *PubsubTransport {
 	t := &PubsubTransport{
 		pub:           pub,
@@ -55,6 +61,10 @@ func NewPubsubTransport(pub Publisher, subjectPrefix string) *PubsubTransport {
 	return t
 }
 
+// Emit enqueues an event without blocking the caller (WS hot paths call
+// this). A full queue drops the event (with a warning log). Calling Emit
+// during or after Shutdown is not guaranteed to log a drop — the event may
+// enqueue into a queue that will never be drained again.
 func (t *PubsubTransport) Emit(eventType string, data any) {
 	raw, err := json.Marshal(data)
 	if err != nil {
