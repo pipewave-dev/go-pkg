@@ -25,6 +25,11 @@ const (
 
 	UnhealthyActionShutdown = "shutdown"
 	UnhealthyActionLogOnly  = "log-only"
+
+	TransportWebhook = "webhook"
+	TransportPubsub  = "pubsub"
+
+	PubsubDriverNATSJS = "natsjs"
 )
 
 type ServerConfigT struct {
@@ -61,6 +66,8 @@ type CallbacksT struct {
 	Ping                PingT           `koanf:"PING"`
 	UnhealthyAction     string          `koanf:"UNHEALTHY_ACTION"`
 	BreakerOpenShutdown time.Duration   `koanf:"BREAKER_OPEN_SHUTDOWN"`
+	Transport           string          `koanf:"TRANSPORT"`
+	Pubsub              CallbackPubsubT `koanf:"PUBSUB"`
 }
 
 type SyncRetryT struct {
@@ -90,6 +97,15 @@ type SignatureT struct {
 type HandleMsgT struct {
 	Mode    string        `koanf:"MODE"` // sync | forward | disabled
 	Timeout time.Duration `koanf:"TIMEOUT"`
+}
+
+// CallbackPubsubT cấu hình transport pubsub cho Class-2 events. Đây là
+// instance RIÊNG, không liên quan tới pubsub fanout nội bộ giữa các node.
+type CallbackPubsubT struct {
+	Driver        string `koanf:"DRIVER"`
+	URL           string `koanf:"URL"`
+	Stream        string `koanf:"STREAM"`
+	SubjectPrefix string `koanf:"SUBJECT_PREFIX"`
 }
 
 type rootT struct {
@@ -196,6 +212,20 @@ func (c *ServerConfigT) loadDefault() {
 	if c.Callbacks.UnhealthyAction == "" {
 		c.Callbacks.UnhealthyAction = UnhealthyActionLogOnly
 	}
+	if c.Callbacks.Transport == "" {
+		c.Callbacks.Transport = TransportWebhook
+	}
+	if c.Callbacks.Transport == TransportPubsub {
+		if c.Callbacks.Pubsub.Driver == "" {
+			c.Callbacks.Pubsub.Driver = PubsubDriverNATSJS
+		}
+		if c.Callbacks.Pubsub.Stream == "" {
+			c.Callbacks.Pubsub.Stream = "PIPEWAVE_EVENTS"
+		}
+		if c.Callbacks.Pubsub.SubjectPrefix == "" {
+			c.Callbacks.Pubsub.SubjectPrefix = "pipewave.events"
+		}
+	}
 }
 
 func (c *ServerConfigT) validate() error {
@@ -213,6 +243,20 @@ func (c *ServerConfigT) validate() error {
 	}
 	if c.Callbacks.BaseURL == "" {
 		return fmt.Errorf("serverconfig: SERVER.CALLBACKS.BASE_URL is required")
+	}
+	switch c.Callbacks.Transport {
+	case TransportWebhook:
+	case TransportPubsub:
+		if c.Callbacks.Pubsub.URL == "" {
+			return fmt.Errorf("serverconfig: SERVER.CALLBACKS.PUBSUB.URL is required when TRANSPORT=pubsub")
+		}
+		if c.Callbacks.Pubsub.Driver != PubsubDriverNATSJS {
+			return fmt.Errorf("serverconfig: SERVER.CALLBACKS.PUBSUB.DRIVER must be %q, got %q",
+				PubsubDriverNATSJS, c.Callbacks.Pubsub.Driver)
+		}
+	default:
+		return fmt.Errorf("serverconfig: SERVER.CALLBACKS.TRANSPORT must be %q or %q, got %q",
+			TransportWebhook, TransportPubsub, c.Callbacks.Transport)
 	}
 	switch c.Callbacks.HandleMessage.Mode {
 	case HandleMsgModeSync, HandleMsgModeForward, HandleMsgModeDisabled:

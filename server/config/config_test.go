@@ -197,3 +197,59 @@ SERVER:
 `)})
 	require.Error(t, err)
 }
+
+func TestLoad_TransportDefaultsToWebhook(t *testing.T) {
+	cfg, err := serverconfig.Load([]string{writeYAML(t, validYAML)})
+	require.NoError(t, err)
+	require.Equal(t, serverconfig.TransportWebhook, cfg.Callbacks.Transport)
+}
+
+func TestLoad_PubsubDefaultsApplied(t *testing.T) {
+	const y = `
+SERVER:
+  API_KEYS: ["key-1"]
+  AUTH:
+    MODE: "webhook"
+  CALLBACKS:
+    BASE_URL: "https://app.example.com/pipewave/callback"
+    TRANSPORT: "pubsub"
+    PUBSUB:
+      URL: "nats://localhost:4222"
+`
+	cfg, err := serverconfig.Load([]string{writeYAML(t, y)})
+	require.NoError(t, err)
+	require.Equal(t, serverconfig.TransportPubsub, cfg.Callbacks.Transport)
+	require.Equal(t, serverconfig.PubsubDriverNATSJS, cfg.Callbacks.Pubsub.Driver)
+	require.Equal(t, "PIPEWAVE_EVENTS", cfg.Callbacks.Pubsub.Stream)
+	require.Equal(t, "pipewave.events", cfg.Callbacks.Pubsub.SubjectPrefix)
+}
+
+func TestLoad_PubsubRequiresURL(t *testing.T) {
+	const y = `
+SERVER:
+  API_KEYS: ["key-1"]
+  AUTH:
+    MODE: "webhook"
+  CALLBACKS:
+    BASE_URL: "https://app.example.com/pipewave/callback"
+    TRANSPORT: "pubsub"
+`
+	_, err := serverconfig.Load([]string{writeYAML(t, y)})
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "PUBSUB.URL")
+}
+
+func TestLoad_RejectsUnknownTransport(t *testing.T) {
+	const y = `
+SERVER:
+  API_KEYS: ["key-1"]
+  AUTH:
+    MODE: "webhook"
+  CALLBACKS:
+    BASE_URL: "https://app.example.com/pipewave/callback"
+    TRANSPORT: "carrier-pigeon"
+`
+	_, err := serverconfig.Load([]string{writeYAML(t, y)})
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "TRANSPORT")
+}
