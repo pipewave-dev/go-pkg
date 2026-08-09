@@ -29,6 +29,13 @@ var (
 // Frame is the decoded envelope. A Frame with an empty MsgType is a control
 // frame identified by ControlCode; otherwise ControlCode is ignored.
 // Binary is opaque and is never copied on decode.
+//
+// The four optional string fields (ID, ResponseToID, AckID, Error) use
+// empty-string-means-absent semantics: an empty value is not transmitted on
+// the wire (its flag bit stays clear) and decodes back as empty. Empty and
+// absent are therefore indistinguishable on the wire. This is intentional
+// and matches how the application already treats these fields (e.g.
+// comparisons against "" to mean "not set").
 type Frame struct {
 	MsgType      string
 	ControlCode  byte

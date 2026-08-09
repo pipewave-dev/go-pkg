@@ -86,6 +86,31 @@ byte. A control frame may still be followed by optional fields and/or
 | `error`         | 65535 bytes     | 2 bytes, big-endian   |
 | `binary`        | unbounded       | none (remainder)      |
 
+## Empty vs. absent
+
+The four optional fields `id`, `responseToId`, `ackId`, and `error` use
+**empty-string-means-absent** semantics: a zero-length value is never
+transmitted on the wire — its flag bit (byte 0) stays clear, exactly as if
+the field had not been set at all. Consequently, an intentionally-empty
+value and a genuinely-absent value are **indistinguishable on the wire**:
+there is no encoding that represents "present but empty" for these fields.
+
+This is intentional, not an oversight, and every implementation of this
+spec (Go, TypeScript, Dart) MUST follow it:
+
+- **Encoding:** if one of these fields' logical value is the empty string,
+  its flag bit MUST be left clear and no bytes for that field MUST be
+  written, regardless of whether the caller considered the field "set to
+  empty" or "not set".
+- **Decoding:** if a field's flag bit is clear, the decoded value MUST be
+  the empty string (not `null`/`None`/absent-as-a-distinct-state, in
+  languages where that distinction exists in the target type).
+
+`binary` is exempt from this rule: an empty `binary` is simply zero
+trailing bytes and is always representable (and is indistinguishable from
+absent `binary`, which is consistent with this same field always being
+present as "the remainder").
+
 ## Decode error rules
 
 A decoder MUST reject a frame under any of these conditions:

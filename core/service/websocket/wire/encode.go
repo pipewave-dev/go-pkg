@@ -2,6 +2,9 @@ package wire
 
 // Encode serialises f. It returns ErrFieldTooLong if any field exceeds its
 // on-wire length limit; silent truncation would corrupt the stream.
+// Empty optional fields (ID, ResponseToID, AckID, Error) are omitted from
+// the wire entirely — their flag bit stays clear — so empty and absent are
+// indistinguishable on the wire; see the Frame doc comment.
 func Encode(f *Frame) ([]byte, error) {
 	if len(f.MsgType) > MaxShortField ||
 		len(f.ID) > MaxShortField ||
