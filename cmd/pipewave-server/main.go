@@ -81,7 +81,11 @@ func main() {
 		if npErr != nil {
 			fatal("init callback pubsub transport", npErr)
 		}
-		asyncTransport = callback.NewPubsubTransport(nc, srvCfg.Callbacks.Pubsub.SubjectPrefix)
+		pubsubTransport := callback.NewPubsubTransport(nc, srvCfg.Callbacks.Pubsub.SubjectPrefix)
+		if obs, ok := pw.CallbackObserver().(webhook.CallObserver); ok {
+			pubsubTransport.SetObserver(obs)
+		}
+		asyncTransport = pubsubTransport
 		slog.Info("[pipewave-server] async callbacks via pubsub",
 			"driver", srvCfg.Callbacks.Pubsub.Driver, "url", srvCfg.Callbacks.Pubsub.URL)
 	default:

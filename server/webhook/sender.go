@@ -14,8 +14,9 @@ const maxRespBody = 1 << 20 // 1 MiB cap on callback responses
 
 // Call modes, used as the "mode" metric label.
 const (
-	ModeSync  = "sync"
-	ModeAsync = "async"
+	ModeSync   = "sync"
+	ModeAsync  = "async"
+	ModePubsub = "pubsub" // Class-2 events delivered over a pubsub broker instead of HTTP.
 )
 
 // CallObserver receives callback outcomes for instrumentation.

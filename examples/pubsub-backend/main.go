@@ -108,7 +108,7 @@ func serveClass1(addr string) {
 				"metadata": map[string]string{},
 			})
 		case "handle_message":
-			// echo lại nguyên payload
+			// demo backend: luôn trả "pong" cố định, không xử lý payload đầu vào
 			_ = json.NewEncoder(w).Encode(map[string]any{
 				"output_type": "text", "data": []byte("pong"),
 			})

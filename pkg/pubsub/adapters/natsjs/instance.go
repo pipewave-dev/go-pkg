@@ -46,10 +46,11 @@ func New(cfg *Config) (*Adapter, error) {
 	}
 
 	if cfg.Stream != "" {
-		subjects := []string{cfg.SubjectPrefix + ".>"}
 		if cfg.SubjectPrefix == "" {
-			subjects = []string{cfg.Stream + ".>"}
+			conn.Close()
+			return nil, fmt.Errorf("natsjs: Stream %q set without SubjectPrefix", cfg.Stream)
 		}
+		subjects := []string{cfg.SubjectPrefix + ".>"}
 		ctx, cancel := context.WithTimeout(context.Background(), connectTimeout)
 		_, err = js.CreateOrUpdateStream(ctx, jetstream.StreamConfig{
 			Name:     cfg.Stream,
