@@ -43,6 +43,21 @@ func main() {
 	}
 
 	ctx := context.Background()
+
+	// Đảm bảo stream tồn tại trước khi tạo consumer: nếu backend này chạy
+	// trước pipewave-server (đúng như thứ tự trong README), stream
+	// PIPEWAVE_EVENTS chưa tồn tại và CreateOrUpdateConsumer sẽ 404. Gọi
+	// idempotent, khớp chính xác StreamConfig mà
+	// pkg/pubsub/adapters/natsjs/instance.go dùng để hai bên không đấu
+	// nhau về định nghĩa stream.
+	if _, err := js.CreateOrUpdateStream(ctx, jetstream.StreamConfig{
+		Name:     "PIPEWAVE_EVENTS",
+		Subjects: []string{"pipewave.events.>"},
+		Storage:  jetstream.FileStorage,
+	}); err != nil {
+		log.Fatalf("ensure stream: %v", err)
+	}
+
 	cons, err := js.CreateOrUpdateConsumer(ctx, "PIPEWAVE_EVENTS", jetstream.ConsumerConfig{
 		Durable:       "pubsub-backend",
 		AckPolicy:     jetstream.AckExplicitPolicy,
