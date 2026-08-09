@@ -43,6 +43,24 @@ Go embedders: `pipewave` never installs a global OTEL `MeterProvider`. Set
 your own before calling `pipewave.New()` and pipewave's instruments flow into
 your registry; set none and every metric call is a no-op.
 
+### Callback transport modes (webhook / pubsub)
+
+Events fall into two classes:
+
+| Class | Events | Transport |
+|-------|--------|-----------|
+| Class-1 (sync, response required) | `inspect_token`, `handle_message`, `on_new_connection` | **always webhook** |
+| Class-2 (async, fire-and-forget) | `on_new_connection_established`, `on_close_connection`, `on_read_error`, `on_write_error`, `message_received` | `webhook` (default) or `pubsub` |
+
+Set `SERVER.CALLBACKS.TRANSPORT: pubsub` to route Class-2 events through a NATS JetStream broker instead of HTTP webhooks. Each event publishes to subject `{SUBJECT_PREFIX}.{event_type}` (e.g., `pipewave.events.on_close_connection`); backends can subscribe to the wildcard `pipewave.events.>`. The event envelope is **identical** to the webhook envelope, so existing parsing code can be reused without modification. Note that `SERVER.CALLBACKS.BASE_URL` is still **required** in pubsub mode because Class-1 (sync) events continue to use HTTP webhooks.
+
+In `pubsub` mode:
+- **Ed25519 signatures do not apply** to Class-2 events (authentication belongs to the broker layer); Class-1 events remain signed.
+- **Ping and circuit breaker** only affect Class-1 (webhook) health probing and retries.
+- `meta.id` is set as the NATS `Nats-Msg-Id` header so JetStream can deduplicate.
+
+See `examples/pubsub-backend` for a working example backend.
+
 ### Callback contract
 
 Every webhook is an HTTP POST to `SERVER.CALLBACKS.BASE_URL` with a signed

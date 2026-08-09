@@ -95,6 +95,15 @@ SERVER:
       FAIL_THRESHOLD: 3
     UNHEALTHY_ACTION: "log-only" # log-only | shutdown — what to do when backend is marked unhealthy
     BREAKER_OPEN_SHUTDOWN: "0s" # e.g. "60s" to also mark unhealthy when breaker stays open that long; 0 = disabled
+    # Transport cho Class-2 (async) events: webhook | pubsub. Mặc định webhook.
+    # Class-1 (inspect_token, handle_message, on_new_connection) LUÔN dùng
+    # webhook vì cần response — vì vậy BASE_URL vẫn bắt buộc ở mọi transport.
+    TRANSPORT: "webhook"
+    # PUBSUB:
+    #   DRIVER: "natsjs"
+    #   URL: "nats://localhost:4222"
+    #   STREAM: "PIPEWAVE_EVENTS"
+    #   SUBJECT_PREFIX: "pipewave.events"
 
 # Prometheus metrics. Served on a dedicated listener so Prometheus can scrape
 # without being granted admin API access.
