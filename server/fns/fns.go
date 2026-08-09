@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/pipewave-dev/go-pkg/export/types"
+	"github.com/pipewave-dev/go-pkg/server/callback"
 	serverconfig "github.com/pipewave-dev/go-pkg/server/config"
 	"github.com/pipewave-dev/go-pkg/server/webhook"
 )
@@ -68,7 +69,7 @@ type errorEvent struct {
 
 type webhookFns struct {
 	sync  *webhook.SyncCaller
-	async *webhook.AsyncDispatcher
+	async callback.AsyncTransport
 	cfg   Config
 }
 
@@ -103,8 +104,10 @@ func sanitizeCallError(hook string, genericMsg string, err error) error {
 	return errors.New(genericMsg)
 }
 
-// New builds the *types.Fns that bridges pipewave hooks to HTTP callbacks.
-func New(syncCaller *webhook.SyncCaller, async *webhook.AsyncDispatcher, cfg Config) *types.Fns {
+// New builds the *types.Fns that bridges pipewave hooks to callbacks.
+// Class-1 (sync) luôn đi qua HTTP webhook; Class-2 (async) đi qua
+// transport được truyền vào (webhook hoặc pubsub).
+func New(syncCaller *webhook.SyncCaller, async callback.AsyncTransport, cfg Config) *types.Fns {
 	w := &webhookFns{sync: syncCaller, async: async, cfg: cfg}
 	return &types.Fns{
 		InspectToken:      w.inspectToken,

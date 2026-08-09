@@ -21,6 +21,7 @@ import (
 	"github.com/pipewave-dev/go-pkg/pkg/metrics"
 	"github.com/pipewave-dev/go-pkg/pkg/runtimetune"
 	"github.com/pipewave-dev/go-pkg/server/authn"
+	"github.com/pipewave-dev/go-pkg/server/callback"
 	serverconfig "github.com/pipewave-dev/go-pkg/server/config"
 	serverfns "github.com/pipewave-dev/go-pkg/server/fns"
 	"github.com/pipewave-dev/go-pkg/server/restapi"
@@ -68,7 +69,8 @@ func main() {
 	if len(srvCfg.Callbacks.AsyncBackoff) > 0 {
 		asyncBackoff = srvCfg.Callbacks.AsyncBackoff
 	}
-	async := webhook.NewAsyncDispatcher(sender, srvCfg.Callbacks.AsyncRetryMax, asyncBackoff)
+	var asyncTransport callback.AsyncTransport = webhook.NewAsyncDispatcher(
+		sender, srvCfg.Callbacks.AsyncRetryMax, asyncBackoff)
 
 	breaker := webhook.NewCircuitBreaker(srvCfg.Callbacks.Breaker.Threshold, srvCfg.Callbacks.Breaker.Cooldown)
 	if cm, ok := pw.CallbackObserver().(*metrics.CallbackMetrics); ok {
@@ -130,7 +132,7 @@ func main() {
 		fnsCfg.InspectTokenOverride = inspector.InspectToken
 	}
 
-	pw.SetFns(serverfns.New(syncCaller, async, fnsCfg))
+	pw.SetFns(serverfns.New(syncCaller, asyncTransport, fnsCfg))
 
 	if err := pw.RunMigration(); err != nil {
 		fatal("run migration", err)
@@ -172,7 +174,7 @@ func main() {
 	_ = clientSrv.Shutdown(shutdownCtx)
 	_ = pw.ShutdownMetrics(shutdownCtx)
 	pw.Shutdown()
-	async.Shutdown(shutdownCtx)
+	asyncTransport.Shutdown(shutdownCtx)
 	slog.Info("[pipewave-server] bye")
 
 	if unhealthyDueToBackend.Load() {

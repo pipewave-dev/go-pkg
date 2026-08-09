@@ -311,3 +311,43 @@ func TestAsyncHooks(t *testing.T) {
 	require.True(t, seen[webhook.EventOnReadError])
 	require.True(t, seen[webhook.EventOnWriteError])
 }
+
+// fakeAsync ghi lại các event Class-2 mà không cần HTTP server.
+type fakeAsync struct {
+	mu   sync.Mutex
+	got  []string
+	data []any
+}
+
+func (f *fakeAsync) Emit(eventType string, data any) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.got = append(f.got, eventType)
+	f.data = append(f.data, data)
+}
+func (f *fakeAsync) Healthcheck() error         { return nil }
+func (f *fakeAsync) Shutdown(_ context.Context) {}
+func (f *fakeAsync) events() []string {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return append([]string(nil), f.got...)
+}
+
+// Class-2 hooks phải đi qua AsyncTransport, không phụ thuộc HTTP.
+func TestAsyncHooksGoThroughTransport(t *testing.T) {
+	fake := &fakeAsync{}
+	fns := serverfns.New(nil, fake, serverfns.Config{
+		HandleMessageMode: serverconfig.HandleMsgModeDisabled,
+	})
+
+	auth := types.WebsocketAuth{UserID: "u1", InstanceID: "i1"}
+	fns.OnCloseConnection.OnCloseConnection(context.Background(), auth)
+	fns.OnReadError.OnReadError(context.Background(), auth, io.EOF)
+	fns.OnWriteError.OnWriteError(context.Background(), auth, io.EOF)
+
+	require.Equal(t, []string{
+		webhook.EventOnCloseConnection,
+		webhook.EventOnReadError,
+		webhook.EventOnWriteError,
+	}, fake.events())
+}
