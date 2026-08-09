@@ -64,3 +64,31 @@ func TestUnmarshallRejectsGarbage(t *testing.T) {
 	var got WebsocketResquest
 	require.Error(t, got.Unmarshall([]byte{0xFF, 0xFF, 0xFF}))
 }
+
+// TestMessageTypeError_IsNotAControlFrame pins that the server's protocol
+// error response (MessageTypeError) always has a non-empty MsgType, so
+// toFrame encodes it as a normal msgType frame (msgTypeLen != 0), never as
+// an (undefined) control frame — see toFrame: an empty MsgType is what
+// triggers the msgTypeLen == 0 / control-frame path.
+func TestMessageTypeError_IsNotAControlFrame(t *testing.T) {
+	res := WebsocketResponse{MsgType: MessageTypeError, Error: "bad frame"}
+	data := res.Marshall()
+	require.NotEmpty(t, data)
+	require.NotZero(t, data[1], "msgTypeLen must be nonzero: MessageTypeError must not encode as a control frame")
+
+	var got WebsocketResponse
+	require.NoError(t, got.Unmarshall(data))
+	require.Equal(t, MessageTypeError, got.MsgType)
+	require.Equal(t, "bad frame", got.Error)
+}
+
+// TestMarshall_ReturnsNilOnOverlongField pins the documented Marshall
+// contract (an over-long field yields nil, not a truncated/corrupt frame)
+// that handleMessage's nil-check depends on to avoid sending a zero-length
+// frame to the client.
+func TestMarshall_ReturnsNilOnOverlongField(t *testing.T) {
+	res := WebsocketResponse{
+		Id: string(make([]byte, 256)), // exceeds the 255-byte short-field limit
+	}
+	require.Nil(t, res.Marshall())
+}

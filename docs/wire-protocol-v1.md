@@ -111,6 +111,60 @@ trailing bytes and is always representable (and is indistinguishable from
 absent `binary`, which is consistent with this same field always being
 present as "the remainder").
 
+## Invalid UTF-8
+
+`msgType`, `id`, `responseToId`, `ackId`, and `error` are declared as UTF-8
+byte strings, but a decoder MUST NOT assume the bytes on the wire are
+well-formed UTF-8, and MUST NOT reject a frame solely because one of these
+fields contains invalid UTF-8.
+
+- Decoders MUST either retain the raw bytes as-is (Go, whose `string` type
+  is an opaque byte sequence with no UTF-8 validity requirement) or
+  substitute the Unicode replacement character (U+FFFD) for invalid
+  sequences (TypeScript, Dart, and any language whose string type cannot
+  hold arbitrary bytes).
+- Decoders MUST NOT throw, panic, or otherwise fail the decode because of
+  invalid UTF-8 in these fields.
+
+This means a decode→encode round trip is **not guaranteed to be byte-stable**
+for a field containing invalid UTF-8, in a language that substitutes
+replacement characters: the substituted U+FFFD sequence re-encodes to
+different bytes than the original invalid sequence. This is intentional —
+rejecting the frame would be worse, since the field's content is opaque
+application data as far as the wire format is concerned.
+
+## Non-canonical frames
+
+A decoder MUST NOT enforce canonical encoding of the optional fields beyond
+what "Decode error rules" (below) requires. In particular: a frame in which
+one of `id`, `responseToId`, `ackId`, or `error`'s flag bit is **set** but
+the field's declared length is **0** MUST be accepted, and MUST decode to
+the empty string — identical to the outcome when the flag bit is clear
+(field absent). A decoder MUST NOT reject this as malformed or
+inconsistent.
+
+Such a frame is non-canonical: a conforming encoder never produces it (see
+"Empty vs. absent" above — an encoder always clears the flag bit for an
+empty value), but a decoder still has to accept it, since it is fully
+parseable and any other behavior would make decoding depend on how the
+frame happened to be produced rather than on its bytes. As with invalid
+UTF-8, this means decode→encode is not byte-stable for such a frame: it
+re-encodes shorter than the original (with the flag bit cleared), since the
+canonical encoding of an empty value never includes the field at all.
+
+## Unknown control codes
+
+A decoder MUST NOT reject a control frame (`msgTypeLen == 0`) merely
+because its control-code byte is not one it recognizes. It MUST decode the
+frame successfully, surfacing the control code and the frame's other fields
+(binary, id, etc.) intact, and let the application layer decide what to do
+with an unrecognized code (e.g. ignore it, log it, or route it elsewhere).
+
+Only two control codes are defined in v1: `0xCA` (heartbeat) and `0xCB`
+(ack). This rule exists so that a future v1.x addition of a new control
+code — or a newer peer sending one — degrades gracefully on an older
+decoder instead of being rejected outright.
+
 ## Decode error rules
 
 A decoder MUST reject a frame under any of these conditions:
@@ -142,3 +196,34 @@ encode/decode test vectors. Each vector has:
 Every implementation of this wire format (Go, TypeScript, Dart) MUST encode
 each vector's `frame` to exactly `hex`, and MUST decode `hex` back to a
 frame equivalent to `frame`.
+
+## Migration and rollout
+
+This is a **breaking wire-format change** from whatever the server and
+clients spoke before v1. There is no dual-read support: a given connection
+speaks exactly one version, and there is no negotiation beyond the version
+nibble in byte 0.
+
+- **Mixed-version fleets are unsupported.** A server and client on
+  different wire versions cannot interoperate on the same connection.
+  There is no fallback, no auto-detection beyond rejecting the mismatch,
+  and no partial compatibility.
+- **The version nibble is the only negotiation mechanism.** It exists to
+  make a mismatch fail safely (see "Decode error rules"), not to negotiate
+  a common version. Deploying v1 requires coordinating server and client
+  rollout — this is an operational cutover, not a protocol-level
+  auto-upgrade.
+- **Both mismatch directions fail closed, not silently.** An old client
+  talking to a new server (or vice versa) always hits a decode error on
+  the receiving side rather than misinterpreting bytes as something else
+  (see the version-nibble discussion above: msgpack's leading bytes never
+  alias a valid v1 version nibble, so corruption is not possible). This
+  fails safely, but it still requires a coordinated cutover — it is not a
+  substitute for one.
+- **A rollback after clients have shipped re-breaks every updated
+  client.** If the server rolls back to a pre-v1 wire format after clients
+  have already been updated to speak v1, every updated client breaks
+  again, the same way it would have broken during a naive forward
+  migration. Plan rollback the same way you'd plan the forward cutover —
+  as a coordinated, fleet-wide change — not as an independent, low-risk
+  escape hatch.

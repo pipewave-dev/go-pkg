@@ -26,9 +26,10 @@ import (
 
 // Check types
 var (
-	_ wsSv.WebsocketServer = (*NetpollServer)(nil)
-	_ wsSv.WebsocketConn   = (*GobwasConnection)(nil)
-	_ wsSv.DrainableConn   = (*GobwasConnection)(nil)
+	_ wsSv.WebsocketServer     = (*NetpollServer)(nil)
+	_ wsSv.WebsocketConn       = (*GobwasConnection)(nil)
+	_ wsSv.DrainableConn       = (*GobwasConnection)(nil)
+	_ wsSv.CloseWithReasonConn = (*GobwasConnection)(nil)
 )
 
 // NewServer constructs a new NetpollServer. Lifecycle (single instance per

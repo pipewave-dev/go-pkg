@@ -22,6 +22,18 @@ type WebsocketConn interface {
 	Ping()
 }
 
+// CloseWithReasonConn extends WebsocketConn with the ability to close the
+// underlying transport with a specific close code and human-readable reason,
+// rather than the generic Close(). Only transports that speak a real close
+// handshake (e.g. the gobwas WebSocket server) implement this; callers must
+// type-assert and fall back to Close() (or logging) if unsupported.
+type CloseWithReasonConn interface {
+	WebsocketConn
+	// CloseWithReason sends a close frame with the given code/reason (best
+	// effort) and then tears down the connection.
+	CloseWithReason(code uint16, reason string)
+}
+
 // DrainableConn extends WebsocketConn with drain-phase locking.
 // Connections implementing this interface allow callers to block concurrent
 // Send() calls while draining pending messages in the correct order.

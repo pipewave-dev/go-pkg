@@ -64,6 +64,18 @@ func TestDecode_RejectsMalformed(t *testing.T) {
 	}
 }
 
+// TestDecode_VersionMismatchIsDistinguishable pins that an unrecognized
+// version nibble returns ErrVersion specifically, not the generic
+// ErrMalformed — callers (e.g. the server's client-msg-handler) rely on this
+// to distinguish "the peer speaks a different wire version" from an
+// ordinary malformed frame, so they can close the connection with a
+// diagnosable signal instead of a generic decode failure.
+func TestDecode_VersionMismatchIsDistinguishable(t *testing.T) {
+	_, err := Decode([]byte{0x09, 0x00, 0xCA})
+	require.ErrorIs(t, err, ErrVersion)
+	require.NotErrorIs(t, err, ErrMalformed)
+}
+
 func TestDecode_DoesNotCopyBinary(t *testing.T) {
 	// msgType "t", binary "ab"
 	raw := []byte{0x01, 0x01, 0x74, 0x61, 0x62}

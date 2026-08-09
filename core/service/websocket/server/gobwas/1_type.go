@@ -3,6 +3,7 @@ package gobwas
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"net"
 	"sync"
 	"sync/atomic"
@@ -15,6 +16,7 @@ import (
 	configprovider "github.com/pipewave-dev/go-pkg/provider/config-provider"
 	healthyprovider "github.com/pipewave-dev/go-pkg/provider/healthy-provider"
 
+	"github.com/gobwas/ws"
 	"github.com/mailru/easygo/netpoll"
 	"golang.org/x/time/rate"
 )
@@ -109,6 +111,20 @@ func (cl *GobwasConnection) Close() {
 	if cl.c.Env().Fns.OnCloseConnection != nil {
 		cl.c.Env().Fns.OnCloseConnection.OnCloseConnection(context.Background(), cl.auth)
 	}
+}
+
+// CloseWithReason implements wsSv.CloseWithReasonConn: it sends a close
+// frame with the given code/reason (best effort, following the same
+// writeCloseOnce path as handleProtocolError) before tearing down the
+// connection, so the peer gets a diagnosable close code instead of the
+// transport just dropping.
+func (cl *GobwasConnection) CloseWithReason(code uint16, reason string) {
+	if cl.server != nil {
+		if err := cl.server.writeCloseOnce(cl, ws.StatusCode(code), reason); err != nil {
+			slog.Warn("CloseWithReason: failed to write close frame", slog.Any("error", err))
+		}
+	}
+	cl.Close()
 }
 
 func (cl *GobwasConnection) MarkCloseSentIfFirst() bool {

@@ -12,6 +12,14 @@ type MessageType string
 const (
 	MessageTypeHeartbeat = MessageType("\x00hb")
 	MessageTypeAck       = MessageType("\x00ack")
+
+	// MessageTypeError identifies a server-generated protocol-error response
+	// (e.g. an undecodable request). Unlike MessageTypeHeartbeat/Ack, this is
+	// an ordinary msgType (encoded as normal msgType bytes, not a control
+	// frame) — it exists purely so error responses always have a non-empty
+	// MsgType and are never mistaken for a control frame (toFrame treats an
+	// empty MsgType as msgTypeLen == 0, i.e. a control frame).
+	MessageTypeError = MessageType("error")
 )
 
 // controlCodeFor maps a control MessageType to its on-wire code.
