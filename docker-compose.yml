@@ -39,6 +39,15 @@ services:
     networks:
       - pipewave
 
+  nats:
+    image: nats:2-alpine
+    command: ["-js", "-m", "8222"]
+    ports:
+      - "29103:4222"
+      - "29104:8222"
+    networks:
+      - pipewave
+
   pipewave-server:
     build: .
     ports:
@@ -80,6 +89,7 @@ services:
     depends_on:
       - valkey
       - postgres
+      - nats
     networks:
       - pipewave
 
@@ -103,3 +113,6 @@ configs:
         CALLBACKS:
           # On native Linux Docker Engine, use extra_hosts: ["host.docker.internal:host-gateway"] (works out of the box on Docker Desktop)
           BASE_URL: "http://host.docker.internal:9000/pipewave/callback"
+          TRANSPORT: "pubsub"
+          PUBSUB:
+            URL: "nats://nats:4222"
