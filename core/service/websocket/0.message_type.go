@@ -82,6 +82,18 @@ func (wsRes *WebsocketResponse) Marshall() []byte {
 	return data
 }
 
+// Unmarshall decodes data into wsRes. The resulting Binary field aliases
+// data — it is not a copy. Callers must not mutate data after calling
+// Unmarshall, and must not retain wsRes.Binary beyond the lifetime of the
+// buffer that data points into.
+//
+// This currently holds safely because the WebSocket server allocates a
+// fresh payload buffer per frame (see server/gobwas/1_server.go), so the
+// alias merely keeps that buffer alive via GC. If a pooled or reused read
+// buffer is ever introduced there, this aliasing becomes unsafe for any
+// caller that retains Binary past the read — notably the async forward
+// path in server/fns, which hands Binary to a channel drained by a
+// separate goroutine.
 func (wsRes *WebsocketResponse) Unmarshall(data []byte) error {
 	f, err := wire.Decode(data)
 	if err != nil {
@@ -110,6 +122,18 @@ func (wsReq *WebsocketResquest) Marshall() []byte {
 	return data
 }
 
+// Unmarshall decodes data into wsReq. The resulting Binary field aliases
+// data — it is not a copy. Callers must not mutate data after calling
+// Unmarshall, and must not retain wsReq.Binary beyond the lifetime of the
+// buffer that data points into.
+//
+// This currently holds safely because the WebSocket server allocates a
+// fresh payload buffer per frame (see server/gobwas/1_server.go), so the
+// alias merely keeps that buffer alive via GC. If a pooled or reused read
+// buffer is ever introduced there, this aliasing becomes unsafe for any
+// caller that retains Binary past the read — notably the async forward
+// path in server/fns, which hands Binary to a channel drained by a
+// separate goroutine.
 func (wsReq *WebsocketResquest) Unmarshall(data []byte) error {
 	f, err := wire.Decode(data)
 	if err != nil {
