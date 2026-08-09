@@ -197,6 +197,62 @@ Every implementation of this wire format (Go, TypeScript, Dart) MUST encode
 each vector's `frame` to exactly `hex`, and MUST decode `hex` back to a
 frame equivalent to `frame`.
 
+## Differential malformed-input cases
+
+The conformance vectors above cover only **well-formed** frames. Hostile and
+degenerate input is covered separately by
+[`wire-malformed-cases-v1.json`](./wire-malformed-cases-v1.json).
+
+That separation exists because of a real bug: Dart threw on invalid UTF-8
+where Go and TypeScript accepted it, so a client could craft a frame that
+Go/TS clients processed normally and every Dart client silently discarded.
+Reject-vs-accept testing alone would not have caught it — all three
+implementations accepted the frame *structurally* and diverged on the
+decoded *content*. Each accepted case therefore pins the decoded field
+values as well.
+
+Each case has:
+
+- `name`, `note`: identifier and a description of the shape being tested.
+- `hex`: the input frame.
+- `rejected`: whether the reference decoder rejects it. When `true`, every
+  implementation MUST reject; when `false`, every implementation MUST accept
+  without throwing.
+- `msgTypeHex`, `idHex`, `responseToIdHex`, `ackIdHex`, `errorHex`,
+  `binaryHex`, `controlCode`: the decoded values, populated only when
+  `rejected` is `false`.
+- `utf8Lossy`: `true` when the reference decoder retained bytes that are not
+  valid UTF-8.
+
+**Decoded strings are recorded as raw UTF-8 bytes, never as JSON strings.** A
+JSON string cannot carry invalid UTF-8 without substituting U+FFFD, which
+would normalise away the exact difference under test.
+
+When `utf8Lossy` is `true`, implementations are NOT required to match the
+reference byte-for-byte — see [Invalid UTF-8](#invalid-utf-8), which permits
+either retaining raw bytes or substituting. Those cases assert only that the
+implementation does not throw, that structural fields still match, and that
+the substituting implementations agree with each other.
+
+### Regenerating
+
+The cases are generated from the Go decoder, so they record what it actually
+does rather than what anyone assumed:
+
+```
+cd pipewave-gopkg
+go test ./core/service/websocket/wire/ -run TestMalformedCases -update
+cp docs/wire-malformed-cases-v1.json ../pipewave-react/packages/core/test/
+cp docs/wire-malformed-cases-v1.json ../flutter_sdk/packages/pipewave_core/test/
+```
+
+`TestMalformedCases` fails on any drift between the decoder and the committed
+file. **A failure is a signal to read, not to silence** — it means either a
+real regression or an intentional change that must be propagated to the other
+two implementations. Add new hostile shapes to `malformedInputs` in
+`core/service/websocket/wire/malformed_gen_test.go`; never hand-edit the
+generated JSON.
+
 ## Migration and rollout
 
 This is a **breaking wire-format change** from whatever the server and
