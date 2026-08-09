@@ -19,6 +19,7 @@ import (
 	dynamorepo "github.com/pipewave-dev/go-pkg/export/adapters/repo/dynamodb"
 	pgrepo "github.com/pipewave-dev/go-pkg/export/adapters/repo/postgresql"
 	"github.com/pipewave-dev/go-pkg/pkg/metrics"
+	natsjs "github.com/pipewave-dev/go-pkg/pkg/pubsub/adapters/natsjs"
 	"github.com/pipewave-dev/go-pkg/pkg/runtimetune"
 	"github.com/pipewave-dev/go-pkg/server/authn"
 	"github.com/pipewave-dev/go-pkg/server/callback"
@@ -69,8 +70,23 @@ func main() {
 	if len(srvCfg.Callbacks.AsyncBackoff) > 0 {
 		asyncBackoff = srvCfg.Callbacks.AsyncBackoff
 	}
-	var asyncTransport callback.AsyncTransport = webhook.NewAsyncDispatcher(
-		sender, srvCfg.Callbacks.AsyncRetryMax, asyncBackoff)
+	var asyncTransport callback.AsyncTransport
+	switch srvCfg.Callbacks.Transport {
+	case serverconfig.TransportPubsub:
+		nc, npErr := natsjs.New(&natsjs.Config{
+			URL:           srvCfg.Callbacks.Pubsub.URL,
+			Stream:        srvCfg.Callbacks.Pubsub.Stream,
+			SubjectPrefix: srvCfg.Callbacks.Pubsub.SubjectPrefix,
+		})
+		if npErr != nil {
+			fatal("init callback pubsub transport", npErr)
+		}
+		asyncTransport = callback.NewPubsubTransport(nc, srvCfg.Callbacks.Pubsub.SubjectPrefix)
+		slog.Info("[pipewave-server] async callbacks via pubsub",
+			"driver", srvCfg.Callbacks.Pubsub.Driver, "url", srvCfg.Callbacks.Pubsub.URL)
+	default:
+		asyncTransport = webhook.NewAsyncDispatcher(sender, srvCfg.Callbacks.AsyncRetryMax, asyncBackoff)
+	}
 
 	breaker := webhook.NewCircuitBreaker(srvCfg.Callbacks.Breaker.Threshold, srvCfg.Callbacks.Breaker.Cooldown)
 	if cm, ok := pw.CallbackObserver().(*metrics.CallbackMetrics); ok {
