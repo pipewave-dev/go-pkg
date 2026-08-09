@@ -105,6 +105,11 @@ func (d *AsyncDispatcher) loop() {
 	}
 }
 
+// Healthcheck thoả callback.AsyncTransport. AsyncDispatcher không giữ
+// kết nối dài hạn nào (mỗi lần deliver là một HTTP request riêng), nên
+// sức khoẻ backend được theo dõi bởi Pinger, không phải ở đây.
+func (d *AsyncDispatcher) Healthcheck() error { return nil }
+
 func (d *AsyncDispatcher) deliver(job asyncJob) {
 	status, _, err := d.sender.PostWithMode(context.Background(), job.eventType, job.callbackID, job.data, asyncPostTimeout, ModeAsync)
 	job.attempt++
