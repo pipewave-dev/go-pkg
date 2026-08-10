@@ -98,6 +98,28 @@ SERVER:
     # Transport cho Class-2 (async) events: webhook | pubsub. Mặc định webhook.
     # Class-1 (inspect_token, handle_message, on_new_connection) LUÔN dùng
     # webhook vì cần response — vì vậy BASE_URL vẫn bắt buộc ở mọi transport.
+    #
+    # CHỌN LOẠI NÀO?
+    #
+    #   "webhook" (mặc định) — chọn khi:
+    #     - Bạn muốn ít hạ tầng nhất: không cần dựng và vận hành broker.
+    #     - Backend đã có sẵn HTTP endpoint và chỉ có một consumer.
+    #     - Mất một vài event async là chấp nhận được.
+    #     Đánh đổi: retry nằm in-memory, nên event BỊ MẤT khi queue đầy
+    #     (>1024 chờ), khi hết số lần retry, hoặc khi server restart/crash.
+    #
+    #   "pubsub" — chọn khi:
+    #     - KHÔNG được phép mất event (audit, billing, đồng bộ trạng thái).
+    #       JetStream persist trước khi ack, nên event sống qua restart.
+    #     - Cần nhiều consumer độc lập cho cùng một luồng event, hoặc muốn
+    #       route theo loại event (mỗi event một subject riêng).
+    #     - Backend muốn tự kiểm soát tốc độ tiêu thụ (consumer tự ack/nak)
+    #       thay vì bị server đẩy theo nhịp của nó.
+    #     Đánh đổi: phải vận hành thêm một broker (NATS JetStream), và
+    #     /healthz sẽ trả 503 khi mất kết nối tới broker.
+    #
+    # Lưu ý: đổi TRANSPORT không đổi format payload — envelope y hệt nhau ở
+    # cả hai chế độ, nên code parse ở backend dùng lại được nguyên vẹn.
     TRANSPORT: "webhook"
     # PUBSUB:
     #   DRIVER: "natsjs"

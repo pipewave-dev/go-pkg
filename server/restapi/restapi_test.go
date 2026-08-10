@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -11,6 +12,7 @@ import (
 
 	"github.com/pipewave-dev/go-pkg/core/delivery"
 	business "github.com/pipewave-dev/go-pkg/core/service/business"
+	"github.com/pipewave-dev/go-pkg/server/callback"
 	"github.com/pipewave-dev/go-pkg/server/restapi"
 	"github.com/pipewave-dev/go-pkg/server/webhook"
 	"github.com/pipewave-dev/go-pkg/shared/aerror"
@@ -350,6 +352,40 @@ func TestHealthz_ReflectsExtraHealthy(t *testing.T) {
 	defer srv.Close()
 
 	resp, out := doReq(t, "GET", srv.URL+"/healthz", "", nil)
+	require.Equal(t, http.StatusServiceUnavailable, resp.StatusCode)
+	require.Equal(t, false, out["healthy"])
+}
+
+// unhealthyTransport thoả callback.AsyncTransport với Healthcheck lỗi,
+// mô phỏng NATS mất kết nối.
+type unhealthyTransport struct{ err error }
+
+func (u *unhealthyTransport) Emit(string, any)         {}
+func (u *unhealthyTransport) Healthcheck() error       { return u.err }
+func (u *unhealthyTransport) Shutdown(context.Context) {}
+
+// Kiểm tra đúng cách main.go ghép nối: callback.HealthyFunc đi qua
+// MuxConfig.ExtraHealthy để /healthz phản ánh sức khoẻ transport.
+func TestHealthz_ReflectsTransportHealth(t *testing.T) {
+	newMux := func(transportErr error) http.Handler {
+		healthy := callback.HealthyFunc(&unhealthyTransport{err: transportErr})
+		return restapi.NewAdminMux(
+			&fakeModule{svc: &fakeServices{}, mon: &fakeMonitoring{}, healthy: true},
+			restapi.MuxConfig{APIKeys: []string{testKey}, ExtraHealthy: healthy},
+		)
+	}
+
+	// Transport khoẻ → 200.
+	srv := httptest.NewServer(newMux(nil))
+	resp, out := doReq(t, "GET", srv.URL+"/healthz", "", nil)
+	require.Equal(t, http.StatusOK, resp.StatusCode)
+	require.Equal(t, true, out["healthy"])
+	srv.Close()
+
+	// Transport hỏng (vd NATS mất kết nối) → 503, dù core vẫn healthy.
+	srv = httptest.NewServer(newMux(errors.New("natsjs: not connected")))
+	defer srv.Close()
+	resp, out = doReq(t, "GET", srv.URL+"/healthz", "", nil)
 	require.Equal(t, http.StatusServiceUnavailable, resp.StatusCode)
 	require.Equal(t, false, out["healthy"])
 }

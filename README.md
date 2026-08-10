@@ -54,10 +54,27 @@ Events fall into two classes:
 
 Set `SERVER.CALLBACKS.TRANSPORT: pubsub` to route Class-2 events through a NATS JetStream broker instead of HTTP webhooks. Each event publishes to subject `{SUBJECT_PREFIX}.{event_type}` (e.g., `pipewave.events.on_close_connection`); backends can subscribe to the wildcard `pipewave.events.>`. The event envelope is **identical** to the webhook envelope, so existing parsing code can be reused without modification. Note that `SERVER.CALLBACKS.BASE_URL` is still **required** in pubsub mode because Class-1 (sync) events continue to use HTTP webhooks.
 
+#### Which transport should you pick?
+
+| | `webhook` (default) | `pubsub` |
+|---|---|---|
+| **Extra infrastructure** | none | a NATS JetStream broker to run |
+| **Durability of Class-2 events** | in-memory retry — events are **lost** when the queue fills (>1024 pending), when retries are exhausted, or on restart/crash | persisted by the broker before ack; survives a server restart |
+| **Consumers** | one HTTP endpoint | many independent consumers; per-event-type subjects allow routing |
+| **Back-pressure** | server pushes at its own pace | consumer controls its own pace (explicit ack/nak) |
+| **Effect on `/healthz`** | none | returns 503 while the broker connection is down |
+
+Pick **`webhook`** for the simplest deployment, when your backend already exposes an HTTP endpoint with a single consumer, and losing the occasional async event is acceptable.
+
+Pick **`pubsub`** when Class-2 events must not be lost (audit trails, billing, state synchronisation), when several independent services need the same event stream, or when consumers need to control their own consumption rate.
+
+Switching transports does **not** change the payload format — the envelope is identical in both modes, so backend parsing code carries over unchanged.
+
 In `pubsub` mode:
 - **Ed25519 signatures do not apply** to Class-2 events (authentication belongs to the broker layer); Class-1 events remain signed.
 - **Ping and circuit breaker** only affect Class-1 (webhook) health probing and retries.
 - `meta.id` is set as the NATS `Nats-Msg-Id` header so JetStream can deduplicate.
+- **`/healthz` reflects broker health**: losing the NATS connection makes the admin `/healthz` endpoint return 503. If you wire that endpoint to a Kubernetes readiness/liveness probe, a broker outage will take the pod out of service — which also drops live WebSocket connections, even though Class-1 traffic would still work over webhook.
 
 See `examples/pubsub-backend` for a working example backend.
 

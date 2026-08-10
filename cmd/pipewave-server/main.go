@@ -163,7 +163,12 @@ func main() {
 	if signer != nil {
 		muxCfg.PublicKey = signer.PublicKey()
 	}
-	muxCfg.ExtraHealthy = monitor.IsHealthy
+	// /healthz phản ánh CẢ sức khoẻ backend (Pinger/breaker, Class-1) LẪN
+	// sức khoẻ callback transport (Class-2). Ở webhook mode, Healthcheck
+	// luôn trả nil nên vế thứ hai không đổi gì; ở pubsub mode, NATS mất
+	// kết nối sẽ khiến /healthz trả 503.
+	transportHealthy := callback.HealthyFunc(asyncTransport)
+	muxCfg.ExtraHealthy = func() bool { return monitor.IsHealthy() && transportHealthy() }
 	adminSrv := &http.Server{Addr: srvCfg.AdminAddr, Handler: restapi.NewAdminMux(pw, muxCfg)}
 
 	go serve("client", clientSrv)
