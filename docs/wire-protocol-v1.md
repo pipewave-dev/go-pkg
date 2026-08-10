@@ -242,7 +242,7 @@ does rather than what anyone assumed:
 ```
 cd pipewave-gopkg
 go test ./core/service/websocket/wire/ -run TestMalformedCases -update
-cp docs/wire-malformed-cases-v1.json ../pipewave-react/packages/core/test/
+cp docs/wire-malformed-cases-v1.json ../pipewave-js-sdk/packages/core/test/
 cp docs/wire-malformed-cases-v1.json ../flutter_sdk/packages/pipewave_core/test/
 ```
 

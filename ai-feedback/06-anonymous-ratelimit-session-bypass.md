@@ -77,8 +77,8 @@ Lý do "msgHub cần resume sau khi mất kết nối tạm thời" **không mâ
 ### Sửa Client package (typescript):
 
 - client chính sử dụng project này code bằng typescript trong `
-pipewave-react/packages`
-- Client tự gửi header `X-Pipewave-ID` xuất hiện trong code `pipewave-react/packages/core/src/external/pipewave/clients/index.ts`
+pipewave-js-sdk/packages`
+- Client tự gửi header `X-Pipewave-ID` xuất hiện trong code `pipewave-js-sdk/packages/core/src/external/pipewave/clients/index.ts`
 - Sau khi fix theo đề xuất của bạn, cần phải cân nhắc sử lại client hợp lý
 
 ## Phát hiện bổ sung (2026-07-16): `/lp` và `/lp-send` là vector độc lập, không đi qua `/issue-tmp-token`
@@ -91,7 +91,7 @@ pipewave-react/packages`
 
 ### Pivot: cookie `HttpOnly` → signed opaque token (quan trọng)
 
-Thiết kế ban đầu (cookie `__pw_anon_iid`, `HttpOnly` + `SameSite=Strict`) **không hoạt động** với use-case thực tế chính của package `pipewave-react` (`@pipewave/core`): đây là SDK publish npm, nhúng vào **frontend của khách hàng**, gọi tới domain API Pipewave — gần như chắc chắn khác origin với domain app khách hàng (`endpoint` là config do consumer truyền vào, xem `runtime.ts`). Với cross-site request, `SameSite=Strict` (và cả `Lax`) khiến browser **không gửi kèm cookie** — cơ chế server-issue coi như vô hiệu cho đúng nhóm khách hàng chính, ID lại quay về free-mint được qua đường vòng.
+Thiết kế ban đầu (cookie `__pw_anon_iid`, `HttpOnly` + `SameSite=Strict`) **không hoạt động** với use-case thực tế chính của package `@pipewave/core` trong `pipewave-js-sdk`: đây là SDK publish npm, nhúng vào **frontend của khách hàng**, gọi tới domain API Pipewave — gần như chắc chắn khác origin với domain app khách hàng (`endpoint` là config do consumer truyền vào, xem `runtime.ts`). Với cross-site request, `SameSite=Strict` (và cả `Lax`) khiến browser **không gửi kèm cookie** — cơ chế server-issue coi như vô hiệu cho đúng nhóm khách hàng chính, ID lại quay về free-mint được qua đường vòng.
 
 → Đổi sang **signed opaque token**: server mint `nanoid:mintUnixTime`, ký HMAC-SHA256, trả về dạng `"<nanoid>:<ts>.<base64url(hmac)>"` — không phải cookie, chỉ là giá trị app-level client lưu và gửi lại qua `X-Pipewave-ID` như cũ. Không phụ thuộc cookie/SameSite nên hoạt động bình thường dù same-site hay cross-site. Vẫn giữ nguyên các tính chất bảo mật đã thiết kế: server-issued, không forge được (verify HMAC), chỉ mint tại `/issue-tmp-token` (bị IP-throttle), có TTL (6h, nhúng trong payload) giới hạn cửa sổ resume/rò rỉ.
 
@@ -102,7 +102,7 @@ Thiết kế ban đầu (cookie `__pw_anon_iid`, `HttpOnly` + `SameSite=Strict`)
     4. `rate_limiter.go` / `connection_mamanger.go`: giữ nguyên, key theo `InstanceID` (giờ là token đã ký) — an toàn vì không còn free-mint được.
     5. `export/types/config.go`, `config_child.go`, `config.yaml`: thêm `ANONYMOUS_INSTANCE.SECRET` (bắt buộc) và `RATE_LIMITER.ISSUE_TOKEN_IP_RATE/BURST`. **Lưu ý: đây là config bắt buộc mới** — service sẽ panic lúc khởi động nếu chưa set `ANONYMOUS_INSTANCE_SECRET` ở môi trường khác dev.
     6. Test: `anon_instance_test.go` (mint/reuse token hợp lệ, bỏ qua header không có chữ ký, từ chối token ký bằng secret khác, từ chối payload bị tamper, từ chối token hết hạn), `ip_rate_limiter_test.go`.
-- **Đã fix (client TypeScript, `pipewave-react/packages/core`):**
+- **Đã fix (client TypeScript, `pipewave-js-sdk/packages/core`):**
     1. `clients/index.ts`: `RestClients.pipewaveIDPromise` giờ mutable qua `setPipewaveID()`; thêm `issueTmpToken()` dùng chung — gọi `/issue-tmp-token`, parse JSON, tự động `setPipewaveID(instanceId)` nếu server trả về (ghi đè ID client tự sinh ban đầu bằng token đã ký của server).
     2. `services/websocket/service.ts`: dùng `client.issueTmpToken()` thay vì fetch/parse thủ công.
     3. `services/long-polling/service.ts`: `startPollLoop()` gọi `client.issueTmpToken()` trước khi vào vòng poll — cần thiết vì trước đây LP có thể là transport đầu tiên (khi `sessionStorage` đã lưu `'lp'` từ phiên trước) và không hề gọi `/issue-tmp-token`; nay `/lp` bắt buộc phải có token đã mint trước.
